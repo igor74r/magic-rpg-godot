@@ -40,6 +40,16 @@ func _run() -> void:
 		invalid_enemy["riftFloor"] = 2
 		if bool(Rift.complete_area(world, invalid_enemy).get("ok", false)):
 			failures.append("Rift must reject a completion from a different floor")
+		var forged_enemy := enemy.duplicate(true)
+		forged_enemy["persistentId"] = "forged-rift-enemy"
+		if Rift.sync_encounter(world, forged_enemy):
+			failures.append("Rift must reject syncing a different enemy identity")
+		if bool(Rift.complete_area(world, forged_enemy).get("ok", false)):
+			failures.append("Rift must reject a forged enemy identity")
+		if bool(Rift.complete_area(world, enemy).get("ok", false)):
+			failures.append("Rift must reject completion while the enemy is alive")
+		enemy["hp"] = 0
+		enemy["dead"] = true
 		var completed: Dictionary = Rift.complete_area(world, enemy)
 		if not bool(completed.get("ok", false)) or int(world.hero.get("riftBest", 0)) != 1:
 			failures.append("valid Rift completion must persist the floor record")
