@@ -99,6 +99,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var damage := maxi(1, int(round(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0))))
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
+	lines.append_array(_update_boss_phase(enemy))
 	if int(enemy.hp) <= 0:
 		enemy["dead"] = true
 		enemy["state"] = "dead"
@@ -109,11 +110,11 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		combat["turn"] = "over"
 	else:
 		combat["turn"] = "enemy"
-		var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
+		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
 		var special: Dictionary = enemy.get("special", {})
-		var every := maxi(1, int(special.get("every", 3)))
+		var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
 		var special_ready := not special.is_empty() and turn_count % every == 0
 		var special_type := str(special.get("type", ""))
 		if special_ready and special_type == "snipe":
@@ -467,6 +468,25 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	combat["log"] = "\n".join(lines)
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
+
+
+static func _update_boss_phase(enemy: Dictionary) -> Array[String]:
+	var messages: Array[String] = []
+	var phases: Variant = enemy.get("phases", [])
+	if not bool(enemy.get("boss", false)) or not phases is Array:
+		return messages
+	var index := maxi(0, int(enemy.get("phase", 0)))
+	var ratio := float(enemy.get("hp", 0)) / float(maxi(1, int(enemy.get("maxHp", 1))))
+	while index < phases.size():
+		var phase: Variant = phases[index]
+		if not phase is Dictionary or ratio > float(phase.get("atHp", 0.0)):
+			break
+		index += 1
+		enemy["phase"] = index
+		enemy["phaseAttackMult"] = maxf(1.0, float(phase.get("atkMult", 1.0)))
+		enemy["phaseSpecialEvery"] = maxi(1, int(phase.get("specialEvery", enemy.get("special", {}).get("every", 3))))
+		messages.append("⚠️ " + str(phase.get("msg", "Босс меняет тактику!")))
+	return messages
 
 
 static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming: int) -> String:

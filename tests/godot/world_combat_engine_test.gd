@@ -48,7 +48,11 @@ func _initialize() -> void:
 	var poison_tick := Combat.tick_effects(poisoned)
 	if int(poison_tick.damage) != 5 or poisoned.effects[0].duration != 2:
 		failures.append("poison must damage and decrement duration")
-	var modifier_world := WorldState.create(9901)
+	var phase_enemy := {"name":"Теневой маг","enemyId":"shadow-mage","persistentId":"phase-boss","hp":40,"maxHp":100,"attack":30,"defense":0,"exp":1,"gold":1,"boss":true,"dead":false,"phases":[{"atHp":0.5,"atkMult":1.4,"msg":"Босс ярится!","specialEvery":1}],"special":{"type":"snipe","every":3,"mult":1.8,"name":"Тёмная стрела","effect":"burn"}}
+	var phase_messages := Combat._update_boss_phase(phase_enemy)
+	if int(phase_enemy.get("phase",0)) != 1 or float(phase_enemy.get("phaseAttackMult",1.0)) != 1.4 or int(phase_enemy.get("phaseSpecialEvery",0)) != 1 or phase_messages.is_empty():
+		failures.append("boss phase transition must update attack and special cadence")
+		var modifier_world := WorldState.create(9901)
 	var vamp_enemy := {"name":"Вампир","persistentId":"enemy-vamp","hp":40,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"vampiric"}
 	var vamp_fight := Combat.begin(vamp_enemy)
 	var vamp_before := int(vamp_enemy.hp)
