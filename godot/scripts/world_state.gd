@@ -115,6 +115,13 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	var hero_value: Variant = world.get("hero", {})
 	if hero_value is Dictionary:
 		var hero: Dictionary = hero_value
+		var hero_shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
+		var world_shards: Dictionary = world.get("storyShards", {}) if world.get("storyShards", {}) is Dictionary else {}
+		var clean_shards := {"flame": hero_shards.get("flame", false) == true or world_shards.get("flame", false) == true, "ice": hero_shards.get("ice", false) == true or world_shards.get("ice", false) == true, "blood": hero_shards.get("blood", false) == true or world_shards.get("blood", false) == true}
+		hero["storyShards"] = clean_shards.duplicate(true)
+		world["storyShards"] = clean_shards.duplicate(true)
+		var dragon_flags: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
+		world["storyDragons"] = {"ash-herald": dragon_flags.get("ash-herald", false) == true, "ice-grasp": dragon_flags.get("ice-grasp", false) == true, "blood-crown": dragon_flags.get("blood-crown", false) == true}
 		hero["riftBest"] = clampi(int(hero.get("riftBest", 0)), 0, 2147483647)
 		var clean_cleared: Array = []
 		var source_cleared: Variant = hero.get("riftClearedLocations", [])

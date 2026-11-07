@@ -9,6 +9,15 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	var shard_world := WorldStateScript.create(9090)
+	shard_world["hero"] = {"level":1,"storyShards":{"flame":true,"ice":"yes","blood":false}}
+	shard_world["storyShards"] = {"ice":true,"blood":true,"unknown":true}
+	shard_world["storyDragons"] = {"ash-herald":true,"ice-grasp":"yes","unknown-dragon":true}
+	var clean_shard_world := WorldStateScript.normalize(shard_world,9090)
+	if clean_shard_world.hero.storyShards != {"flame":true,"ice":true,"blood":true} or clean_shard_world.storyShards != clean_shard_world.hero.storyShards:
+		failures.append("story shard flags must merge valid legacy mirrors and remain canonical")
+	if clean_shard_world.storyDragons != {"ash-herald":true,"ice-grasp":false,"blood-crown":false}:
+		failures.append("story dragon flags must accept only known literal booleans")
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
