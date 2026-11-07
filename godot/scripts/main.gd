@@ -136,7 +136,9 @@ func _refresh_exploration() -> void:
 	var world_seed := int(world.get("seed", 1))
 	var visit_index := int(visits.get(current, 1))
 	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
-	map_view.call("set_map", map_grid)\n\t_refresh_map_npcs(current)\n\t
+	map_view.call("set_map", map_grid)
+	_refresh_map_npcs(current)
+	
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	_refresh_inventory()
 	for child in routes_container.get_children():
@@ -288,8 +290,13 @@ func _refresh_campaign() -> void:
 	var progress: Dictionary = CampaignScript.progress(hero,mission)
 	var description := Label.new()
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	description.text = "%s\n%s\nЦель: %s · %d/%d" % [str(mission.title),str(mission.desc),str(mission.objective),int(progress.current),int(progress.required)]
+	description.text = "%s\n%s\nПодсказка: %s\nЦель: %s · %d/%d" % [str(mission.title),str(mission.desc),str(mission.get("briefing","")),str(mission.objective),int(progress.current),int(progress.required)]
 	campaign_container.add_child(description)
+	if bool(progress.complete):
+		var aftermath := Label.new()
+		aftermath.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		aftermath.text = "Итог: %s\nРазгадка: %s" % [str(mission.get("aftermath","")),str(mission.get("clue",""))]
+		campaign_container.add_child(aftermath)
 	if str(hero.get("activeCampaignMission","")).is_empty():
 		var accept_button := Button.new()
 		accept_button.text = "Принять сюжетное задание"
@@ -408,7 +415,8 @@ func _choose_npc_dialogue(npc_id: String,choice_id: String) -> void:
 	status_label.text=str(result.get("message",""))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
-	_talk_to_npc(npc_id)
+	for child in npc_container.get_children():
+		if child is Button and child.name=="NpcAction": child.queue_free()
 
 
 func _add_npc_action(label_text: String,action: String) -> void:
