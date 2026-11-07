@@ -98,7 +98,9 @@ const RECIPES := {
 static func current_act(hero: Dictionary) -> int:
  var claimed: Dictionary=hero.get("campaignClaimed",{}) if hero.get("campaignClaimed",{}) is Dictionary else {}
  for mission in CampaignCatalog.all_missions():
-  if not bool(claimed.get(str(mission.id),false)): return clampi(int(mission.get("act",1)),1,5)
+  if not bool(claimed.get(str(mission.id),false)):
+   var mission_id:=str(mission.get("id","a1-m1"))
+   return clampi(int(mission_id.substr(1,1)),1,5)
  return 5
 static func buy_item(world: Dictionary,item_id: String) -> Dictionary:
  var hero:=hero_for(world)
@@ -127,6 +129,9 @@ static func sell_item(world: Dictionary,index: int) -> Dictionary:
  inventory.remove_at(index)
  hero["inventory"]=inventory
  hero["gold"]=mini(2147483647,int(hero.get("gold",0))+price)
+ var stats: Dictionary=hero.get("stats",{}) if hero.get("stats",{}) is Dictionary else {}
+ stats["goldEarned"]=mini(2147483647,int(stats.get("goldEarned",0))+price)
+ hero["stats"]=stats
  world["hero"]=hero
  return {"ok":true,"message":"Продано: %s · +%d золота." % [item_name,price],"price":price}
 static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
@@ -148,6 +153,11 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
  if not Combat.add_item(hero,str(recipe.result),1):
   hero["inventory"]=snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
+ if not str(recipe.get("rarity","")).is_empty():
+  for instance in hero.inventory:
+   if str(instance.get("id",""))==str(recipe.result):
+    instance["rarity"]=str(recipe.rarity)
+    break
  world["hero"]=hero
  return {"ok":true,"message":"Создано: %s." % str(CatalogItem.get_item(str(recipe.result)).get("name",recipe.result))}
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
