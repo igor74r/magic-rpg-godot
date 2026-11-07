@@ -197,7 +197,7 @@ static func _grant_experience(hero: Dictionary, amount: int) -> int:
 		hero["attack"] = int(hero.str)
 		hero["magic"] = int(hero.int)
 		hero["defense"] = int(floor(float(hero.con) / 2.0))
-		if str(hero.get("class", "")) == "mage":
+		if str(hero.get("class", "")) in ["mage", "priest"]:
 			hero["mp"] = int(hero.maxMp)
 		levels_gained += 1
 	hero["expNext"] = progression_exp_next(int(hero.get("level", 1)))
