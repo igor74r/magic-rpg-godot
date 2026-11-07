@@ -15,7 +15,11 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	if not ClassCatalog.CLASSES.has(hero.class):
 		hero["class"] = "warrior"
 	var class_data: Dictionary = ClassCatalog.CLASSES[hero.class]
-	hero["level"] = clampi(int(hero.get("level", 1)), 1, 99)
+	hero["level"] = clampi(int(hero.get("level", 1)), 1, 100)
+	hero["expNext"] = progression_exp_next(int(hero.level))
+	hero["statPoints"] = maxi(0, int(hero.get("statPoints", 0)))
+	hero["passivePoints"] = maxi(0, int(hero.get("passivePoints", 0)))
+	hero["luck"] = clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
 	hero["maxHp"] = clampi(int(hero.get("maxHp", class_data.maxHp)), 1, 999999)
 	hero["maxMp"] = clampi(int(hero.get("maxMp", class_data.maxMp)), 0, 999999)
 	hero["mp"] = clampi(int(hero.get("mp", hero.maxMp)), 0, hero.maxMp)
@@ -88,48 +92,10 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		enemy["dead"] = true
 		enemy["state"] = "dead"
 		enemy["hp"] = 0
-		var reward_exp := maxi(0, int(enemy.get("exp", 0)))
-		var reward_gold := maxi(0, int(enemy.get("gold", 0)))
-		var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
-		var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
-		var difficulty := str(world.get("difficulty", "normal"))
-		var base_drop_chance := 0.85 if bool(enemy.get("elite", false)) else 0.7 if difficulty == "easy" else 0.3 if difficulty == "hard" else 0.5
-		var luck := clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
-		var drop_chance := minf(1.0, base_drop_chance * (1.0 + luck * 0.005))
-		var drop_rng := RandomScript.new(int(enemy.get("dropSeed", RandomScript.derive_seed([world.get("seed", 1), enemy.get("persistentId", "")]))))
-		var dropped_names: Array[String] = []
-		for drop_index in range(drops.size()):
-			var should_drop := bool(enemy.get("boss", false)) and drop_index == 0
-			if not should_drop:
-				should_drop = drop_rng.next_float() < drop_chance
-			if should_drop:
-				var item_id := str(drops[drop_index])
-				if add_item(hero, item_id, 1):
-					var item_definition := ItemCatalog.get_item(item_id)
-					if not item_definition.is_empty():
-						dropped_names.append(str(item_definition.get("name", item_id)))
-		if not dropped_names.is_empty():
-			lines.append("Добыча: %s." % ", ".join(dropped_names))
-		hero["exp"] = int(hero.exp) + reward_exp
-		hero["gold"] = int(hero.gold) + reward_gold
-		while int(hero.exp) >= int(hero.level) * 100 and int(hero.level) < 99:
-			hero["exp"] = int(hero.exp) - int(hero.level) * 100
-			hero["level"] = int(hero.level) + 1
-			hero["maxHp"] = int(hero.maxHp) + 12
-			hero["attack"] = int(hero.attack) + 2
-			hero["defense"] = int(hero.defense) + 1
-			hero["hp"] = int(hero.maxHp)
-			lines.append("Новый уровень: %d!" % int(hero.level))
-		var region_id := str(world.get("currentRegionId", "village"))
-		var persistent_id := str(enemy.get("persistentId", ""))
-		if bool(enemy.get("boss", false)):
-			WorldState.mark_boss_defeated(world, region_id, persistent_id)
-		else:
-			WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+		lines.append(_award_victory(world, enemy))
 		combat["over"] = true
 		combat["result"] = "victory"
 		combat["turn"] = "over"
-		lines.append("Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold])
 	else:
 		combat["turn"] = "enemy"
 		var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
@@ -172,12 +138,67 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	combat["log"] = "\n".join(lines)
 	return {"ok": true, "message": combat.log, "result": combat.get("result", "")}
 
+static func progression_exp_next(level: int) -> int:
+	if level < 1:
+		return 125
+	if level >= 100:
+		return 2147483647
+	if level <= 10:
+		return 125
+	if level <= 20:
+		return 259
+	if level <= 30:
+		return 269
+	if level <= 40:
+		return 369
+	if level <= 50:
+		return 535
+	return int(floor(535.0 * pow(float(level) / 50.0, 1.5)))
+
+
+static func _grant_experience(hero: Dictionary, amount: int) -> int:
+	if amount > 0:
+		hero["exp"] = mini(2147483647, maxi(0, int(hero.get("exp", 0))) + amount)
+	var levels_gained := 0
+	while int(hero.get("level", 1)) < 100:
+		var required := progression_exp_next(int(hero.level))
+		if int(hero.get("exp", 0)) < required:
+			break
+		hero["exp"] = int(hero.exp) - required
+		hero["level"] = int(hero.level) + 1
+		hero["luck"] = minf(100.0, float(hero.get("luck", 5.0)) + 0.5)
+		match str(hero.get("class", "warrior")):
+			"warrior":
+				hero["maxHp"] = int(hero.maxHp) + 14
+				hero["maxMp"] = int(hero.maxMp) + 5
+				hero["attack"] = int(hero.attack) + 2
+				hero["defense"] = int(hero.defense) + 1
+			"mage":
+				hero["maxHp"] = int(hero.maxHp) + 8
+				hero["maxMp"] = int(hero.maxMp) + 13
+				hero["magic"] = int(hero.get("magic", 0)) + 2
+				hero["defense"] = int(hero.defense) + 1
+			"archer":
+				hero["maxHp"] = int(hero.maxHp) + 10
+				hero["maxMp"] = int(hero.maxMp) + 7
+				hero["attack"] = int(hero.attack) + 1
+				hero["defense"] = int(hero.defense) + 1
+		hero["statPoints"] = int(hero.get("statPoints", 0)) + 1
+		hero["passivePoints"] = int(hero.get("passivePoints", 0)) + 1
+		hero["hp"] = int(hero.maxHp)
+		if str(hero.get("class", "")) == "mage":
+			hero["mp"] = int(hero.maxMp)
+		levels_gained += 1
+	hero["expNext"] = progression_exp_next(int(hero.get("level", 1)))
+	return levels_gained
+
+
 static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
-	hero["exp"] = int(hero.exp) + reward_exp
-	hero["gold"] = int(hero.gold) + reward_gold
+	var level_ups := _grant_experience(hero, reward_exp)
+	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
 	var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
 	var difficulty := str(world.get("difficulty", "normal"))
@@ -196,13 +217,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 				var item_definition := ItemCatalog.get_item(item_id)
 				if not item_definition.is_empty():
 					dropped_names.append(str(item_definition.get("name", item_id)))
-	while int(hero.exp) >= int(hero.level) * 100 and int(hero.level) < 99:
-		hero["exp"] = int(hero.exp) - int(hero.level) * 100
-		hero["level"] = int(hero.level) + 1
-		hero["maxHp"] = int(hero.maxHp) + 12
-		hero["attack"] = int(hero.attack) + 2
-		hero["defense"] = int(hero.defense) + 1
-		hero["hp"] = int(hero.maxHp)
+
 	var region_id := str(world.get("currentRegionId", "village"))
 	var persistent_id := str(enemy.get("persistentId", ""))
 	if bool(enemy.get("boss", false)):
@@ -211,6 +226,8 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 		WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
+	if level_ups > 0:
+		message += "\\nПолучено уровней: %d." % level_ups
 	if not dropped_names.is_empty():
 		message += "\nДобыча: %s." % ", ".join(dropped_names)
 	return message
@@ -385,7 +402,7 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 		"maxHp":int(definition.maxHp),"hp":int(definition.maxHp),
 		"maxMp":int(definition.maxMp),"mp":int(definition.maxMp),
 		"attack":int(definition.attack),"defense":int(definition.defense),
-		"exp":0,"gold":0,"spells":definition.spells.duplicate(),
+		"exp":0,"expNext":125,"statPoints":0,"passivePoints":0,"luck":5.0,"gold":0,"spells":definition.spells.duplicate(),
 		"inventory":[],"equipped":{},"inventoryInitialized":false,
 		"effects":[],"buffs":[],"cooldowns":{}
 	}

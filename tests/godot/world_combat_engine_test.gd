@@ -5,6 +5,11 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	if Combat.progression_exp_next(1) != 125 or Combat.progression_exp_next(11) != 259 or Combat.progression_exp_next(21) != 269 or Combat.progression_exp_next(31) != 369 or Combat.progression_exp_next(41) != 535 or Combat.progression_exp_next(51) != int(floor(535.0 * pow(51.0 / 50.0, 1.5))):
+		failures.append("native XP thresholds must match browser progression bands")
+	var progression_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":170,"maxMp":100,"hp":170,"mp":100,"attack":22,"defense":16,"statPoints":0,"passivePoints":0,"luck":5.0}
+	if Combat._grant_experience(progression_hero, 125) != 1 or int(progression_hero.level) != 2 or int(progression_hero.statPoints) != 1 or int(progression_hero.passivePoints) != 1 or int(progression_hero.maxHp) != 184:
+		failures.append("warrior level-up must apply browser XP threshold, class growth and points")
 	var world := WorldState.create(991)
 	world["currentRegionId"] = "forest"
 	var hero := Combat.ensure_hero(world)
@@ -86,6 +91,9 @@ func _initialize() -> void:
 	Combat.apply_effect(slow_target,"slow")
 	if slow_target.effects.is_empty():
 		failures.append("slow status effect must be supported")
+	var thorn_drops: Dictionary = preload("res://godot/scripts/world_enemy_catalog.gd").get_enemy("thorn-stalker")
+	if thorn_drops.get("drops", []).is_empty():
+		failures.append("thorn-stalker loot must be exposed as top-level enemy drops")
 	var loot_world := WorldState.create(997)
 	var loot_hero := Combat.ensure_hero(loot_world)
 	var loot_boss := {"name":"Босс с добычей","enemyId":"shadow-mage","persistentId":"boss-loot","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":1,"gold":1,"boss":true,"dead":false,"drops":["mana-potion","apprentice-staff"],"dropSeed":12345}
