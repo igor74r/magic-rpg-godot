@@ -288,18 +288,22 @@ static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enem
 	var dragon: Dictionary = dragons.get(enemy_id, {})
 	if dragon.is_empty() or location_id != str(dragon.location) or str(hero.get("activeCampaignMission","")) != str(dragon.mission):
 		return ""
-	var flags: Dictionary = world.get("storyDragons", {})
+	var flags: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
 	if flags.get(str(dragon.id), false) == true:
+		return ""
+	var item_id := str(dragon.item)
+	# Never mark a story dragon defeated until its guaranteed quest item is valid
+	# and has been added. This keeps the reward retryable if item data is missing.
+	if ItemCatalog.get_item(item_id).is_empty() or not add_item(hero, item_id, 1):
 		return ""
 	flags[str(dragon.id)] = true
 	world["storyDragons"] = flags
-	var shards: Dictionary = world.get("storyShards", {})
+	var shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
 	shards[str(dragon.shard)] = true
-	world["storyShards"] = shards
-	var item_id := str(dragon.item)
-	if add_item(hero, item_id, 1):
-		return "Получен сюжетный предмет: %s." % str(dragon.name)
-	return "Получен сюжетный флаг: %s. Предмет не помещён в инвентарь." % str(dragon.name)
+	hero["storyShards"] = shards
+	# Keep the world-level mirror used by the browser-compatible story state.
+	world["storyShards"] = shards.duplicate(true)
+	return "Получен сюжетный предмет: %s." % str(dragon.name)
 
 
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
