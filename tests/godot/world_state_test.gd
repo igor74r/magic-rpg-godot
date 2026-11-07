@@ -96,6 +96,21 @@ func _run() -> void:
 	if not saved_exploration.get("discoveredSecrets", []).has("hidden-cache"):
 		failures.append("discovered secrets must survive normalization")
 
+	# Secret layouts are generated once, validated, and retained by the save.
+	var secret_chests := [{"id": "secret-chest-01", "x": 120.5, "y": 88.0}]
+	var secret_walls := [{"id": "secret-wall-01", "tx": 4, "ty": 5, "wx": 128, "wy": 160, "ax": 0, "ay": 1, "rewardType": "loot"}]
+	if not WorldStateScript.set_secret_layout(world, "forest", secret_chests, secret_walls):
+		failures.append("valid secret layout must be stored")
+	if WorldStateScript.set_secret_layout(world, "forest", [], []):
+		failures.append("generated secret layout must not be rerolled")
+	if WorldStateScript.set_secret_layout(world, "forest", [{"id": "bad"}], []):
+		failures.append("invalid secret chest coordinates must be rejected")
+	var loaded_layout: Dictionary = WorldStateScript.get_secret_layout(WorldStateScript.normalize(world, 123456), "forest")
+	if not loaded_layout.generated or loaded_layout.chests.size() != 1 or loaded_layout.walls.size() != 1:
+		failures.append("secret layout must survive normalization")
+	if loaded_layout.walls[0].rewardType != "loot":
+		failures.append("secret wall reward type must survive normalization")
+
 	if failures.is_empty():
 		print("PASS: save-scoped discovery, route unlocking, visits and legacy travel")
 		quit(0)

@@ -376,3 +376,42 @@ static func mark_secret_discovered(world: Dictionary, region_id: String, secret_
 	record["discoveredSecrets"] = discovered
 	world["regions"][region_id] = record
 	return true
+
+
+static func set_secret_layout(world: Dictionary, region_id: String, chests: Array, walls: Array) -> bool:
+	# A generated layout is immutable for this region/save: never reroll it on reload.
+	if chests.size() > 32 or walls.size() > 32:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty() or record.get("secretLayoutGenerated", false):
+		return false
+	var candidate := record.duplicate(true)
+	candidate["secretChests"] = chests.duplicate(true)
+	candidate["secretWalls"] = walls.duplicate(true)
+	candidate["secretLayoutGenerated"] = true
+	var clean := _normalize_region_record(candidate)
+	if clean.secretChests.size() != chests.size() or clean.secretWalls.size() != walls.size():
+		return false
+	var chest_ids: Array = []
+	for chest in clean.secretChests:
+		if chest_ids.has(chest.id):
+			return false
+		chest_ids.append(chest.id)
+	var wall_ids: Array = []
+	for wall in clean.secretWalls:
+		if wall_ids.has(wall.id):
+			return false
+		wall_ids.append(wall.id)
+	world["regions"][region_id] = clean
+	return true
+
+
+static func get_secret_layout(world: Dictionary, region_id: String) -> Dictionary:
+	var record := get_region_record(world, region_id)
+	if record.is_empty() or not record.get("secretLayoutGenerated", false):
+		return {"generated": false, "chests": [], "walls": []}
+	return {
+		"generated": true,
+		"chests": record.get("secretChests", []).duplicate(true),
+		"walls": record.get("secretWalls", []).duplicate(true)
+	}
