@@ -111,6 +111,18 @@ func _run() -> void:
 	if loaded_layout.walls[0].rewardType != "loot":
 		failures.append("secret wall reward type must survive normalization")
 
+	# Browser-compatible APIs store discovered secret chests separately from the wall layout.
+	var extra_world := WorldStateScript.create(654321)
+	if not WorldStateScript.record_secret_layout(extra_world, "forest", secret_walls):
+		failures.append("browser-compatible secret wall layout must be recorded")
+	if WorldStateScript.record_secret_layout(extra_world, "forest", []):
+		failures.append("browser-compatible secret layout must only be recorded once")
+	if not WorldStateScript.record_secret_discovered(extra_world, "forest", "cache-hidden", {"id": "cache-chest", "x": 32.0, "y": 48.0}):
+		failures.append("discovered secret with a chest reward must be recorded")
+	var extra_record: Dictionary = WorldStateScript.normalize(extra_world, 654321).regions.get("forest", {})
+	if extra_record.secretChests.size() != 1 or extra_record.secretChests[0].id != "cache-chest":
+		failures.append("secret chest coordinates must survive normalization")
+
 	if failures.is_empty():
 		print("PASS: save-scoped discovery, route unlocking, visits and legacy travel")
 		quit(0)

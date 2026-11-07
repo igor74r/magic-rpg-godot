@@ -415,3 +415,51 @@ static func get_secret_layout(world: Dictionary, region_id: String) -> Dictionar
 		"chests": record.get("secretChests", []).duplicate(true),
 		"walls": record.get("secretWalls", []).duplicate(true)
 	}
+
+
+static func record_secret_layout(world: Dictionary, region_id: String, walls: Array) -> bool:
+	# Mirrors systems/region-state.js: an empty candidate list can still be a generated layout.
+	var record := get_region_record(world, region_id)
+	if record.is_empty() or record.get("secretLayoutGenerated", false):
+		return false
+	var clean_walls: Array = []
+	for wall in walls:
+		if not wall is Dictionary:
+			continue
+		var wall_id: Variant = wall.get("id", "")
+		var valid := wall_id is String and not wall_id.is_empty() and wall_id.length() <= 80
+		for coordinate in ["tx", "ty", "wx", "wy", "ax", "ay"]:
+			valid = valid and is_finite(float(wall.get(coordinate, NAN)))
+		if valid and ["chest", "elite", "loot"].has(wall.get("rewardType", "")):
+			clean_walls.append({
+				"id": wall_id, "tx": float(wall.tx), "ty": float(wall.ty),
+				"wx": float(wall.wx), "wy": float(wall.wy),
+				"ax": float(wall.ax), "ay": float(wall.ay),
+				"rewardType": wall.rewardType
+			})
+	record["secretWalls"] = clean_walls
+	record["secretLayoutGenerated"] = true
+	world["regions"][region_id] = record
+	return true
+
+
+static func record_secret_discovered(world: Dictionary, region_id: String, secret_id: String, chest: Variant = null) -> bool:
+	if not mark_secret_discovered(world, region_id, secret_id):
+		return false
+	if chest is Dictionary:
+		var chest_id: Variant = chest.get("id", "")
+		var x := float(chest.get("x", NAN))
+		var y := float(chest.get("y", NAN))
+		if chest_id is String and not chest_id.is_empty() and chest_id.length() <= 80 and is_finite(x) and is_finite(y):
+			var record := get_region_record(world, region_id)
+			var chests: Array = record.get("secretChests", [])
+			var exists := false
+			for item in chests:
+				if item is Dictionary and item.get("id", "") == chest_id:
+					exists = true
+					break
+			if not exists:
+				chests.append({"id": chest_id, "x": x, "y": y})
+			record["secretChests"] = chests
+			world["regions"][region_id] = record
+	return true
