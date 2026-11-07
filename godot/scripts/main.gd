@@ -14,6 +14,7 @@ const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
 const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
 const RiftEngineScript = preload("res://godot/scripts/world_rift_engine.gd")
+const TowerEngineScript = preload("res://godot/scripts/world_tower_engine.gd")
 const NpcCatalogScript = preload("res://godot/scripts/world_npc_catalog.gd")
 const NpcEngineScript = preload("res://godot/scripts/world_npc_engine.gd")
 
@@ -32,6 +33,7 @@ var passives_container: VBoxContainer
 var daily_quests_container: VBoxContainer
 var campaign_container: VBoxContainer
 var rift_container: VBoxContainer
+var tower_container: VBoxContainer
 var npc_container: VBoxContainer
 var combat_state: Dictionary = {}
 
@@ -109,6 +111,13 @@ func _build_exploration_ui() -> void:
 	rift_container = VBoxContainer.new()
 	rift_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(rift_container)
+	var tower_title := Label.new()
+	tower_title.text = "БАШНЯ ИСПЫТАНИЙ · 40 ЭТАЖЕЙ"
+	tower_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(tower_title)
+	tower_container = VBoxContainer.new()
+	tower_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(tower_container)
 	var npc_title := Label.new()
 	npc_title.text = "ЖИТЕЛИ И СЛУЖБЫ РЕГИОНА"
 	npc_title.add_theme_font_size_override("font_size", 16)
@@ -261,9 +270,80 @@ func _refresh_inventory() -> void:
 	_refresh_daily_quests()
 	_refresh_campaign()
 	_refresh_rift()
+	_refresh_tower()
 	_refresh_npcs()
 	_refresh_passives()
 
+
+
+func _refresh_tower() -> void:
+	for child in tower_container.get_children():
+		child.queue_free()
+	var hero := CombatEngineScript.ensure_hero(world)
+	var best := TowerEngineScript.best_floor(hero)
+	var summary := Label.new()
+	summary.text = "Лучший этаж: %d/40 · Стражи на каждом пятом этаже" % best
+	tower_container.add_child(summary)
+	var run := TowerEngineScript.get_run(world)
+	if bool(run.get("active", false)):
+		var queue: Array = run.get("enemies", [])
+		var label := Label.new()
+		label.text = "Активно: этаж %d · противник %d/%d" % [int(run.get("floor", 1)), int(run.get("enemyIndex", 0)) + 1, queue.size()]
+		tower_container.add_child(label)
+		var resume := Button.new()
+		resume.text = "Продолжить Башню"
+		resume.pressed.connect(_resume_tower)
+		tower_container.add_child(resume)
+		var abandon := Button.new()
+		abandon.text = "Покинуть Башню"
+		abandon.pressed.connect(_abandon_tower)
+		tower_container.add_child(abandon)
+	else:
+		var start := Button.new()
+		start.text = "Начать испытание · этаж %d" % TowerEngineScript.start_floor(hero)
+		start.disabled = not bool(hero.get("classChosen", false))
+		start.pressed.connect(_start_tower)
+		tower_container.add_child(start)
+
+
+func _start_tower() -> void:
+	var result: Dictionary = TowerEngineScript.begin_floor(world)
+	if not bool(result.get("ok", false)):
+		status_label.text = str(result.get("message", "Не удалось начать Башню."))
+		return
+	status_label.text = str(result.message)
+	WorldStateRepositoryScript.save_world(world)
+	_begin_combat(result.enemy)
+	_refresh_tower()
+
+
+func _resume_tower() -> void:
+	var run := TowerEngineScript.get_run(world)
+	var queue: Array = run.get("enemies", [])
+	var index := int(run.get("enemyIndex", -1))
+	if index < 0 or index >= queue.size():
+		status_label.text = "Сохранённый этаж повреждён."
+		return
+	_begin_combat(queue[index])
+
+
+func _abandon_tower() -> void:
+	if TowerEngineScript.abandon(world):
+		WorldStateRepositoryScript.save_world(world)
+		status_label.text = "Вы покинули Башню. Рекорд не изменён."
+	_refresh_tower()
+
+
+func _complete_tower_victory(enemy: Dictionary) -> void:
+	var result: Dictionary = TowerEngineScript.complete_encounter(world, enemy)
+	if not bool(result.get("ok", false)):
+		status_label.text += "\n" + str(result.get("message", ""))
+		return
+	status_label.text += "\n" + str(result.message)
+	if not bool(result.get("floorComplete", false)):
+		_begin_combat(result.enemy)
+	else:
+		_refresh_tower()
 
 
 func _refresh_rift() -> void:
@@ -795,12 +875,15 @@ func _combat_attack() -> void:
 	status_label.text = str(result.get("message", ""))
 	if not bool(combat_state.get("over", false)):
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	if str(result.get("result", "")) == "victory":
 		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
 		if bool(defeated_enemy.get("riftMode", false)):
 			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
 			if bool(rift_result.get("ok", false)):
 				status_label.text += "\\n" + str(rift_result.message)
+		elif bool(defeated_enemy.get("towerMode", false)):
+			_complete_tower_victory(defeated_enemy)
 	var error := WorldStateRepositoryScript.save_world(world)
 	if error != OK:
 		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
@@ -815,6 +898,9 @@ func _use_combat_ability(ability_id: String) -> void:
 	status_label.text = str(result.get("message", ""))
 	if not bool(combat_state.get("over", false)):
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+	elif str(result.get("result", "")) == "victory" and bool(combat_state.get("enemy", {}).get("towerMode", false)):
+		_complete_tower_victory(combat_state.enemy)
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
