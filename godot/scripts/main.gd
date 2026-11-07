@@ -7,6 +7,7 @@ const WorldMapViewScript = preload("res://godot/scripts/world_map_view.gd")
 const EncounterGeneratorScript = preload("res://godot/scripts/world_encounter_generator.gd")
 const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd")
 const CombatEngineScript = preload("res://godot/scripts/world_combat_engine.gd")
+const ClassCatalogScript = preload("res://godot/scripts/world_class_catalog.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -180,6 +181,21 @@ func _refresh_combat_ui() -> void:
 		attack_button.text = "Атаковать"
 		attack_button.pressed.connect(_combat_attack)
 		combat_container.add_child(attack_button)
+		var hero := CombatEngineScript.ensure_hero(world)
+		var class_data: Dictionary = ClassCatalogScript.get_class(str(hero.get("class", "warrior")))
+		for ability in class_data.get("abilities", []):
+			var ability_button := Button.new()
+			ability_button.text = "%s (%d)" % [str(ability.name), int(ability.cost)]
+			ability_button.pressed.connect(_use_combat_ability.bind(str(ability.id)))
+			combat_container.add_child(ability_button)
+		for spell_id in hero.get("spells", []):
+			var spell: Dictionary = ClassCatalogScript.get_spell(str(spell_id))
+			if spell.is_empty():
+				continue
+			var spell_button := Button.new()
+			spell_button.text = "%s (%d маны)" % [str(spell.name), int(spell.cost)]
+			spell_button.pressed.connect(_cast_combat_spell.bind(str(spell_id)))
+			combat_container.add_child(spell_button)
 		var retreat_button := Button.new()
 		retreat_button.text = "Отступить"
 		retreat_button.pressed.connect(_combat_retreat)
@@ -200,6 +216,20 @@ func _combat_attack() -> void:
 	_refresh_combat_ui()
 	if combat_state.get("over", false):
 		_refresh_exploration()
+
+
+func _use_combat_ability(ability_id: String) -> void:
+	var result := CombatEngineScript.use_ability(world, combat_state, ability_id)
+	status_label.text = str(result.get("message", ""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_combat_ui()
+
+
+func _cast_combat_spell(spell_id: String) -> void:
+	var result := CombatEngineScript.cast_spell(world, combat_state, spell_id)
+	status_label.text = str(result.get("message", ""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_combat_ui()
 
 
 func _combat_retreat() -> void:

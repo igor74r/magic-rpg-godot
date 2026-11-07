@@ -3,14 +3,24 @@ class_name WorldCombatEngine
 extends RefCounted
 
 const WorldState = preload("res://godot/scripts/world_state.gd")
+const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	hero["class"] = str(hero.get("class", "warrior"))
+	if not ClassCatalog.CLASSES.has(hero.class):
+		hero["class"] = "warrior"
+	var class_data: Dictionary = ClassCatalog.CLASSES[hero.class]
 	hero["level"] = clampi(int(hero.get("level", 1)), 1, 99)
-	hero["maxHp"] = clampi(int(hero.get("maxHp", 120)), 1, 999999)
+	hero["maxHp"] = clampi(int(hero.get("maxHp", class_data.maxHp)), 1, 999999)
+	hero["maxMp"] = clampi(int(hero.get("maxMp", class_data.maxMp)), 0, 999999)
+	hero["mp"] = clampi(int(hero.get("mp", hero.maxMp)), 0, hero.maxMp)
+	hero["cooldowns"] = hero.get("cooldowns", {}) if hero.get("cooldowns", {}) is Dictionary else {}
+	hero["buffs"] = hero.get("buffs", []) if hero.get("buffs", []) is Array else []
+	hero["spells"] = hero.get("spells", class_data.spells.duplicate()) if hero.get("spells", class_data.spells) is Array else class_data.spells.duplicate()
 	hero["hp"] = clampi(int(hero.get("hp", hero.maxHp)), 0, hero.maxHp)
-	hero["attack"] = clampi(int(hero.get("attack", 22)), 1, 99999)
-	hero["defense"] = clampi(int(hero.get("defense", 6)), 0, 99999)
+	hero["attack"] = clampi(int(hero.get("attack", class_data.attack)), 1, 99999)
+	hero["defense"] = clampi(int(hero.get("defense", class_data.defense)), 0, 99999)
 	hero["exp"] = maxi(0, int(hero.get("exp", 0)))
 	hero["gold"] = maxi(0, int(hero.get("gold", 0)))
 	world["hero"] = hero
@@ -130,6 +140,174 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	combat["enemy"] = enemy
 	combat["log"] = "\n".join(lines)
 	return {"ok": true, "message": combat.log, "result": combat.get("result", "")}
+
+static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
+	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
+		return {"ok": false, "message": "Сейчас нельзя применить способность."}
+	var hero := ensure_hero(world)
+	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var ability: Dictionary = {}
+	for candidate in class_data.get("abilities", []):
+		if str(candidate.id) == ability_id:
+			ability = candidate
+			break
+	if ability.is_empty():
+		return {"ok": false, "message": "Эта способность недоступна классу."}
+	var cooldowns: Dictionary = hero.get("cooldowns", {})
+	if int(cooldowns.get(ability_id, 0)) > 0:
+		return {"ok": false, "message": "Способность ещё перезаряжается."}
+	var cost := int(ability.get("cost", 0))
+	if int(hero.mp) < cost:
+		return {"ok": false, "message": "Недостаточно ресурса."}
+	hero["mp"] = int(hero.mp) - cost
+	cooldowns[ability_id] = int(ability.get("cooldown", 0))
+	hero["cooldowns"] = cooldowns
+	var enemy: Dictionary = combat.get("enemy", {})
+	var damage := 0
+	var kind := str(ability.get("kind", ""))
+	match kind:
+		"next_double":
+			hero["buffs"].append({"id":"double_next","duration":1})
+			combat["log"] = "Следующая атака будет усилена."
+			world["hero"] = hero
+			return {"ok":true,"message":combat.log}
+		"attack_buff":
+			hero["buffs"].append({"id":"attack_buff","duration":2})
+			combat["log"] = "Боевой клич усиливает атаку на 2 хода."
+			world["hero"] = hero
+			return {"ok":true,"message":combat.log}
+		"lifesteal":
+			hero["buffs"].append({"id":"lifesteal","duration":2})
+			combat["log"] = "Кровожадность активна: часть урона вернётся здоровьем."
+			world["hero"] = hero
+			return {"ok":true,"message":combat.log}
+		"defense_buff":
+			hero["buffs"].append({"id":"defense_buff","duration":2})
+			combat["log"] = "Магический барьер повышает защиту на 2 хода."
+			world["hero"] = hero
+			return {"ok":true,"message":combat.log}
+		"dodge":
+			hero["buffs"].append({"id":"dodge","duration":1})
+			combat["log"] = "Вы готовы уклониться от следующей атаки."
+			world["hero"] = hero
+			return {"ok":true,"message":combat.log}
+		_:
+			damage = int(hero.attack)
+			if kind == "meteor":
+				damage = int(round(float(damage) * 2.5))
+			elif kind == "critical":
+				damage = int(round(float(damage) * 2.0))
+			elif kind == "pierce":
+				damage = int(round(float(damage) * 1.5))
+			elif kind == "poison_strike":
+				apply_effect(enemy, "poison")
+			elif kind == "stun":
+				apply_effect(enemy, "stun")
+		damage = maxi(1, damage - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+		var lines := ["%s: %d урона." % [str(ability.name), damage]]
+		if kind == "meteor":
+			apply_effect(enemy, "burn")
+		if kind == "poison_strike":
+			lines.append("Противник отравлен.")
+		if kind == "stun":
+			lines.append("Противник оглушён.")
+		combat["enemy"] = enemy
+		combat["log"] = "\n".join(lines)
+		if int(enemy.hp) <= 0:
+			combat["over"] = true
+			combat["turn"] = "over"
+			combat["result"] = "victory"
+			enemy["dead"] = true
+			enemy["state"] = "dead"
+			var region_id := str(world.get("currentRegionId", "village"))
+			var persistent_id := str(enemy.get("persistentId", ""))
+			if bool(enemy.get("boss", false)):
+				WorldState.mark_boss_defeated(world, region_id, persistent_id)
+			else:
+				WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+			combat["log"] += "\nПобеда!"
+		else:
+			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
+			hero["hp"] = maxi(1, int(hero.hp) - incoming)
+			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
+		combat["enemy"] = enemy
+	world["hero"] = hero
+	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
+
+
+static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) -> Dictionary:
+	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
+		return {"ok":false,"message":"Сейчас нельзя произнести заклинание."}
+	var hero := ensure_hero(world)
+	if not (hero.get("spells", []) as Array).has(spell_id):
+		return {"ok":false,"message":"Заклинание неизвестно герою."}
+	var spell: Dictionary = ClassCatalog.get_spell(spell_id)
+	if spell.is_empty() or int(hero.mp) < int(spell.get("cost", 0)):
+		return {"ok":false,"message":"Недостаточно маны."}
+	hero["mp"] = int(hero.mp) - int(spell.get("cost", 0))
+	var enemy: Dictionary = combat.get("enemy", {})
+	var lines: Array[String] = [str(spell.name)]
+	if spell.has("heal"):
+		var restored := mini(int(spell.heal), int(hero.maxHp) - int(hero.hp))
+		hero["hp"] = int(hero.hp) + maxi(0, restored)
+		lines.append("Восстановлено %d HP." % maxi(0, restored))
+	elif spell.has("selfDamagePct"):
+		var hp_cost := int(ceil(float(hero.maxHp) * float(spell.selfDamagePct)))
+		if int(hero.hp) <= hp_cost:
+			return {"ok":false,"message":"Недостаточно здоровья для Жертвы."}
+		hero["hp"] = int(hero.hp) - hp_cost
+		hero["mp"] = mini(int(hero.maxMp), int(hero.mp) + int(spell.get("restoreMp", 0)))
+		lines.append("Здоровье обменено на ману.")
+	elif spell.has("selfEffect"):
+		hero["buffs"].append({"id":"defense_buff","duration":2})
+		lines.append("Защита усилена на 2 хода.")
+	else:
+		var damage := maxi(1, int(spell.get("damage", 0)) - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
+			damage = int(round(float(damage) * 1.2))
+			_remove_effect(enemy, "slow")
+		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+		lines.append("Нанесено %d урона." % damage)
+		var effect_id := str(spell.get("effect", ""))
+		if not effect_id.is_empty():
+			apply_effect(enemy, effect_id)
+			lines.append("Наложен эффект: %s." % effect_id)
+		combat["enemy"] = enemy
+		if int(enemy.hp) <= 0:
+			enemy["dead"] = true
+			enemy["state"] = "dead"
+			combat["over"] = true
+			combat["turn"] = "over"
+			combat["result"] = "victory"
+			var region_id := str(world.get("currentRegionId", "village"))
+			var persistent_id := str(enemy.get("persistentId", ""))
+			if bool(enemy.get("boss", false)):
+				WorldState.mark_boss_defeated(world, region_id, persistent_id)
+			else:
+				WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+			lines.append("Победа!")
+		else:
+			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
+			hero["hp"] = maxi(1, int(hero.hp) - incoming)
+			lines.append("Противник отвечает: %d урона." % incoming)
+	combat["log"] = "\n".join(lines)
+	world["hero"] = hero
+	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
+
+
+static func _has_effect(target: Dictionary, effect_id: String) -> bool:
+	for effect in target.get("effects", []):
+		if str(effect.get("id", "")) == effect_id:
+			return true
+	return false
+
+
+static func _remove_effect(target: Dictionary, effect_id: String) -> void:
+	var effects: Array = target.get("effects", [])
+	effects = effects.filter(func(effect): return str(effect.get("id", "")) != effect_id)
+	target["effects"] = effects
+
 
 static func retreat(combat: Dictionary) -> bool:
 	if combat.is_empty() or combat.get("over", true):

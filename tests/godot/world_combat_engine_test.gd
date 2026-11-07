@@ -38,6 +38,24 @@ func _initialize() -> void:
 	var special_result := Combat.player_attack(world, special_fight)
 	if not special_result.ok or not str(special_result.message).contains("Особый приём") or world.hero.effects.is_empty():
 		failures.append("enemy special attack must apply its status effect")
+	var mage_world := WorldState.create(992)
+	mage_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
+	var mage := Combat.ensure_hero(mage_world)
+	var spell_enemy := {"name":"Тестовый враг","persistentId":"enemy-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
+	var spell_fight := Combat.begin(spell_enemy)
+	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
+	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) >= 100:
+		failures.append("mage must cast known spells and spend mana")
+	var warrior_world := WorldState.create(993)
+	var warrior := Combat.ensure_hero(warrior_world)
+	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
+	var ability_fight := Combat.begin(ability_enemy)
+	var ability_result := Combat.use_ability(warrior_world, ability_fight, "charge")
+	if not ability_result.ok or int(warrior_world.hero.mp) != 80 or warrior_world.hero.buffs.is_empty():
+		failures.append("warrior abilities must consume resource and apply buffs")
+	var invalid_spell := Combat.cast_spell(warrior_world, ability_fight, "fireball")
+	if invalid_spell.ok:
+		failures.append("classes must not cast spells they do not know")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
