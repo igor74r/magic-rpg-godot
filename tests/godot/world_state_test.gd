@@ -109,7 +109,7 @@ func _run() -> void:
 	if WorldStateScript.mark_secret_discovered(world, "forest", "hidden-cache"):
 		failures.append("the same secret must not be recorded twice")
 	world["hero"] = {"riftBest": 12, "riftClearedLocations": ["rift-01", "rift-01", "invalid"]}
-	world["riftRun"] = {"active": true, "locationId": "rift-01", "floor": 12, "enemy": {"hp": 15, "maxHp": 40, "riftMode": true, "riftLocationId": "rift-01", "riftFloor": 12}}
+	world["riftRun"] = {"active": true, "locationId": "rift-01", "floor": 12, "enemy": {"persistentId": "rift-test-enemy", "enemyId": "goblin", "hp": 15, "maxHp": 40, "dead": false, "riftMode": true, "riftLocationId": "rift-01", "riftFloor": 12}}
 	var normalized_rift: Dictionary = WorldStateScript.normalize(world, 123456)
 	if int(normalized_rift.hero.riftBest) != 12 or normalized_rift.hero.riftClearedLocations != ["rift-01"] or not bool(normalized_rift.riftRun.active):
 		failures.append("valid Rift record and active encounter must survive normalization")
@@ -117,6 +117,10 @@ func _run() -> void:
 	var sanitized_rift: Dictionary = WorldStateScript.normalize(world, 123456)
 	if bool(sanitized_rift.riftRun.get("active", false)):
 		failures.append("invalid Rift runtime state must be discarded")
+	var forged_rift := world.duplicate(true)
+	forged_rift["riftRun"] = {"active": true, "locationId": "rift-01", "floor": 12, "enemy": {"enemyId": "missing-enemy", "persistentId": "", "hp": 15, "maxHp": 40, "dead": false, "riftMode": true, "riftLocationId": "rift-01", "riftFloor": 12}}
+	if bool(WorldStateScript.normalize(forged_rift, 123456).riftRun.get("active", false)):
+		failures.append("active Rift save must reject unknown or missing enemy identity")
 	var saved_exploration: Dictionary = WorldStateScript.normalize(world, 123456).regions.get("forest", {})
 	if int(saved_exploration.get("securityThreat", -1)) != 3:
 		failures.append("security threat must survive normalization")
