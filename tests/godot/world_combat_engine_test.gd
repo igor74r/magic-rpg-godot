@@ -158,9 +158,11 @@ func _initialize() -> void:
 		story_world["currentRegionId"] = str(spec.region)
 		story_world["hero"] = {"class":"warrior","level":50,"inventory":[],"activeCampaignMission":str(spec.mission)}
 		var normalized_hero := Combat.ensure_hero(story_world)
-		var story_message := Combat._claim_story_dragon_reward(story_world,normalized_hero,str(spec.enemy),str(spec.region))
-		if story_message.is_empty() or story_world.get("storyDragons",{}).get(str(spec.flag),false)!=true or story_world.get("storyShards",{}).get(str(spec.shard),false)!=true or normalized_hero.get("storyShards",{}).get(str(spec.shard),false)!=true or not normalized_hero.inventory.any(func(item): return str(item.get("id",""))==str(spec.item)):
-			failures.append("finale %s must grant its matching story flag, shard and quest item" % str(spec.mission))
+		var story_enemy := {"name":"Story dragon","enemyId":str(spec.enemy),"persistentId":"story-test-%s" % str(spec.shard),"hp":1,"maxHp":1,"attack":1,"defense":0,"exp":10,"gold":5,"boss":true,"dead":false,"drops":[],"dropSeed":1010+i}
+		var story_fight := Combat.begin(story_enemy)
+		var story_result := Combat.player_attack(story_world,story_fight)
+		if not bool(story_result.get("ok",false)) or story_world.get("storyDragons",{}).get(str(spec.flag),false)!=true or story_world.get("storyShards",{}).get(str(spec.shard),false)!=true or normalized_hero.get("storyShards",{}).get(str(spec.shard),false)!=true or not normalized_hero.inventory.any(func(item): return str(item.get("id",""))==str(spec.item)):
+			failures.append("finale %s combat victory must grant its matching story flag, shard and quest item" % str(spec.mission))
 		var CampaignProgress = preload("res://godot/scripts/world_campaign_engine.gd")
 		var shard_gate := CampaignProgress.progress(normalized_hero, {"id":"test-%s" % str(spec.shard),"count":1,"shardId":str(spec.shard)})
 		if not bool(shard_gate.shardFound):
