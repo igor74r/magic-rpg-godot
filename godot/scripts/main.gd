@@ -24,32 +24,38 @@ func _ready() -> void:
 func _build_exploration_ui() -> void:
 	region_label = Label.new()
 	region_label.add_theme_font_size_override("font_size", 24)
-	content.add_child(region_label)
+	_insert_before_spacer(region_label)
 	detail_label = Label.new()
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(detail_label)
+	_insert_before_spacer(detail_label)
 
 	map_view = WorldMapViewScript.new()
-	map_view.custom_minimum_size = Vector2(640, 480)
+	map_view.custom_minimum_size = Vector2(320, 240)
 	map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(map_view)
+	_insert_before_spacer(map_view)
 
 	var route_title := Label.new()
 	route_title.text = "ДОСТУПНЫЕ ПУТИ"
 	route_title.add_theme_font_size_override("font_size", 16)
-	content.add_child(route_title)
+	_insert_before_spacer(route_title)
 
 	routes_container = GridContainer.new()
 	routes_container.columns = 3
 	routes_container.add_theme_constant_override("h_separation", 12)
 	routes_container.add_theme_constant_override("v_separation", 12)
-	content.add_child(routes_container)
+	_insert_before_spacer(routes_container)
 
 	var hint := Label.new()
 	hint.text = "Выбирай открытый путь, чтобы исследовать соседний регион. Прогресс сохраняется локально."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
-	content.add_child(hint)
+	_insert_before_spacer(hint)
+
+
+func _insert_before_spacer(node: Control) -> void:
+	content.add_child(node)
+	var spacer := content.get_node("Spacer")
+	content.move_child(node, spacer.get_index())
 
 
 func _refresh_exploration() -> void:
@@ -63,7 +69,7 @@ func _refresh_exploration() -> void:
 	status_label.text = "Мир сохранён. Исследуй открытые направления и возвращайся в уже посещённые места."
 	var map_seed := WorldStateScript.region_visit_seed(world, current)
 	var visit_index := int(visits.get(current, 1))
-	map_view.set_map(WorldMapGeneratorScript.generate_map(current, 40, 30, map_seed, int(world.get("generatorVersion", 1)), visit_index))
+	map_view.call("set_map", WorldMapGeneratorScript.generate_map(current, 40, 30, map_seed, int(world.get("generatorVersion", 1)), visit_index))
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
