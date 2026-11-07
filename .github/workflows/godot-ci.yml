@@ -38,5 +38,8 @@ jobs:
       - name: Test authored region encounter catalog
         run: godot --headless --path . --script res://tests/godot/world_region_catalog_test.gd
 
+      - name: Test deterministic region encounter generation
+        run: godot --headless --path . --script res://tests/godot/world_encounter_generator_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2
