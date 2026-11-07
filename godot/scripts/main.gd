@@ -40,6 +40,7 @@ var combat_state: Dictionary = {}
 
 func _ready() -> void:
 	world = WorldStateRepositoryScript.load_world()
+	DailyQuestScript.get_quests(world)
 	_build_exploration_ui()
 	_refresh_exploration()
 
