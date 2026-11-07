@@ -2,6 +2,8 @@ extends Control
 
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const WorldStateRepositoryScript = preload("res://godot/scripts/world_state_repository.gd")
+const WorldMapGeneratorScript = preload("res://godot/scripts/world_map_generator.gd")
+const WorldMapViewScript = preload("res://godot/scripts/world_map_view.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -10,6 +12,7 @@ var world: Dictionary = {}
 var routes_container: GridContainer
 var region_label: Label
 var detail_label: Label
+var map_view: Control
 
 
 func _ready() -> void:
@@ -25,6 +28,11 @@ func _build_exploration_ui() -> void:
 	detail_label = Label.new()
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(detail_label)
+
+	map_view = WorldMapViewScript.new()
+	map_view.custom_minimum_size = Vector2(640, 480)
+	map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(map_view)
 
 	var route_title := Label.new()
 	route_title.text = "ДОСТУПНЫЕ ПУТИ"
@@ -53,6 +61,9 @@ func _refresh_exploration() -> void:
 		int(visits.get(current, 0)), discovered.size(), WorldGraph.region_ids().size()
 	]
 	status_label.text = "Мир сохранён. Исследуй открытые направления и возвращайся в уже посещённые места."
+	var map_seed := WorldStateScript.region_visit_seed(world, current)
+	var visit_index := int(visits.get(current, 1))
+	map_view.set_map(WorldMapGeneratorScript.generate_map(current, 40, 30, map_seed, int(world.get("generatorVersion", 1)), visit_index))
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
