@@ -247,7 +247,6 @@ func _refresh_combat_ui() -> void:
 		attack_button.text = "Атаковать"
 		attack_button.pressed.connect(_combat_attack)
 		combat_container.add_child(attack_button)
-		var hero := CombatEngineScript.ensure_hero(world)
 		var class_data: Dictionary = ClassCatalogScript.get_class(str(hero.get("class", "warrior")))
 		for ability in class_data.get("abilities", []):
 			var ability_button := Button.new()
