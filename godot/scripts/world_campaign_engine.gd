@@ -5,6 +5,40 @@ const Catalog = preload("res://godot/scripts/world_campaign_catalog.gd")
 const MATERIALS := ["root-fiber","grave-salt","ember-core","frost-essence","void-dust"]
 const ACT_GOLD := [18,32,50,72,100]
 const ACT_EXP := [70,145,250,390,570]
+
+const RIFT_LOCATIONS := [
+	{"id":"rift-01","name":"Пепельный порог","sourceId":"forest","minLevel":1},
+	{"id":"rift-02","name":"Лес обратных корней","sourceId":"briar-hollow","minLevel":1},
+	{"id":"rift-03","name":"Затонувший двор","sourceId":"ruins","minLevel":1},
+	{"id":"rift-04","name":"Топь без отражений","sourceId":"swamp","minLevel":1},
+	{"id":"rift-05","name":"Кладбище забытых имён","sourceId":"graveyard","minLevel":1},
+	{"id":"rift-06","name":"Пустошь стеклянного ветра","sourceId":"wasteland","minLevel":1},
+	{"id":"rift-07","name":"Библиотека шёпота","sourceId":"library","minLevel":1},
+	{"id":"rift-08","name":"Поля чёрного стекла","sourceId":"obsidian-fields","minLevel":1},
+	{"id":"rift-09","name":"Ледяные катакомбы","sourceId":"ice-peaks","minLevel":1},
+	{"id":"rift-10","name":"Площадь павших башен","sourceId":"sunken-necropolis","minLevel":1},
+	{"id":"rift-11","name":"Грот гаснущего света","sourceId":"shadow","minLevel":1},
+	{"id":"rift-12","name":"Кузня пустого солнца","sourceId":"volcano","minLevel":1},
+	{"id":"rift-13","name":"Зал костяных приливов","sourceId":"sunken-necropolis","minLevel":1},
+	{"id":"rift-14","name":"Долина пепельных крыльев","sourceId":"obsidian-fields","minLevel":1},
+	{"id":"rift-15","name":"Сад ледяных масок","sourceId":"frost-citadel","minLevel":1},
+	{"id":"rift-16","name":"Тропа расколотой луны","sourceId":"wasteland","minLevel":1},
+	{"id":"rift-17","name":"Архив живой пыли","sourceId":"library","minLevel":1},
+	{"id":"rift-18","name":"Болото кровавых звёзд","sourceId":"swamp","minLevel":1},
+	{"id":"rift-19","name":"Трон без короля","sourceId":"graveyard","minLevel":1},
+	{"id":"rift-20","name":"Порог драконьей памяти","sourceId":"dragon-lair","minLevel":1},
+	{"id":"rift-21","name":"Обсерватория пустоты","sourceId":"void-crater","minLevel":50},
+	{"id":"rift-22","name":"Лабиринт красного стекла","sourceId":"obsidian-fields","minLevel":50},
+	{"id":"rift-23","name":"Безмолвная цитадель","sourceId":"frost-citadel","minLevel":50},
+	{"id":"rift-24","name":"Некрополь последнего часа","sourceId":"sunken-necropolis","minLevel":50},
+	{"id":"rift-25","name":"Сердце чёрного вулкана","sourceId":"volcano","minLevel":50},
+	{"id":"rift-26","name":"Лес по ту сторону времени","sourceId":"briar-hollow","minLevel":50},
+	{"id":"rift-27","name":"Крипта первых магов","sourceId":"ruins","minLevel":50},
+	{"id":"rift-28","name":"Предел драконьего сна","sourceId":"dragon-lair","minLevel":50},
+	{"id":"rift-29","name":"Грань немого моря","sourceId":"swamp","minLevel":50},
+	{"id":"rift-30","name":"Сердцевина Разлома","sourceId":"void-crater","minLevel":50}
+]
+
 static func ensure_state(hero: Dictionary) -> void:
 	if not hero.get("campaignKills",{}) is Dictionary: hero["campaignKills"]={}
 	if not hero.get("campaignClaimed",{}) is Dictionary: hero["campaignClaimed"]={}
@@ -144,6 +178,68 @@ static func can_enter_location(hero: Dictionary, location_id: String) -> Diction
 		"reason":reason,
 		"requiredMissionId":"" if campaign_allowed else previous_mission_id
 	}
+
+
+
+static func can_complete_main_quest(world: Dictionary) -> bool:
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	var shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
+	var dragons: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
+	var progress_data := campaign_progress(hero)
+	return shards.get("flame", false) == true and shards.get("ice", false) == true and shards.get("blood", false) == true and dragons.get("blood-crown", false) == true and bool(progress_data.complete)
+
+static func is_rift_unlocked_by_story(world: Dictionary) -> bool:
+	var dragons: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
+	return dragons.get("blood-crown", false) == true
+
+static func is_rift_ready(world: Dictionary) -> bool:
+	return is_rift_unlocked_by_story(world) and str(world.get("riftEnding", "")) != "closed"
+
+static func rift_locations(level: int = 1) -> Array:
+	var result: Array = []
+	for location in RIFT_LOCATIONS:
+		var entry: Dictionary = location.duplicate(true)
+		entry["unlocked"] = maxi(1, level) >= int(entry.minLevel)
+		result.append(entry)
+	return result
+
+static func get_rift_location(location_id: String) -> Dictionary:
+	for location in RIFT_LOCATIONS:
+		if str(location.id) == location_id:
+			return location.duplicate(true)
+	return {}
+
+static func get_rift_multiplier(floor: int) -> Dictionary:
+	var safe_floor := maxi(1, floor)
+	return {
+		"hpMult": 1.0 + float(safe_floor - 1) * 0.15,
+		"atkMult": 1.0 + float(safe_floor - 1) * 0.10,
+		"goldMult": 1.0 + float(safe_floor - 1) * 0.25,
+		"expMult": 1.0 + float(safe_floor - 1) * 0.20
+	}
+
+static func get_rift_cleared_count(hero: Dictionary) -> int:
+	var cleared: Variant = hero.get("riftClearedLocations", [])
+	if not cleared is Array:
+		return 0
+	var valid: Dictionary = {}
+	for location in RIFT_LOCATIONS:
+		valid[str(location.id)] = true
+	var unique: Dictionary = {}
+	for id in cleared:
+		if id is String and valid.has(id):
+			unique[id] = true
+	return unique.size()
+
+static func record_rift_floor(hero: Dictionary, floor: int) -> bool:
+	if floor < 1:
+		return false
+	var previous: Variant = hero.get("riftBest", 0)
+	var best := int(previous) if previous is int and previous >= 0 else 0
+	if floor <= best:
+		return false
+	hero["riftBest"] = floor
+	return true
 
 
 static func campaign_progress(hero: Dictionary) -> Dictionary:

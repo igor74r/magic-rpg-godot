@@ -81,6 +81,38 @@ func _run() -> void:
 	if Catalog.all_missions().size() != 25:
 		failures.append("the native campaign catalog must contain all 25 browser story missions")
 
+	var finale_world := {"hero":{"level":50,"campaignClaimed":{},"storyShards":{"flame":true,"ice":true,"blood":true}},"storyDragons":{"blood-crown":true}}
+	for mission in Catalog.all_missions():
+		finale_world.hero.campaignClaimed[str(mission.id)] = true
+	if not Campaign.can_complete_main_quest(finale_world):
+		failures.append("main story finale must require all 25 claimed missions, all three shards and the Blood Crown")
+	finale_world.hero.storyShards.erase("ice")
+	if Campaign.can_complete_main_quest(finale_world):
+		failures.append("main story finale must reject a missing ice shard")
+	finale_world.hero.storyShards["ice"] = true
+	finale_world.storyDragons["blood-crown"] = false
+	if Campaign.can_complete_main_quest(finale_world) or Campaign.is_rift_unlocked_by_story(finale_world):
+		failures.append("final story and Rift must remain locked until the Blood Crown flag is true")
+	finale_world.storyDragons["blood-crown"] = true
+	if not Campaign.is_rift_ready(finale_world):
+		failures.append("Rift must unlock after the Blood Crown story flag")
+	finale_world["riftEnding"] = "closed"
+	if Campaign.is_rift_ready(finale_world):
+		failures.append("closed Rift ending must override the dragon unlock")
+	var rift_entries: Array = Campaign.rift_locations(49)
+	if rift_entries.size() != 30 or not bool(rift_entries[19].unlocked) or bool(rift_entries[20].unlocked):
+		failures.append("Rift must contain 30 areas and gate its final ten at level 50")
+	if Campaign.get_rift_location("rift-30").is_empty() or not Campaign.get_rift_location("rift-31").is_empty():
+		failures.append("Rift area lookup must reject unknown locations")
+	var rift_mult: Dictionary = Campaign.get_rift_multiplier(5)
+	if not is_equal_approx(float(rift_mult.hpMult),1.6) or not is_equal_approx(float(rift_mult.atkMult),1.4) or not is_equal_approx(float(rift_mult.goldMult),2.0) or not is_equal_approx(float(rift_mult.expMult),1.8):
+		failures.append("Rift floor multipliers must match browser scaling")
+	var rift_record: Dictionary = {"riftBest":5,"riftClearedLocations":["rift-01","rift-01","rift-30","invalid"]}
+	if Campaign.record_rift_floor(rift_record,4) or not Campaign.record_rift_floor(rift_record,8) or int(rift_record.riftBest)!=8:
+		failures.append("Rift best floor must only increase")
+	if Campaign.get_rift_cleared_count(rift_record)!=2:
+		failures.append("Rift cleared area count must deduplicate and ignore invalid IDs")
+
 	if failures.is_empty():
 		print("PASS: campaign mission ordering, strict claims, level gates and story-region unlocks")
 		quit(0)
