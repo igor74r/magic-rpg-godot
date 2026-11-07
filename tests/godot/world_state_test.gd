@@ -123,6 +123,35 @@ func _run() -> void:
 	if extra_record.secretChests.size() != 1 or extra_record.secretChests[0].id != "cache-chest":
 		failures.append("secret chest coordinates must survive normalization")
 
+	# Applying region persistence restores opened chests, hides resolved events,
+	# and reconstructs enemy/boss state when the region is entered again.
+	var runtime_world := WorldStateScript.create(777)
+	runtime_world.clockMinutes = 100
+	WorldStateScript.mark_chest_opened(runtime_world, "forest", "chest-a")
+	WorldStateScript.mark_event_resolved(runtime_world, "forest", "event-a")
+	WorldStateScript.mark_enemy_defeated(runtime_world, "forest", "enemy-a", 110.0)
+	WorldStateScript.set_boss_progress(runtime_world, "forest", "boss-a", 0.4, 2, 9, true)
+	WorldStateScript.mark_boss_defeated(runtime_world, "forest", "boss-dead")
+	var runtime_chests := [{"id": "chest-a", "opened": false}, {"id": "chest-b", "opened": false}]
+	var runtime_events := [{"id": "event-a"}, {"id": "event-b"}]
+	var runtime_enemies := [
+		{"persistentId": "enemy-a", "hp": 0, "maxHp": 50, "dead": false, "state": "idle", "effects": []},
+		{"persistentId": "boss-a", "boss": true, "hp": 100, "maxHp": 100, "phase": 0, "state": "idle"},
+		{"persistentId": "boss-dead", "boss": true, "hp": 100, "maxHp": 100, "dead": false, "state": "combat"}
+	]
+	if not WorldStateScript.apply_region_persistence(runtime_world, "forest", runtime_enemies, runtime_chests, runtime_events, 5000.0):
+		failures.append("region persistence must apply to runtime entities")
+	if not runtime_chests[0].opened or runtime_chests[1].opened:
+		failures.append("only previously opened chests must restore as opened")
+	if runtime_events.size() != 1 or runtime_events[0].id != "event-b":
+		failures.append("resolved region events must be removed from the active map")
+	if not runtime_enemies[0].dead or runtime_enemies[0].respawnAt != 605000.0:
+		failures.append("defeated enemies must remain dead until their world-clock deadline")
+	if runtime_enemies[1].hp != 40 or runtime_enemies[1].phase != 2 or not runtime_enemies[1].tacticalSpecialPending:
+		failures.append("boss progress must restore health, phase and pending special")
+	if not runtime_enemies[2].dead or runtime_enemies[2].state != "dead":
+		failures.append("defeated bosses must not respawn")
+
 	if failures.is_empty():
 		print("PASS: save-scoped discovery, route unlocking, visits and legacy travel")
 		quit(0)

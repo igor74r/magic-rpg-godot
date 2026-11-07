@@ -463,3 +463,61 @@ static func record_secret_discovered(world: Dictionary, region_id: String, secre
 			record["secretChests"] = chests
 			world["regions"][region_id] = record
 	return true
+
+
+static func apply_region_persistence(world: Dictionary, region_id: String, enemies: Array, chests: Array, events: Array = [], now_msec: float = 0.0) -> bool:
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var clock := maxf(0.0, float(world.get("clockMinutes", 0.0)))
+	var opened: Array = record.get("openedChests", [])
+	var resolved: Array = record.get("resolvedEvents", [])
+	var defeated_bosses: Array = record.get("defeatedBosses", [])
+	for chest in chests:
+		if chest is Dictionary:
+			chest["opened"] = opened.has(str(chest.get("id", "")))
+	for index in range(events.size() - 1, -1, -1):
+		var event: Variant = events[index]
+		if event is Dictionary and resolved.has(str(event.get("id", ""))):
+			events.remove_at(index)
+	var defeated: Dictionary = record.get("defeatedEnemies", {})
+	var boss_progress: Dictionary = record.get("bossProgress", {})
+	for enemy in enemies:
+		if not enemy is Dictionary:
+			continue
+		var persistent_id := str(enemy.get("persistentId", ""))
+		if enemy.get("boss", false) and defeated_bosses.has(persistent_id):
+			enemy["dead"] = true
+			enemy["hp"] = 0
+			enemy["respawnAt"] = 0
+			enemy["effects"] = []
+			if enemy.get("state", "") == "combat":
+				enemy["state"] = "dead"
+			continue
+		if enemy.get("boss", false) and boss_progress.has(persistent_id):
+			var progress: Dictionary = boss_progress[persistent_id]
+			var max_hp := float(enemy.get("maxHp", 0))
+			if max_hp > 0.0:
+				enemy["hp"] = maxi(1, mini(int(max_hp), roundi(max_hp * float(progress.hpRatio))))
+				enemy["phase"] = int(progress.phase)
+				enemy["persistentTurnCount"] = int(progress.turnCount)
+				enemy["tacticalSpecialPending"] = progress.pendingSpecial == true
+		if not defeated.has(persistent_id):
+			continue
+		var respawn_clock := float(defeated[persistent_id])
+		if respawn_clock <= clock:
+			defeated.erase(persistent_id)
+			enemy["dead"] = false
+			if enemy.get("maxHp") is int or enemy.get("maxHp") is float:
+				enemy["hp"] = enemy.maxHp
+			enemy["respawnAt"] = 0
+			enemy["effects"] = []
+			if enemy.get("state", "") == "dead":
+				enemy["state"] = "idle"
+		else:
+			enemy["dead"] = true
+			enemy["hp"] = 0
+			enemy["respawnAt"] = now_msec + (respawn_clock - clock) * 60000.0
+			enemy["effects"] = []
+	world["regions"][region_id] = record
+	return true
