@@ -168,6 +168,16 @@ func _refresh_inventory() -> void:
 	for child in inventory_container.get_children():
 		child.queue_free()
 	var hero := CombatEngineScript.ensure_hero(world)
+if not bool(hero.get("classChosen", false)):
+		var class_title := Label.new()
+		class_title.text = "ВЫБЕРИ КЛАСС ГЕРОЯ"
+		inventory_container.add_child(class_title)
+		for class_id in ClassCatalogScript.class_ids():
+			var class_data: Dictionary = ClassCatalogScript.get_class(str(class_id))
+			var class_button := Button.new()
+			class_button.text = "%s %s — HP %d / ресурс %d" % [str(class_data.emoji),str(class_data.name),int(class_data.maxHp),int(class_data.maxMp)]
+			class_button.pressed.connect(_select_hero_class.bind(str(class_id)))
+			inventory_container.add_child(class_button)
 	var heading := Label.new()
 	heading.text = "HP %d/%d · Ресурс %d/%d · Предметов: %d" % [int(hero.hp),int(hero.maxHp),int(hero.mp),int(hero.maxMp),hero.inventory.size()]
 	inventory_container.add_child(heading)
@@ -186,6 +196,13 @@ func _refresh_inventory() -> void:
 		else:
 			button.disabled = true
 		inventory_container.add_child(button)
+
+
+func _select_hero_class(class_id: String) -> void:
+	var result := CombatEngineScript.select_class(world,class_id)
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
 
 
 func _use_inventory_item(item_id: String) -> void:

@@ -75,6 +75,17 @@ func _initialize() -> void:
 	var scroll_result := Combat.use_item(scroll_world,"scroll-lightning")
 	if not scroll_result.ok or not scroll_world.hero.spells.has("lightning"):
 		failures.append("spell scroll must teach a spell and be consumed")
+	var class_choice_world := WorldState.create(996)
+	var class_choice := Combat.select_class(class_choice_world,"mage")
+	if not class_choice.ok or class_choice_world.hero.class != "mage" or class_choice_world.hero.inventory.size() != 3:
+		failures.append("class selection must initialize the chosen class and starter loadout")
+	var class_reselect := Combat.select_class(class_choice_world,"archer")
+	if class_reselect.ok:
+		failures.append("class selection must be locked after character creation")
+	var slow_target := {"hp":100,"effects":[]}
+	Combat.apply_effect(slow_target,"slow")
+	if slow_target.effects.is_empty():
+		failures.append("slow status effect must be supported")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")

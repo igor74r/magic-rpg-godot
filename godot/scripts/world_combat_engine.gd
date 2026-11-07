@@ -9,6 +9,7 @@ const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
 	hero["class"] = str(hero.get("class", "warrior"))
+	hero["classChosen"] = bool(hero.get("classChosen", false))
 	if not ClassCatalog.CLASSES.has(hero.class):
 		hero["class"] = "warrior"
 	var class_data: Dictionary = ClassCatalog.CLASSES[hero.class]
@@ -316,6 +317,26 @@ static func _remove_effect(target: Dictionary, effect_id: String) -> void:
 	effects = effects.filter(func(effect): return str(effect.get("id", "")) != effect_id)
 	target["effects"] = effects
 
+
+
+static func select_class(world: Dictionary, class_id: String) -> Dictionary:
+	if not ClassCatalog.CLASSES.has(class_id):
+		return {"ok":false,"message":"Неизвестный класс."}
+	var current: Dictionary = world.get("hero", {})
+	if bool(current.get("classChosen", false)):
+		return {"ok":false,"message":"Класс уже выбран для этого персонажа."}
+	var definition: Dictionary = ClassCatalog.get_class(class_id)
+	world["hero"] = {
+		"class":class_id,"classChosen":true,"level":1,
+		"maxHp":int(definition.maxHp),"hp":int(definition.maxHp),
+		"maxMp":int(definition.maxMp),"mp":int(definition.maxMp),
+		"attack":int(definition.attack),"defense":int(definition.defense),
+		"exp":0,"gold":0,"spells":definition.spells.duplicate(),
+		"inventory":[],"equipped":{},"inventoryInitialized":false,
+		"effects":[],"buffs":[],"cooldowns":{}
+	}
+	ensure_hero(world)
+	return {"ok":true,"message":"Выбран класс: %s." % str(definition.name)}
 
 
 static func effective_stat(hero: Dictionary, stat: String) -> int:
