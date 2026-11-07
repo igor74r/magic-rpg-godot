@@ -19,6 +19,18 @@ func _run() -> void:
 	if SaveRepo.save_slot(TEST_SLOT, {"version": 17}) != ERR_INVALID_DATA:
 		failures.append("unsupported save versions must be rejected")
 
+	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"customFlag":"keep"},"worldSeed":9876}
+	var migrated := SaveRepo.migrate_payload(legacy_payload)
+	var migrated_player: Dictionary = migrated.get("player", {})
+	if int(migrated.get("version", -1)) != 18 or int(migrated_player.get("level", 0)) != 27 or int(migrated_player.get("gold", 0)) != 900:
+		failures.append("v17 migration must preserve existing player progress")
+	if migrated_player.get("customFlag", "") != "keep" or migrated_player.get("campaignClaimed", {}).get("a1-m1", false) != true:
+		failures.append("v17 migration must preserve unknown fields and campaign claims")
+	if not migrated_player.get("storyShards", {}) is Dictionary or not migrated_player.get("campaignKills", {}) is Dictionary:
+		failures.append("v17 migration must initialize missing progression containers")
+	if not SaveRepo.migrate_payload({"version":16}).is_empty():
+		failures.append("unsupported v16 payload must not be migrated blindly")
+
 	var payload := {
 		"version": 18,
 		"player": {"name": "Godot CI fixture", "level": 1},

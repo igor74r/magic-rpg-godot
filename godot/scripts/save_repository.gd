@@ -2,6 +2,7 @@ class_name SaveRepository
 extends RefCounted
 
 const SAVE_VERSION := 18
+const PREVIOUS_SAVE_VERSION := 17
 const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 
 
@@ -33,6 +34,29 @@ static func load_slot(slot: int) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if not parsed is Dictionary:
 		return {}
-	if int(parsed.get("version", -1)) != SAVE_VERSION:
+	return migrate_payload(parsed)
+
+
+static func migrate_payload(payload: Dictionary) -> Dictionary:
+	var migrated: Dictionary = payload.duplicate(true)
+	var version := int(migrated.get("version", -1))
+	if version == SAVE_VERSION:
+		return migrated
+	if version != PREVIOUS_SAVE_VERSION:
 		return {}
-	return parsed
+	# v17 already stores the full hero/world payload. v18 adds optional
+	# progression fields; preserve all existing fields and initialize only
+	# missing containers so old campaign progress is never discarded.
+	var hero_value: Variant = migrated.get("player", migrated.get("hero", {}))
+	if hero_value is Dictionary:
+		var hero: Dictionary = hero_value
+		if not hero.get("campaignKills", {}) is Dictionary: hero["campaignKills"] = {}
+		if not hero.get("campaignClaimed", {}) is Dictionary: hero["campaignClaimed"] = {}
+		if not hero.get("storyShards", {}) is Dictionary: hero["storyShards"] = {}
+		if not hero.get("riftClearedLocations", []) is Array: hero["riftClearedLocations"] = []
+		if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
+		if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
+		if migrated.has("player"): migrated["player"] = hero
+		else: migrated["hero"] = hero
+	migrated["version"] = SAVE_VERSION
+	return migrated
