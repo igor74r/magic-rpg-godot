@@ -28,6 +28,8 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	hero["inventory"] = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
 	hero["equipped"] = hero.get("equipped", {}) if hero.get("equipped", {}) is Dictionary else {}
 	hero["pendingLoot"] = hero.get("pendingLoot", []) if hero.get("pendingLoot", []) is Array else []
+	var PassiveEngine = preload("res://godot/scripts/world_passive_engine.gd")
+	PassiveEngine.ensure_passives(hero)
 	if not bool(hero.get("inventoryInitialized", false)):
 		for item_id in class_data.get("startingItems", []):
 			add_item(hero, str(item_id), 1)
@@ -423,14 +425,16 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 
 
 static func effective_stat(hero: Dictionary, stat: String) -> int:
+	var PassiveEngine = preload("res://godot/scripts/world_passive_engine.gd")
+	var passive_bonus: Dictionary = PassiveEngine.get_bonus(hero)
 	var total := int(hero.get(stat, 0))
 	match stat:
 		"attack":
-			total = int(hero.get("str", total))
+			total = int(hero.get("str", total)) + int(passive_bonus.get("atkFlat", 0))
 		"magic":
-			total = int(hero.get("int", hero.get("magic", total)))
+			total = int(hero.get("int", hero.get("magic", total))) + int(passive_bonus.get("magFlat", 0))
 		"defense":
-			total = int(floor(float(hero.get("con", total * 2)) / 2.0))
+			total = int(floor(float(hero.get("con", total * 2)) / 2.0)) + int(passive_bonus.get("defFlat", 0))
 	var equipped: Dictionary = hero.get("equipped", {})
 	for instance in equipped.values():
 		if instance == null:
@@ -444,6 +448,8 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 		for key in bonus:
 			if str(key) == stat:
 				total += int(bonus[key])
+	if stat == "defense":
+		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
 
 static func add_item(hero: Dictionary, item_id: String, quantity: int = 1) -> bool:

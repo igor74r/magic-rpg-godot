@@ -131,6 +131,28 @@ func _initialize() -> void:
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
+
+	var PassiveTree = preload("res://godot/scripts/world_passive_tree.gd")
+	var PassiveEngine = preload("res://godot/scripts/world_passive_engine.gd")
+	for class_id in ["warrior","mage","archer"]:
+		var passive_tree: Dictionary = PassiveTree.get_tree(class_id)
+		if passive_tree.nodes.size()!=31: failures.append("%s tree must contain 30 nodes and start" % class_id)
+	var passive_hero := {"class":"warrior","level":1,"passivePoints":2,"passives":["start"],"gold":1000}
+	if PassiveEngine.can_allocate(passive_hero,"warrior-might-1"): failures.append("passive must enforce level requirement")
+	passive_hero["level"]=2
+	if not PassiveEngine.can_allocate(passive_hero,"warrior-might-1"): failures.append("first passive must unlock at level 2")
+	var purchase: Dictionary = PassiveEngine.allocate(passive_hero,"warrior-might-1")
+	if not purchase.ok or int(passive_hero.passivePoints)!=1 or not passive_hero.passives.has("warrior-might-1"): failures.append("passive allocation must consume one point")
+	if int(PassiveEngine.get_bonus(passive_hero).atkFlat)!=3: failures.append("might passive must grant +3 attack")
+	if PassiveEngine.can_allocate(passive_hero,"warrior-might-2"): failures.append("second passive must require level 5")
+	passive_hero["level"]=5
+	if not PassiveEngine.can_allocate(passive_hero,"warrior-might-2"): failures.append("second connected passive must unlock at level 5")
+	var purchase_two: Dictionary = PassiveEngine.allocate(passive_hero,"warrior-might-2")
+	if not purchase_two.ok or int(passive_hero.passivePoints)!=0: failures.append("second passive must spend final point")
+	var reset_result: Dictionary = PassiveEngine.reset(passive_hero)
+	if not reset_result.ok or int(reset_result.refunded)!=2 or int(passive_hero.passivePoints)!=2 or int(passive_hero.gold)!=500 or passive_hero.passives!=["start"]: failures.append("reset must cost 500 gold and refund all points")
+	var mage_passive := {"class":"mage","level":50,"passivePoints":1,"passives":["start"]}
+	if PassiveEngine.can_allocate(mage_passive,"warrior-might-1") or not PassiveEngine.can_allocate(mage_passive,"mage-fire-1"): failures.append("passive trees must be class-specific")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
