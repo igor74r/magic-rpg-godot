@@ -28,6 +28,7 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	hero["inventory"] = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
 	hero["equipped"] = hero.get("equipped", {}) if hero.get("equipped", {}) is Dictionary else {}
 	hero["pendingLoot"] = hero.get("pendingLoot", []) if hero.get("pendingLoot", []) is Array else []
+	hero["talents"] = hero.get("talents", []) if hero.get("talents", []) is Array else []
 	var PassiveEngine = preload("res://godot/scripts/world_passive_engine.gd")
 	PassiveEngine.ensure_passives(hero)
 	if not bool(hero.get("inventoryInitialized", false)):
@@ -425,7 +426,7 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 		"maxMp":int(definition.maxMp),"mp":int(definition.maxMp),
 		"attack":int(definition.attack),"defense":int(definition.defense),
 		"str":int(definition.get("str",0)),"int":int(definition.get("int",0)),"wis":int(definition.get("wis",0)),"con":int(definition.get("con",0)),"dex":int(definition.get("dex",0)),
-		"exp":0,"expNext":125,"statPoints":0,"passivePoints":0,"luck":5.0,"gold":0,"spells":definition.spells.duplicate(),
+		"exp":0,"expNext":125,"statPoints":0,"passivePoints":0,"luck":5.0,"gold":0,"talents":[],"passives":["start"],"spells":definition.spells.duplicate(),
 		"inventory":[],"equipped":{},"inventoryInitialized":false,
 		"effects":[],"buffs":[],"cooldowns":{}
 	}

@@ -162,6 +162,9 @@ func _initialize() -> void:
 	if not PassiveEngine.can_take_talent(talent_hero,"w-berserker") or not PassiveEngine.can_take_talent(talent_hero,"w-guardian"): failures.append("both talent choices must be available before spending tier")
 	var talent_pick: Dictionary = PassiveEngine.take_talent(talent_hero,"w-guardian")
 	if not talent_pick.ok or int(talent_hero.maxHp)!=120 or not talent_hero.talents.has("w-guardian"): failures.append("guardian talent must apply HP multiplier")
+	if not is_equal_approx(float(PassiveEngine.get_bonus(talent_hero).defMult),1.0): failures.append("guardian legacy talent should not invent a defense multiplier")
+	var berserker_bonus_hero := {"class":"warrior","talents":["w-berserker"]}
+	if not is_equal_approx(float(PassiveEngine.get_bonus(berserker_bonus_hero).dmgMult),1.15): failures.append("legacy class talent damage modifier must feed shared bonuses")
 	if PassiveEngine.can_take_talent(talent_hero,"w-berserker"): failures.append("only one talent may be chosen per tier")
 	var talent_reset: Dictionary = PassiveEngine.reset_talents(talent_hero)
 	if not talent_reset.ok or int(talent_hero.maxHp)!=100 or int(talent_hero.gold)!=500 or not talent_hero.talents.is_empty(): failures.append("talent reset must reverse HP multiplier and cost 500 gold")
