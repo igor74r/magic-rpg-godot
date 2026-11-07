@@ -103,8 +103,13 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	if int(clean_visits.get(current, 0)) < 1:
 		clean_visits[current] = 1
 
-	if not world.get("regions", {}) is Dictionary:
-		world["regions"] = {}
+	var source_regions: Variant = world.get("regions", {})
+	var clean_regions: Dictionary = {}
+	if source_regions is Dictionary:
+		for region_id in source_regions:
+			if valid_regions.has(region_id):
+				clean_regions[region_id] = _normalize_region_record(source_regions[region_id])
+	world["regions"] = clean_regions
 	if not world.get("factionCampaigns", {}) is Dictionary:
 		world["factionCampaigns"] = {}
 	if not world.get("events", {}) is Dictionary:
@@ -175,3 +180,158 @@ static func region_visit_seed(world: Dictionary, region_id: String, visit_index:
 		region_id,
 		index
 	)
+
+
+static func _clean_string_ids(value: Variant) -> Array:
+	var result: Array = []
+	if value is Array:
+		for item in value:
+			if item is String and not item.is_empty() and item.length() <= 80 and not result.has(item):
+				result.append(item)
+	return result
+
+
+static func _new_region_record() -> Dictionary:
+	return {
+		"generationVisit": 1, "securityThreat": 0, "openedChests": [],
+		"defeatedEnemies": {}, "defeatedBosses": [], "bossProgress": {},
+		"resolvedEvents": [], "discoveredSecrets": [], "secretChests": [],
+		"secretLayoutGenerated": false, "secretWalls": []
+	}
+
+
+static func _normalize_region_record(value: Variant) -> Dictionary:
+	var record: Dictionary = value.duplicate(true) if value is Dictionary else {}
+	record["generationVisit"] = maxi(1, int(record.get("generationVisit", 1)))
+	record["securityThreat"] = clampi(int(record.get("securityThreat", 0)), 0, 3)
+	for key in ["openedChests", "defeatedBosses", "resolvedEvents", "discoveredSecrets"]:
+		record[key] = _clean_string_ids(record.get(key, []))
+
+	var defeated_value: Variant = record.get("defeatedEnemies", {})
+	var clean_defeated: Dictionary = {}
+	if defeated_value is Dictionary:
+		for enemy_id in defeated_value:
+			var deadline := float(defeated_value[enemy_id])
+			if enemy_id is String and not enemy_id.is_empty() and enemy_id.length() <= 80 and is_finite(deadline) and deadline >= 0.0:
+				clean_defeated[enemy_id] = deadline
+	record["defeatedEnemies"] = clean_defeated
+
+	var progress_value: Variant = record.get("bossProgress", {})
+	var clean_progress: Dictionary = {}
+	if progress_value is Dictionary:
+		for boss_id in progress_value:
+			var progress: Variant = progress_value[boss_id]
+			if not boss_id is String or boss_id.is_empty() or boss_id.length() > 80 or not progress is Dictionary:
+				continue
+			var hp_ratio := float(progress.get("hpRatio", 0.0))
+			var phase := int(progress.get("phase", -1))
+			var turns := int(progress.get("turnCount", -1))
+			if is_finite(hp_ratio) and hp_ratio > 0.0 and hp_ratio <= 1.0 and phase >= 0 and phase <= 20 and turns >= 0 and turns <= 100000:
+				clean_progress[boss_id] = {"hpRatio": hp_ratio, "phase": phase, "turnCount": turns, "pendingSpecial": progress.get("pendingSpecial", false) == true}
+	record["bossProgress"] = clean_progress
+
+	var clean_chests: Array = []
+	var chests: Variant = record.get("secretChests", [])
+	if chests is Array:
+		for chest in chests:
+			if not chest is Dictionary:
+				continue
+			var chest_id: Variant = chest.get("id", "")
+			var x := float(chest.get("x", NAN))
+			var y := float(chest.get("y", NAN))
+			if chest_id is String and not chest_id.is_empty() and chest_id.length() <= 80 and is_finite(x) and is_finite(y):
+				clean_chests.append(chest.duplicate(true))
+	record["secretChests"] = clean_chests
+	record["secretLayoutGenerated"] = record.get("secretLayoutGenerated", false) == true
+
+	var clean_walls: Array = []
+	var walls: Variant = record.get("secretWalls", [])
+	if walls is Array:
+		for wall in walls:
+			if not wall is Dictionary:
+				continue
+			var wall_id: Variant = wall.get("id", "")
+			var valid := wall_id is String and not wall_id.is_empty() and wall_id.length() <= 80
+			for coordinate in ["tx", "ty", "wx", "wy", "ax", "ay"]:
+				valid = valid and is_finite(float(wall.get(coordinate, NAN)))
+			if valid and ["chest", "elite", "loot"].has(wall.get("rewardType", "")):
+				clean_walls.append(wall.duplicate(true))
+	record["secretWalls"] = clean_walls
+	return record
+
+
+static func get_region_record(world: Dictionary, region_id: String) -> Dictionary:
+	if not WorldGraph.region_ids().has(region_id):
+		return {}
+	var regions: Dictionary = world.get("regions", {})
+	if not regions.has(region_id) or not regions[region_id] is Dictionary:
+		regions[region_id] = _new_region_record()
+	world["regions"] = regions
+	return regions[region_id]
+
+
+static func mark_chest_opened(world: Dictionary, region_id: String, chest_id: String) -> bool:
+	if chest_id.is_empty() or chest_id.length() > 80:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var opened: Array = record.get("openedChests", [])
+	if opened.has(chest_id):
+		return false
+	opened.append(chest_id)
+	record["openedChests"] = opened
+	world["regions"][region_id] = record
+	return true
+
+
+static func mark_enemy_defeated(world: Dictionary, region_id: String, enemy_id: String, respawn_at: float) -> bool:
+	if enemy_id.is_empty() or enemy_id.length() > 80 or not is_finite(respawn_at) or respawn_at < 0.0:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var defeated: Dictionary = record.get("defeatedEnemies", {})
+	defeated[enemy_id] = respawn_at
+	record["defeatedEnemies"] = defeated
+	world["regions"][region_id] = record
+	return true
+
+
+static func is_enemy_defeated(world: Dictionary, region_id: String, enemy_id: String, clock_minutes: float) -> bool:
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var defeated: Dictionary = record.get("defeatedEnemies", {})
+	return defeated.has(enemy_id) and float(defeated[enemy_id]) > clock_minutes
+
+
+static func mark_boss_defeated(world: Dictionary, region_id: String, boss_id: String) -> bool:
+	if boss_id.is_empty() or boss_id.length() > 80:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var defeated: Array = record.get("defeatedBosses", [])
+	if defeated.has(boss_id):
+		return false
+	defeated.append(boss_id)
+	record["defeatedBosses"] = defeated
+	var progress: Dictionary = record.get("bossProgress", {})
+	progress.erase(boss_id)
+	record["bossProgress"] = progress
+	world["regions"][region_id] = record
+	return true
+
+
+static func set_boss_progress(world: Dictionary, region_id: String, boss_id: String, hp_ratio: float, phase: int, turn_count: int, pending_special: bool = false) -> bool:
+	if boss_id.is_empty() or boss_id.length() > 80 or not is_finite(hp_ratio) or hp_ratio <= 0.0 or hp_ratio > 1.0 or phase < 0 or phase > 20 or turn_count < 0 or turn_count > 100000:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty() or record.get("defeatedBosses", []).has(boss_id):
+		return false
+	var progress: Dictionary = record.get("bossProgress", {})
+	progress[boss_id] = {"hpRatio": hp_ratio, "phase": phase, "turnCount": turn_count, "pendingSpecial": pending_special}
+	record["bossProgress"] = progress
+	world["regions"][region_id] = record
+	return true

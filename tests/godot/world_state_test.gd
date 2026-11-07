@@ -62,12 +62,12 @@ func _run() -> void:
 		failures.append("valid boss progress must be saved")
 	if World.set_boss_progress(world, "forest", "bad-boss", 1.5, 0, 0):
 		failures.append("invalid boss health ratio must be rejected")
-	var saved_region := World.normalize(world, 123456).regions.get("forest", {})
+	var saved_region: Dictionary = World.normalize(world, 123456).regions.get("forest", {})
 	if not saved_region.get("openedChests", []).has("chest-01"):
 		failures.append("opened chest state must survive normalization")
 	if float(saved_region.get("defeatedEnemies", {}).get("wolf-01", -1)) != 900.0:
 		failures.append("enemy respawn state must survive normalization")
-	var saved_boss := saved_region.get("bossProgress", {}).get("forest-warden", {})
+	var saved_boss: Dictionary = saved_region.get("bossProgress", {}).get("forest-warden", {})
 	if float(saved_boss.get("hpRatio", 0.0)) != 0.45 or int(saved_boss.get("phase", -1)) != 2 or not saved_boss.get("pendingSpecial", false):
 		failures.append("boss progress must survive normalization")
 	if not World.mark_boss_defeated(world, "forest", "forest-warden"):
