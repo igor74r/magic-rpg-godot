@@ -6,6 +6,7 @@ extends RefCounted
 const SCHEMA_VERSION := 1
 const GENERATOR_VERSION := 1
 const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
+const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -135,12 +136,23 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var tower_index := int(tower_run.get("enemyIndex", -1))
 		var tower_valid := tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
 		if tower_valid:
+			var persistent_ids: Array[String] = []
 			for enemy_index in range(tower_queue.size()):
 				var tower_enemy: Variant = tower_queue[enemy_index]
 				if not tower_enemy is Dictionary or not bool(tower_enemy.get("towerMode", false)) or int(tower_enemy.get("towerFloor", 0)) != tower_floor:
 					tower_valid = false
 					break
-				if enemy_index == tower_index and int(tower_enemy.get("hp", 0)) <= 0:
+				var tower_enemy_id := str(tower_enemy.get("enemyId", ""))
+				var persistent_id := str(tower_enemy.get("persistentId", ""))
+				var enemy_hp := int(tower_enemy.get("hp", -1))
+				if WorldEnemyCatalog.get_enemy(tower_enemy_id).is_empty() or persistent_id.is_empty() or persistent_ids.has(persistent_id) or enemy_hp < 0:
+					tower_valid = false
+					break
+				persistent_ids.append(persistent_id)
+				if enemy_index < tower_index and (enemy_hp != 0 or not bool(tower_enemy.get("dead", false))):
+					tower_valid = false
+					break
+				if enemy_index >= tower_index and enemy_hp <= 0:
 					tower_valid = false
 					break
 		world["towerRun"] = tower_run.duplicate(true) if tower_valid else {"active": false, "invalidated": true}

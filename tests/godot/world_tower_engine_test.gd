@@ -32,6 +32,12 @@ func _initialize()->void:
 	var resumed_state:=WorldState.normalize(world,4455)
 	if not bool(resumed_state.towerRun.get("active",false)) or int(resumed_state.towerRun.get("enemyIndex",0))!=1:
 		failures.append("active tower save must allow already defeated enemies in its queue")
+	var corrupted := resumed_state.duplicate(true)
+	corrupted.towerRun.enemies[0]["hp"] = 1
+	corrupted.towerRun.enemies[0]["dead"] = false
+	var rejected := WorldState.normalize(corrupted, 4455)
+	if bool(rejected.towerRun.get("active", false)):
+		failures.append("tower save must reject a queue whose prior encounter is not defeated")
 	var guardian_world:=WorldState.create(5566)
 	guardian_world["hero"]={"level":10,"classChosen":true,"towerBest":4,"class":"warrior","hp":100,"maxHp":100,"attack":100,"defense":10,"inventory":[],"gold":0,"exp":0}
 	var guardian_entry:=Tower.begin_floor(guardian_world)
