@@ -26,5 +26,8 @@ jobs:
       - name: Test canonical world graph
         run: godot --headless --path . --script res://tests/godot/world_graph_test.gd
 
+      - name: Test deterministic world random contract
+        run: godot --headless --path . --script res://tests/godot/world_random_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2
