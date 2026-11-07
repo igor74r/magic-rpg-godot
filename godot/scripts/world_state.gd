@@ -123,6 +123,25 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 					clean_cleared.append(location_id)
 		hero["riftClearedLocations"] = clean_cleared
 		world["hero"] = hero
+	if hero_value is Dictionary:
+		var tower_hero: Dictionary = hero_value
+		tower_hero["towerBest"] = clampi(int(tower_hero.get("towerBest", 0)), 0, 40)
+		world["hero"] = tower_hero
+	var tower_value: Variant = world.get("towerRun", {})
+	if tower_value is Dictionary and bool(tower_value.get("active", false)):
+		var tower_run: Dictionary = tower_value
+		var tower_floor := int(tower_run.get("floor", 0))
+		var tower_queue: Variant = tower_run.get("enemies", [])
+		var tower_index := int(tower_run.get("enemyIndex", -1))
+		var tower_valid := tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
+		if tower_valid:
+			for tower_enemy in tower_queue:
+				if not tower_enemy is Dictionary or not bool(tower_enemy.get("towerMode", false)) or int(tower_enemy.get("towerFloor", 0)) != tower_floor or int(tower_enemy.get("hp", 0)) <= 0:
+					tower_valid = false
+					break
+		world["towerRun"] = tower_run.duplicate(true) if tower_valid else {"active": false, "invalidated": true}
+	else:
+		world["towerRun"] = tower_value.duplicate(true) if tower_value is Dictionary else {}
 	var run_value: Variant = world.get("riftRun", {})
 	if run_value is Dictionary and bool(run_value.get("active", false)):
 		var run: Dictionary = run_value
