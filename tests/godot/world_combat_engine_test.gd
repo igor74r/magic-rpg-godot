@@ -147,6 +147,21 @@ func _initialize() -> void:
 	var wrong_hero := Combat.ensure_hero(wrong_mission_world)
 	if not Combat._claim_story_dragon_reward(wrong_mission_world,wrong_hero,"flame-lord","obsidian-fields").is_empty():
 		failures.append("story dragon must not grant a shard outside its finale mission")
+
+	var remaining_dragons := [
+		{"enemy":"ice-queen","region":"frost-citadel","mission":"a4-m5","flag":"ice-grasp","shard":"ice","item":"shard-ice"},
+		{"enemy":"ancient-dragon","region":"dragon-lair","mission":"a5-m5","flag":"blood-crown","shard":"blood","item":"shard-blood"}
+	]
+	for i in range(remaining_dragons.size()):
+		var spec: Dictionary = remaining_dragons[i]
+		var story_world := WorldState.create(1010+i)
+		story_world["currentRegionId"] = str(spec.region)
+		story_world["hero"] = {"class":"warrior","level":50,"inventory":[],"activeCampaignMission":str(spec.mission)}
+		var normalized_hero := Combat.ensure_hero(story_world)
+		var story_message := Combat._claim_story_dragon_reward(story_world,normalized_hero,str(spec.enemy),str(spec.region))
+		if story_message.is_empty() or story_world.get("storyDragons",{}).get(str(spec.flag),false)!=true or story_world.get("storyShards",{}).get(str(spec.shard),false)!=true or not normalized_hero.inventory.any(func(item): return str(item.get("id",""))==str(spec.item)):
+			failures.append("finale %s must grant its matching story flag, shard and quest item" % str(spec.mission))
+
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
