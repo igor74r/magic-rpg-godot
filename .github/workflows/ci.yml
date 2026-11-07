@@ -1,0 +1,266 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, global-edition, 'work/**', 'feature/**' ]
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    name: Verify (syntax + imports + smoke load)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Syntax check all JavaScript modules and scripts
+        run: |
+          find . \( -name "*.js" -o -name "*.mjs" \) -not -path "./.git/*" -not -path "./node_modules/*" -print0 | xargs -0 -n 1 node --check
+
+      - name: Check relative imports and named exports
+        run: node scripts/check-imports.mjs
+
+      - name: Check GameAPI contract
+        run: node scripts/check-gameapi.mjs
+
+      - name: Check character selection and confirmation flow
+        run: node scripts/check-character-creation.mjs
+
+      - name: Check character creation rollback when storage fails
+        run: node scripts/check-character-save-transaction.mjs
+
+      - name: Check achievement rollback when storage fails
+        run: node scripts/check-achievement-save-transaction.mjs
+
+      - name: Check runtime error and resource diagnostics
+        run: node scripts/check-runtime-diagnostics.mjs
+
+      - name: Check startup fallback and inline bootstrap syntax
+        run: node scripts/check-startup-fallback.mjs
+
+      - name: Run module smoke test
+        run: node scripts/smoke-load.mjs
+
+      - name: Run boot smoke test
+        run: node scripts/smoke-boot.mjs
+
+      - name: Check economy and campaign rewards
+        run: node scripts/check-economy.mjs
+
+      - name: Check daily quest save integrity and rewards
+        run: node scripts/check-daily-quests.mjs
+
+      - name: Check item rarity distribution
+        run: node scripts/check-rarity.mjs
+
+      - name: Check combat status effects and skipped turns
+        run: node scripts/check-combat-status.mjs
+
+      - name: Check adaptive enemy combat AI
+        run: node scripts/check-adaptive-enemy-ai.mjs
+
+      - name: Check spell critical combat feedback
+        run: node scripts/check-spell-critical.mjs
+
+      - name: Check enemy weaknesses and resistances
+        run: node scripts/check-enemy-matchups.mjs
+
+      - name: Check combat damage, mitigation and critical formula bounds
+        run: node scripts/check-combat-formulas.mjs
+
+      - name: Check elemental magic and reactions
+        run: node scripts/check-elemental-magic.mjs
+
+      - name: Check combat specials, defeat, rewards and floor progression
+        run: node scripts/check-combat-progression.mjs
+
+      - name: Check chest reward rollback on save failure
+        run: node scripts/check-chest-save.mjs
+
+      - name: Check crafting order claim rollback on save failure
+        run: node scripts/check-crafting-jobs.mjs
+
+      - name: Check passive trees and respec
+        run: node scripts/check-passives.mjs
+
+      - name: Check passive tree UI accessibility and controls
+        run: node scripts/check-passive-ui.mjs
+
+      - name: Check class talents and legacy compatibility
+        run: node scripts/check-class-talents.mjs
+
+      - name: Check settings migration and defaults
+        run: node scripts/check-settings.mjs
+
+      - name: Check save migrations and future-version safety
+        run: node scripts/check-save-migrations.mjs
+      - name: Check v18 world state, deterministic generation, factions and event lifecycle
+        run: node scripts/check-world-foundation.mjs
+      - name: Check persistent region state across visits
+        run: node scripts/check-world-region-persistence.mjs
+      - name: Check persistent world-event runtime
+        run: node scripts/check-world-events-runtime.mjs
+      - name: Check faction and world-event status UI
+        run: node scripts/check-world-status-ui.mjs
+
+      - name: Check combat actions for all playable classes
+        run: node scripts/check-combat-actions.mjs
+
+      - name: Check world map route guidance, lock details and expanded layout
+        run: node scripts/check-map-navigation.mjs
+
+      - name: Check interactive portal world atlas and legacy list removal
+        run: node scripts/check-portal-world-map.mjs
+      - name: Check connected open-world navigation
+        run: node scripts/check-world-map-navigation.mjs
+
+      - name: Check story location level gates and ordered route
+        run: node scripts/check-story-location-gates.mjs
+
+      - name: Check story dragon spawn restrictions
+        run: node scripts/check-story-dragon-spawns.mjs
+
+      - name: Check five act mini-bosses, gates and shard-free rewards
+        run: node scripts/check-story-mini-bosses.mjs
+
+      - name: Check mini-boss trophies, act-gated relic crafting and save rollback
+        run: node scripts/check-mini-boss-trophies.mjs
+
+      - name: Check campaign journal and locked mission guidance
+        run: node scripts/check-campaign-journal.mjs
+
+      - name: Check complete five-act campaign progression
+        run: |
+          node scripts/check-campaign-full.mjs
+          node scripts/check-campaign-playthrough.mjs
+
+      - name: Check New Game Plus gates and carry-over
+        run: node scripts/check-ngplus.mjs
+
+      - name: Check tower and rift record rollback on save failure
+        run: node scripts/check-record-save.mjs
+
+      - name: Check endgame enemy and difficulty scaling
+        run: node scripts/check-endgame-balance.mjs
+
+      - name: Check offline-only runtime contract
+        run: node scripts/check-offline.mjs
+
+      - name: Check inventory, affixes and crafting
+        run: node scripts/check-inventory-affixes.mjs
+
+      - name: Check inventory UI search, sorting and responsive layout
+        run: node scripts/check-inventory-ui-enhancements.mjs
+
+      - name: Check overflow loot persistence and claiming
+        run: node scripts/check-loot-overflow.mjs
+
+      - name: Check inventory sale safeguards and buyback
+        run: node scripts/check-sale.mjs
+
+      - name: Check equipment swaps, capacity and rune sockets
+        run: node scripts/check-equipment.mjs
+
+      - name: Check accessible keyboard tab navigation
+        run: node scripts/check-accessibility.mjs
+
+      - name: Check effective stat stacking and combat caps
+        run: node scripts/check-stats.mjs
+
+      - name: Check experience progression and invalid rewards
+        run: node scripts/check-progression.mjs
+
+      - name: Check five-act story depth and enemy roster
+        run: node scripts/check-story-depth.mjs
+
+      - name: Check visual assets and responsive UI
+        run: node scripts/check-visual-assets.mjs
+
+      - name: Check PNG world atlas manifest and dimensions
+        run: node scripts/check-world-atlas-enrichment.mjs
+
+      - name: Check overworld movement timing and diagonal speed
+        run: node scripts/check-overworld-movement.mjs
+
+      - name: Check frame-rate independent overworld camera follow
+        run: node scripts/check-overworld-camera.mjs
+
+      - name: Check player footprint and swept collision
+        run: node scripts/check-overworld-collision.mjs
+
+      - name: Check overworld enemy behavior and steering
+        run: node scripts/check-overworld-enemy-ai.mjs
+      - name: Check coordinated overworld enemy group behavior
+        run: node scripts/check-overworld-enemy-groups.mjs
+      - name: Check enemy combat roles and tactical telegraphs
+        run: node scripts/check-enemy-tactics.mjs
+      - name: Check boss intelligence and multi-phase dragon encounters
+        run: node scripts/check-boss-intelligence.mjs
+
+      - name: Check boss phase HUD and special attack warnings
+        run: node scripts/check-combat-boss-ui.mjs
+
+      - name: Check combat visual effects, boss signatures and block counters
+        run: node scripts/check-combat-visuals.mjs
+
+      - name: Check overworld maps and region collision
+        run: node scripts/check-overworld-map.mjs
+
+      - name: Check secret exploration and world-event save safety
+        run: node scripts/check-world-exploration.mjs
+
+      - name: Check Aurora village layout, portals and building collision
+        run: node scripts/check-village-layout.mjs
+
+      - name: Check save-to-menu and slot-load overworld lifecycle
+        run: node scripts/check-save-menu-lifecycle.mjs
+      - name: Check save-and-return-to-village pause flow
+        run: node scripts/check-pause-village-flow.mjs
+
+      - name: Check refreshed RPG dashboard layout and responsive structure
+        run: node scripts/check-dashboard-refresh.mjs
+
+      - name: Check dashboard modal recovery from orphaned overlays
+        run: node scripts/check-dashboard-modal-recovery.mjs
+
+      - name: Check render and autosave lifecycle
+        run: node scripts/check-render-lifecycle.mjs
+
+      - name: Check unified overworld depth sorting
+        run: node scripts/check-render-depth-order.mjs
+
+      - name: Check NPC service guards
+        run: node scripts/check-npc-services.mjs
+
+      - name: Check safe save import
+        run: node scripts/check-import-save.mjs
+
+      - name: Check safe rendering of player data
+        run: node scripts/check-safe-rendering.mjs
+
+      - name: Install Playwright for real-browser checks
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run desktop and mobile browser smoke checks
+        run: node scripts/browser-smoke.mjs
+
+      - name: Run desktop and mobile gameplay visual regression checks
+        run: node scripts/browser-visual-regression.mjs
+
+      - name: Upload visual regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-visual-regression-screenshots
+          path: test-artifacts/visual-regression/*.png
+          if-no-files-found: ignore
+          retention-days: 14
