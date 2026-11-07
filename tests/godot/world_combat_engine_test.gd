@@ -5,6 +5,12 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	var rarity_hero := {"inventory":[{"id":"root-fiber","qty":2}]}
+	if not Combat.add_item(rarity_hero,"root-fiber",1,"rare") or rarity_hero.inventory.size()!=2 or str(rarity_hero.inventory[1].get("rarity",""))!="rare":
+		failures.append("rarity-bearing stack must not merge into an unrarified material stack")
+	if not Combat.add_item(rarity_hero,"root-fiber",2,"rare") or int(rarity_hero.inventory[1].get("qty",0))!=3:
+		failures.append("items with matching rarity must still stack together")
+
 	if Combat.progression_exp_next(1) != 125 or Combat.progression_exp_next(11) != 259 or Combat.progression_exp_next(21) != 269 or Combat.progression_exp_next(31) != 369 or Combat.progression_exp_next(41) != 535 or Combat.progression_exp_next(51) != int(floor(535.0 * pow(51.0 / 50.0, 1.5))):
 		failures.append("native XP thresholds must match browser progression bands")
 	var progression_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":170,"maxMp":100,"hp":170,"mp":100,"attack":22,"defense":16,"str":18,"int":4,"wis":7,"con":16,"dex":6,"statPoints":0,"passivePoints":0,"luck":5.0}
