@@ -198,6 +198,17 @@ func _initialize() -> void:
 	var campaign_reward: Dictionary=Campaign.claim(campaign_hero)
 	if not campaign_reward.ok or not bool(campaign_hero.campaignClaimed.get("a1-m1",false)): failures.append("completed campaign mission must be claimable once")
 	if Campaign.claim(campaign_hero).ok or str(Campaign.get_next(campaign_hero).id)!="a1-m2": failures.append("campaign must advance after claimed mission")
+	var briar_access: Dictionary=Campaign.can_enter_location(campaign_hero,"briar-hollow")
+	var forest_access: Dictionary=Campaign.can_enter_location(campaign_hero,"forest")
+	if not bool(briar_access.allowed): failures.append("first story region must be open at the beginning")
+	if bool(forest_access.allowed) or str(forest_access.reason)!="level": failures.append("next story region must enforce its recommended level")
+	campaign_hero.level=3
+	forest_access=Campaign.can_enter_location(campaign_hero,"forest")
+	if bool(forest_access.allowed) or str(forest_access.reason)!="campaign" or str(forest_access.requiredMissionId)!="a1-m1": failures.append("story region must remain locked until its preceding mission is claimed")
+	campaign_hero.campaignClaimed["a1-m1"]=true
+	forest_access=Campaign.can_enter_location(campaign_hero,"forest")
+	if not bool(forest_access.allowed): failures.append("claiming the previous story mission must unlock the next region")
+	if not bool(Campaign.can_enter_location(campaign_hero,"village").allowed): failures.append("non-story hub regions must remain accessible")
 
 	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
 	var npc_world := {"seed":17,"hero":{"class":"warrior","level":1,"gold":30,"hp":50,"maxHp":100,"mp":0,"maxMp":0,"exp":0,"expNext":125,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0,"inventory":[],"buffs":[],"effects":[]}}

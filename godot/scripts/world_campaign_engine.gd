@@ -78,6 +78,62 @@ static func claim(hero: Dictionary) -> Dictionary:
 	hero.campaignClaimed[id]=true
 	hero.activeCampaignMission=""
 	return {"ok":true,"mission":mission,"reward":reward,"message":"Задание завершено: %s" % str(mission.title)}
+static func story_location_progression() -> Array:
+	var locations: Array = []
+	var seen: Dictionary = {}
+	var previous_mission_id := ""
+	var act_base_levels := [1, 11, 21, 31, 41]
+	for mission in Catalog.all_missions():
+		var mission_id := str(mission.get("id", ""))
+		var parts := mission_id.split("-")
+		if parts.size()!=2:
+			continue
+		var act_number := clampi(int(str(parts[0]).trim_prefix("a")),1,5)
+		var mission_index := maxi(0,int(str(parts[1]).trim_prefix("m"))-1)
+		var location_id := str(mission.get("locationId",""))
+		if location_id.is_empty():
+			continue
+		if not seen.has(location_id):
+			var required_level := mini(100,int(act_base_levels[act_number-1])+mission_index*2)
+			locations.append({
+				"id":location_id,
+				"sequence":locations.size()+1,
+				"actNumber":act_number,
+				"requiredLevel":required_level,
+				"unlockAfterMissionId":previous_mission_id,
+				"unlockMissionId":mission_id
+			})
+			seen[location_id]=true
+		previous_mission_id=mission_id
+	return locations
+
+
+static func story_location_requirement(location_id: String) -> Dictionary:
+	for requirement in story_location_progression():
+		if str(requirement.get("id",""))==location_id:
+			return requirement
+	return {}
+
+
+static func can_enter_location(hero: Dictionary, location_id: String) -> Dictionary:
+	ensure_state(hero)
+	var requirement := story_location_requirement(location_id)
+	var current_level := maxi(1,int(hero.get("level",1)))
+	if requirement.is_empty():
+		return {"allowed":true,"requirement":{},"currentLevel":current_level,"reason":""}
+	var level_allowed := current_level>=int(requirement.requiredLevel)
+	var previous_mission_id := str(requirement.get("unlockAfterMissionId",""))
+	var campaign_allowed := previous_mission_id.is_empty() or hero.campaignClaimed.get(previous_mission_id,false)==true
+	var reason := "" if level_allowed and campaign_allowed else "level" if not level_allowed else "campaign"
+	return {
+		"allowed":level_allowed and campaign_allowed,
+		"requirement":requirement,
+		"currentLevel":current_level,
+		"reason":reason,
+		"requiredMissionId":"" if campaign_allowed else previous_mission_id
+	}
+
+
 static func campaign_progress(hero: Dictionary) -> Dictionary:
 	ensure_state(hero)
 	var completed:=0

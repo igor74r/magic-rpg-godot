@@ -145,12 +145,22 @@ func _refresh_exploration() -> void:
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
 	var available := 0
+	var hero := CombatEngineScript.ensure_hero(world)
 	for region_id in exits:
 		if not WorldStateScript.can_travel(world, current, region_id):
 			continue
 		available += 1
 		var route_button := Button.new()
+		var story_access: Dictionary = CampaignScript.can_enter_location(hero,region_id)
 		route_button.text = _region_title(region_id)
+		if not bool(story_access.get("allowed",true)):
+			var requirement: Dictionary = story_access.get("requirement",{})
+			if str(story_access.get("reason",""))=="level":
+				route_button.text += " · уровень %d" % int(requirement.get("requiredLevel",1))
+			else:
+				var required_mission := CampaignScript.get_mission(str(story_access.get("requiredMissionId","")))
+				route_button.text += " · после: %s" % str(required_mission.get("title",story_access.get("requiredMissionId","сюжет")))
+			route_button.disabled = true
 		route_button.custom_minimum_size = Vector2(190, 48)
 		route_button.pressed.connect(_travel_to.bind(region_id))
 		routes_container.add_child(route_button)
@@ -729,6 +739,16 @@ func _close_combat() -> void:
 
 
 func _travel_to(region_id: String) -> void:
+	var hero := CombatEngineScript.ensure_hero(world)
+	var story_access: Dictionary = CampaignScript.can_enter_location(hero,region_id)
+	if not bool(story_access.get("allowed",true)):
+		var requirement: Dictionary = story_access.get("requirement",{})
+		if str(story_access.get("reason",""))=="level":
+			status_label.text = "Для этого региона нужен уровень %d." % int(requirement.get("requiredLevel",1))
+		else:
+			var required_mission := CampaignScript.get_mission(str(story_access.get("requiredMissionId","")))
+			status_label.text = "Сначала завершите сюжетное задание: %s." % str(required_mission.get("title","предыдущее задание"))
+		return
 	var previous := str(world.get("currentRegionId", "village"))
 	if not WorldStateScript.enter_region(world, region_id, previous):
 		status_label.text = "Не удалось пройти по этому пути."
