@@ -156,6 +156,17 @@ func _initialize() -> void:
 	if not reset_result.ok or int(reset_result.refunded)!=2 or int(passive_hero.passivePoints)!=2 or int(passive_hero.gold)!=500 or passive_hero.passives!=["start"]: failures.append("reset must cost 500 gold and refund all points")
 	var mage_passive := {"class":"mage","level":50,"passivePoints":1,"passives":["start"]}
 	if PassiveEngine.can_allocate(mage_passive,"warrior-might-1") or not PassiveEngine.can_allocate(mage_passive,"mage-fire-1"): failures.append("passive trees must be class-specific")
+	var talent_hero := {"class":"warrior","level":4,"gold":1000,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"talents":[]}
+	if PassiveEngine.can_take_talent(talent_hero,"w-berserker"): failures.append("class talent must enforce level tier")
+	talent_hero["level"]=5
+	if not PassiveEngine.can_take_talent(talent_hero,"w-berserker") or not PassiveEngine.can_take_talent(talent_hero,"w-guardian"): failures.append("both talent choices must be available before spending tier")
+	var talent_pick: Dictionary = PassiveEngine.take_talent(talent_hero,"w-guardian")
+	if not talent_pick.ok or int(talent_hero.maxHp)!=120 or not talent_hero.talents.has("w-guardian"): failures.append("guardian talent must apply HP multiplier")
+	if PassiveEngine.can_take_talent(talent_hero,"w-berserker"): failures.append("only one talent may be chosen per tier")
+	var talent_reset: Dictionary = PassiveEngine.reset_talents(talent_hero)
+	if not talent_reset.ok or int(talent_hero.maxHp)!=100 or int(talent_hero.gold)!=500 or not talent_hero.talents.is_empty(): failures.append("talent reset must reverse HP multiplier and cost 500 gold")
+	var legacy_priest := {"class":"priest","level":5,"talents":[]}
+	if not PassiveEngine.can_take_talent(legacy_priest,"p-light"): failures.append("legacy priest talents must remain supported")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

@@ -232,6 +232,23 @@ func _refresh_passives() -> void:
 	reset_button.disabled = learned == 0 or int(hero.gold) < 500
 	reset_button.pressed.connect(_reset_passives)
 	passives_container.add_child(reset_button)
+	var talent_title := Label.new()
+	talent_title.text = "КЛАССОВЫЕ ТАЛАНТЫ"
+	passives_container.add_child(talent_title)
+	var chosen_talents: Array = hero.get("talents", [])
+	var talent_summary := Label.new()
+	talent_summary.text = "Выбрано: %d · Тиры: уровни 5, 10, 15 и 20" % chosen_talents.size()
+	passives_container.add_child(talent_summary)
+	for talent in PassiveEngineScript.available_talents(hero):
+		var talent_button := Button.new()
+		talent_button.text = "%s %s — %s (ур. %d)" % [str(talent.icon),str(talent.name),str(talent.desc),int(talent.tier)]
+		talent_button.pressed.connect(_take_class_talent.bind(str(talent.id)))
+		passives_container.add_child(talent_button)
+	var reset_talents_button := Button.new()
+	reset_talents_button.text = "Сбросить таланты · 500 золота"
+	reset_talents_button.disabled = chosen_talents.is_empty() or int(hero.gold)<500
+	reset_talents_button.pressed.connect(_reset_class_talents)
+	passives_container.add_child(reset_talents_button)
 
 
 func _allocate_passive(node_id: String) -> void:
@@ -247,6 +264,19 @@ func _reset_passives() -> void:
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
 
+
+
+func _take_class_talent(talent_id: String) -> void:
+	var result: Dictionary = PassiveEngineScript.take_talent(CombatEngineScript.ensure_hero(world),talent_id)
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+func _reset_class_talents() -> void:
+	var result: Dictionary = PassiveEngineScript.reset_talents(CombatEngineScript.ensure_hero(world))
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
 
 func _select_hero_class(class_id: String) -> void:
 	var result := CombatEngineScript.select_class(world,class_id)
