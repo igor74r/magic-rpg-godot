@@ -29,11 +29,18 @@ func _initialize()->void:
 	var forged:=enemy.duplicate(true)
 	forged["persistentId"]="forged-tower-enemy"
 	if Tower.sync_encounter(world,forged): failures.append("forged Tower enemy identity must not sync")
+	var wrong_enemy_id:=enemy.duplicate(true)
+	wrong_enemy_id["enemyId"]="forged-enemy"
+	if bool(Tower.complete_encounter(world,wrong_enemy_id).get("ok",false)): failures.append("forged Tower enemy type must not complete an encounter")
+	var wrong_floor:=enemy.duplicate(true)
+	wrong_floor["towerFloor"]=2
+	if bool(Tower.complete_encounter(world,wrong_floor).get("ok",false)): failures.append("enemy from another Tower floor must not complete an encounter")
 	if bool(Tower.complete_encounter(world,enemy).get("ok",false)): failures.append("live Tower enemy must not complete an encounter")
 	enemy["hp"]=0
 	enemy["dead"]=true
 	var result:=Tower.complete_encounter(world,enemy)
 	if not bool(result.get("ok",false)): failures.append("victory advances floor queue")
+	if bool(Tower.complete_encounter(world,enemy).get("ok",false)): failures.append("the same Tower victory must not advance the queue twice")
 	var resumed_state:=WorldState.normalize(world,4455)
 	if not bool(resumed_state.towerRun.get("active",false)) or int(resumed_state.towerRun.get("enemyIndex",0))!=1:
 		failures.append("active tower save must allow already defeated enemies in its queue")
