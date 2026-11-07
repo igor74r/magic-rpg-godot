@@ -231,6 +231,21 @@ func _initialize() -> void:
 	var forge_world := {"hero":{"class":"warrior","level":1,"gold":30,"inventory":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"forgeLevel":0}},"campaignClaimed":{}}}
 	var forge_result: Dictionary=Npc.upgrade_equipment(forge_world,"weapon")
 	if not forge_result.ok or int(forge_world.hero.gold)!=0 or int(forge_world.hero.equipped.weapon.forgeLevel)!=1 or int(forge_world.hero.equipped.weapon.bonus.attack)!=8: failures.append("blacksmith upgrade must charge 30 gold and apply five-percent bonus rounding")
+
+	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
+	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
+	var dialogue_world := {"hero":{"class":"warrior","level":1,"gold":2,"inventory":[],"equipped":{},"campaignClaimed":{}}}
+	var greeting_a: Dictionary=NpcEngine.talk(dialogue_world,"guard")
+	var greeting_b: Dictionary=NpcEngine.talk(dialogue_world,"guard")
+	if str(greeting_a.message)==str(greeting_b.message): failures.append("NPC greetings must rotate instead of repeating a fixed line")
+	if int(dialogue_world.npcDialogueCounts.guard)!=2: failures.append("NPC dialogue counters must persist in world state")
+	var rumor: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"herald","treasure")
+	if not rumor.ok or not str(rumor.message).contains("тайникам"): failures.append("herald treasure choice must return its matching dialogue branch")
+	var invalid_choice: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"guard","not-a-choice")
+	if invalid_choice.ok: failures.append("unknown dialogue branches must be rejected")
+	var poor_kids: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
+	if poor_kids.ok or int(dialogue_world.hero.gold)!=2: failures.append("kids coin choice must not spend gold when unaffordable")
+	if NpcCatalog.map_locations().size()!=NpcCatalog.ids().size(): failures.append("all village NPCs must have authored map coordinates")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

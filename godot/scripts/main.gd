@@ -135,7 +135,7 @@ func _refresh_exploration() -> void:
 	var world_seed := int(world.get("seed", 1))
 	var visit_index := int(visits.get(current, 1))
 	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
-	map_view.call("set_map", map_grid)
+	map_view.call("set_map", map_grid)\n\t_refresh_map_npcs(current)\n\tif not map_view.npc_clicked.is_connected(_on_map_npc_clicked): map_view.npc_clicked.connect(_on_map_npc_clicked)
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	_refresh_inventory()
 	for child in routes_container.get_children():
@@ -345,7 +345,7 @@ func _refresh_npcs() -> void:
 func _talk_to_npc(npc_id: String) -> void:
 	for child in npc_container.get_children():
 		if child is Button and child.name=="NpcAction": child.queue_free()
-	var result: Dictionary=NpcEngineScript.talk(npc_id)
+	var result: Dictionary=NpcEngineScript.talk(world,npc_id)
 	status_label.text=str(result.get("message",""))
 	var hero:=CombatEngineScript.ensure_hero(world)
 	if npc_id=="elder":
@@ -372,6 +372,40 @@ func _talk_to_npc(npc_id: String) -> void:
 	elif npc_id=="alchemist":
 		_add_npc_action("Открыть алхимические рецепты","alchemy")
 	WorldStateRepositoryScript.save_world(world)
+
+
+
+func _refresh_map_npcs(region_id: String) -> void:
+	if region_id!="village":
+		map_view.call("set_npcs",[])
+		return
+	var locations: Dictionary=NpcCatalogScript.map_locations()
+	var markers: Array=[]
+	for npc_id in NpcCatalogScript.ids():
+		if not locations.has(npc_id): continue
+		var npc: Dictionary=NpcCatalogScript.get_npc(str(npc_id))
+		markers.append({"id":str(npc_id),"cell":locations[npc_id],"emoji":str(npc.get("emoji","✦")),"short":str(npc.get("name",npc_id)).split(" ")[0]})
+	map_view.call("set_npcs",markers)
+
+
+func _on_map_npc_clicked(npc_id: String) -> void:
+	_talk_to_npc(npc_id)
+
+
+func _add_dialogue_choice(npc_id: String,choice_id: String,label_text: String) -> void:
+	var button:=Button.new()
+	button.name="NpcAction"
+	button.text="↳ "+label_text
+	button.pressed.connect(_choose_npc_dialogue.bind(npc_id,choice_id))
+	npc_container.add_child(button)
+
+
+func _choose_npc_dialogue(npc_id: String,choice_id: String) -> void:
+	var result: Dictionary=NpcEngineScript.choose_dialogue(world,npc_id,choice_id)
+	status_label.text=str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+	_talk_to_npc(npc_id)
 
 
 func _add_npc_action(label_text: String,action: String) -> void:

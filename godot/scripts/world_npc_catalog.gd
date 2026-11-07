@@ -6,3 +6,14 @@ static func ids() -> Array:
 	return NPCS.keys()
 static func get_npc(npc_id: String) -> Dictionary:
 	return NPCS.get(npc_id, {}).duplicate(true)
+
+const MAP_LOCATIONS := {
+	"elder": Vector2i(20, 13), "healer": Vector2i(12, 14),
+	"well": Vector2i(7, 9), "bard": Vector2i(28, 15),
+	"blacksmith": Vector2i(33, 10), "alchemist": Vector2i(10, 22),
+	"merchant": Vector2i(30, 22), "guard": Vector2i(20, 4),
+	"cat": Vector2i(15, 15), "kids": Vector2i(25, 15),
+	"herald": Vector2i(20, 24), "questBoard": Vector2i(17, 15)
+}
+static func map_locations() -> Dictionary:
+	return MAP_LOCATIONS.duplicate(true)
