@@ -12,8 +12,9 @@ static func ensure_state(hero: Dictionary) -> void:
 	var claimed: Dictionary=hero.campaignClaimed
 	for mission in Catalog.all_missions():
 		var id:=str(mission.id)
-		kills[id]=maxi(0,int(kills.get(id,0)))
-		claimed[id]=claimed.get(id,false)==true
+		var raw_kills: Variant = kills.get(id, 0)
+		kills[id] = raw_kills if raw_kills is int and raw_kills >= 0 else 0
+		claimed[id] = claimed.get(id, false) == true
 	hero["campaignKills"]=kills
 	hero["campaignClaimed"]=claimed
 	if not hero.get("activeCampaignMission",null) is String: hero["activeCampaignMission"]=""

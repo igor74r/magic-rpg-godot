@@ -12,6 +12,20 @@ func _run() -> void:
 	var failures: Array[String] = []
 	var hero: Dictionary = {"level": 1}
 
+	var malformed_progress: Dictionary = {
+		"campaignKills": {"a1-m1": "3", "a1-m2": true, "a1-m3": -2},
+		"campaignClaimed": {"a1-m1": "yes"}
+	}
+	Campaign.ensure_state(malformed_progress)
+	if int(malformed_progress.campaignKills.get("a1-m1", -1)) != 0:
+		failures.append("string kill counters must be normalized to zero")
+	if int(malformed_progress.campaignKills.get("a1-m2", -1)) != 0:
+		failures.append("boolean kill counters must be normalized to zero")
+	if int(malformed_progress.campaignKills.get("a1-m3", -1)) != 0:
+		failures.append("negative kill counters must be normalized to zero")
+	if bool(malformed_progress.campaignClaimed.get("a1-m1", false)):
+		failures.append("non-boolean campaign claims must not be accepted")
+
 	var first_region := Campaign.can_enter_location(hero, "briar-hollow")
 	if not bool(first_region.get("allowed", false)):
 		failures.append("the first story region must be available to a new level-1 hero")
