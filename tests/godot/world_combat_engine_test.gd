@@ -170,6 +170,20 @@ func _initialize() -> void:
 	if not talent_reset.ok or int(talent_hero.maxHp)!=100 or int(talent_hero.gold)!=500 or not talent_hero.talents.is_empty(): failures.append("talent reset must reverse HP multiplier and cost 500 gold")
 	var legacy_priest := {"class":"priest","level":5,"talents":[]}
 	if not PassiveEngine.can_take_talent(legacy_priest,"p-light"): failures.append("legacy priest talents must remain supported")
+
+	var DailyQuest = preload("res://godot/scripts/world_daily_quest_engine.gd")
+	var daily_world := {"seed":12345,"hero":{"class":"warrior","level":1,"exp":0,"expNext":125,"gold":0,"hp":100,"maxHp":100,"maxMp":0,"mp":0,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0}}
+	var daily_list: Array = DailyQuest.get_quests(daily_world)
+	if daily_list.size()!=3: failures.append("daily quest generator must create three tasks")
+	DailyQuest.update_progress(daily_world,"kill","goblin",1)
+	var goblin_quest: Dictionary={}
+	for q in daily_world.dailyQuests.list:
+		if q.id=="q-kill-goblin":goblin_quest=q
+	if not goblin_quest.is_empty() and int(goblin_quest.current)!=1: failures.append("daily kill progress must track target enemy")
+	var claim_world := {"seed":12345,"hero":{"class":"warrior","level":1,"exp":0,"expNext":125,"gold":0,"hp":100,"maxHp":100,"maxMp":0,"mp":0,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0},"dailyQuests":{"date":DailyQuest.today_key(),"list":[{"id":"q-kill-any","current":10,"completed":true,"claimed":false,"gold":8,"exp":50},{"id":"q-kill-goblin","current":0},{"id":"q-kill-skeleton","current":0}]}}
+	var daily_claim: Dictionary=DailyQuest.claim(claim_world,"q-kill-any")
+	if not daily_claim.ok or int(claim_world.hero.gold)!=8 or int(claim_world.hero.exp)!=50: failures.append("daily quest claim must award gold and experience")
+	if DailyQuest.claim(claim_world,"q-kill-any").ok: failures.append("daily quest reward must not be claimed twice")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

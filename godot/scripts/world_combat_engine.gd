@@ -148,6 +148,10 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	combat["log"] = "\n".join(lines)
 	return {"ok": true, "message": combat.log, "result": combat.get("result", "")}
 
+static func grant_experience(hero: Dictionary,amount: int) -> int:
+	return _grant_experience(hero,amount)
+
+
 static func progression_exp_next(level: int) -> int:
 	if level < 1:
 		return 125
@@ -213,6 +217,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
+	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))

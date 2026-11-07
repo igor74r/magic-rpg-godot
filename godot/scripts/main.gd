@@ -11,6 +11,7 @@ const ClassCatalogScript = preload("res://godot/scripts/world_class_catalog.gd")
 const WorldItemCatalogScript = preload("res://godot/scripts/world_item_catalog.gd")
 const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd")
 const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
+const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -24,6 +25,7 @@ var encounters_container: VBoxContainer
 var combat_container: VBoxContainer
 var inventory_container: VBoxContainer
 var passives_container: VBoxContainer
+var daily_quests_container: VBoxContainer
 var combat_state: Dictionary = {}
 
 
@@ -78,6 +80,13 @@ func _build_exploration_ui() -> void:
 	passives_container = VBoxContainer.new()
 	passives_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(passives_container)
+	var daily_title := Label.new()
+	daily_title.text = "ЕЖЕДНЕВНЫЕ ПОРУЧЕНИЯ"
+	daily_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(daily_title)
+	daily_quests_container = VBoxContainer.new()
+	daily_quests_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(daily_quests_container)
 	combat_container = VBoxContainer.new()
 	combat_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(combat_container)
@@ -206,7 +215,36 @@ func _refresh_inventory() -> void:
 		else:
 			button.disabled = true
 		inventory_container.add_child(button)
+	_refresh_daily_quests()
 	_refresh_passives()
+
+
+func _refresh_daily_quests() -> void:
+	for child in daily_quests_container.get_children():
+		child.queue_free()
+	var quests: Array = DailyQuestScript.get_quests(world)
+	var title := Label.new()
+	title.text = "ЕЖЕДНЕВНЫЕ ЗАДАНИЯ · %s" % str(world.dailyQuests.date)
+	daily_quests_container.add_child(title)
+	for quest in quests:
+		var row := HBoxContainer.new()
+		var label := Label.new()
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.text = "%s — %d/%d · +%d золота / %d опыта" % [str(quest.text),int(quest.current),int(quest.max),int(quest.gold),int(quest.exp)]
+		row.add_child(label)
+		var button := Button.new()
+		button.text = "Получено" if bool(quest.claimed) else "Забрать" if bool(quest.completed) else "Выполняется"
+		button.disabled = not bool(quest.completed) or bool(quest.claimed)
+		button.pressed.connect(_claim_daily_quest.bind(str(quest.id)))
+		row.add_child(button)
+		daily_quests_container.add_child(row)
+
+
+func _claim_daily_quest(quest_id: String) -> void:
+	var result: Dictionary = DailyQuestScript.claim(world,quest_id)
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
 
 
 func _refresh_passives() -> void:
