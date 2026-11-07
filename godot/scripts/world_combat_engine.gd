@@ -4,6 +4,7 @@ extends RefCounted
 
 const WorldState = preload("res://godot/scripts/world_state.gd")
 const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
+const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -15,6 +16,13 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	hero["maxHp"] = clampi(int(hero.get("maxHp", class_data.maxHp)), 1, 999999)
 	hero["maxMp"] = clampi(int(hero.get("maxMp", class_data.maxMp)), 0, 999999)
 	hero["mp"] = clampi(int(hero.get("mp", hero.maxMp)), 0, hero.maxMp)
+	hero["inventory"] = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+	hero["equipped"] = hero.get("equipped", {}) if hero.get("equipped", {}) is Dictionary else {}
+	hero["pendingLoot"] = hero.get("pendingLoot", []) if hero.get("pendingLoot", []) is Array else []
+	if not bool(hero.get("inventoryInitialized", false)):
+		for item_id in class_data.get("startingItems", []):
+			add_item(hero, str(item_id), 1)
+		hero["inventoryInitialized"] = true
 	hero["cooldowns"] = hero.get("cooldowns", {}) if hero.get("cooldowns", {}) is Dictionary else {}
 	hero["buffs"] = hero.get("buffs", []) if hero.get("buffs", []) is Array else []
 	hero["spells"] = hero.get("spells", class_data.spells.duplicate()) if hero.get("spells", class_data.spells) is Array else class_data.spells.duplicate()
@@ -70,7 +78,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		return {"ok": false, "message": "Сейчас нельзя атаковать."}
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
-	var damage := maxi(1, int(hero.attack) - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+	var damage := maxi(1, effective_stat(hero, "attack") - int(floor(float(enemy.get("defense", 0)) / 2.0)))
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
 	if int(enemy.hp) <= 0:
@@ -101,7 +109,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		lines.append("Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold])
 	else:
 		combat["turn"] = "enemy"
-		var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
+		var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
 		var special: Dictionary = enemy.get("special", {})
@@ -192,7 +200,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			world["hero"] = hero
 			return {"ok":true,"message":combat.log}
 		_:
-			damage = int(hero.attack)
+			damage = effective_stat(hero, "attack")
 			if kind == "meteor":
 				damage = int(round(float(damage) * 2.5))
 			elif kind == "critical":
@@ -263,7 +271,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		hero["buffs"].append({"id":"defense_buff","duration":2})
 		lines.append("Защита усилена на 2 хода.")
 	else:
-		var damage := maxi(1, int(spell.get("damage", 0)) - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+		var damage := maxi(1, int(spell.get("damage", 0)) + effective_stat(hero, "magic") - int(floor(float(enemy.get("defense", 0)) / 2.0)))
 		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
 			damage = int(round(float(damage) * 1.2))
 			_remove_effect(enemy, "slow")
@@ -307,6 +315,121 @@ static func _remove_effect(target: Dictionary, effect_id: String) -> void:
 	var effects: Array = target.get("effects", [])
 	effects = effects.filter(func(effect): return str(effect.get("id", "")) != effect_id)
 	target["effects"] = effects
+
+
+
+static func effective_stat(hero: Dictionary, stat: String) -> int:
+	var total := int(hero.get(stat, 0))
+	var equipped: Dictionary = hero.get("equipped", {})
+	for instance in equipped.values():
+		if instance == null:
+			continue
+		var item_id := str(instance if instance is String else instance.get("id", ""))
+		var item: Dictionary = ItemCatalog.get_item(item_id)
+		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
+		if instance is Dictionary:
+			for key in instance.get("bonus", {}):
+				bonus[key] = int(bonus.get(key, 0)) + int(instance.bonus[key])
+		for key in bonus:
+			if str(key) == stat:
+				total += int(bonus[key])
+	return total
+
+static func add_item(hero: Dictionary, item_id: String, quantity: int = 1) -> bool:
+	var item := ItemCatalog.get_item(item_id)
+	if item.is_empty() or quantity < 1:
+		return false
+	var inventory: Array = hero.get("inventory", [])
+	var stackable := str(item.get("type", "")) in ["consumable","scroll","quest","material","rune"]
+	if stackable:
+		for instance in inventory:
+			if str(instance.get("id", "")) == item_id and not instance.has("rarity"):
+				instance["qty"] = int(instance.get("qty", 1)) + quantity
+				hero["inventory"] = inventory
+				return true
+		inventory.append({"id":item_id,"qty":quantity})
+	else:
+		for index in range(quantity):
+			inventory.append({"id":item_id,"qty":1,"bonus":item.get("bonus",{}).duplicate(true),"runes":[],"sockets":int(item.get("sockets",0))})
+	hero["inventory"] = inventory
+	return true
+
+static func remove_item(hero: Dictionary, item_id: String, quantity: int = 1) -> bool:
+	var inventory: Array = hero.get("inventory", [])
+	var total := 0
+	for instance in inventory:
+		if str(instance.get("id","")) == item_id:
+			total += int(instance.get("qty",1))
+	if quantity < 1 or total < quantity:
+		return false
+	var remaining := quantity
+	for index in range(inventory.size()-1,-1,-1):
+		var instance: Dictionary = inventory[index]
+		if str(instance.get("id","")) != item_id:
+			continue
+		var count := int(instance.get("qty",1))
+		var used := mini(count,remaining)
+		remaining -= used
+		if used == count:
+			inventory.remove_at(index)
+		else:
+			instance["qty"] = count-used
+	hero["inventory"] = inventory
+	return remaining == 0
+
+static func use_item(world: Dictionary, item_id: String) -> Dictionary:
+	var hero := ensure_hero(world)
+	var item := ItemCatalog.get_item(item_id)
+	if item.is_empty() or not ["consumable","scroll"].has(str(item.get("type",""))):
+		return {"ok":false,"message":"Этот предмет нельзя использовать."}
+	if bool(item.get("combatOnly",false)):
+		return {"ok":false,"message":"Этот предмет можно использовать только в бою."}
+	if str(item.get("type","")) == "scroll":
+		var spell_id := str(item.get("spellId",""))
+		var spells: Array = hero.get("spells",[])
+		if spell_id.is_empty() or spells.has(spell_id):
+			return {"ok":false,"message":"Этот свиток уже изучен."}
+		spells.append(spell_id)
+		hero["spells"] = spells
+	elif item_id.contains("health-potion"):
+		var amount := 360 if item_id == "greater-health-potion" else 200 if item_id == "strong-health-potion" else 80
+		hero["hp"] = mini(int(hero.maxHp), int(hero.hp)+amount)
+	elif item_id.contains("mana-potion"):
+		var amount := 220 if item_id == "greater-mana-potion" else 120 if item_id == "strong-mana-potion" else 50
+		hero["mp"] = mini(int(hero.maxMp), int(hero.mp)+amount)
+	else:
+		return {"ok":false,"message":"Эффект предмета пока не поддерживается."}
+	remove_item(hero,item_id)
+	world["hero"] = hero
+	return {"ok":true,"message":"Использовано: %s." % str(item.name)}
+
+static func equip_item(world: Dictionary, inventory_index: int) -> Dictionary:
+	var hero := ensure_hero(world)
+	var inventory: Array = hero.get("inventory", [])
+	if inventory_index < 0 or inventory_index >= inventory.size():
+		return {"ok":false,"message":"Предмет не найден."}
+	var instance: Dictionary = inventory[inventory_index]
+	var item := ItemCatalog.get_item(str(instance.get("id","")))
+	var item_type := str(item.get("type",""))
+	var slot := ""
+	for candidate in ItemCatalog.SLOT_TYPES:
+		if ItemCatalog.SLOT_TYPES[candidate].has(item_type):
+			slot = str(candidate)
+			break
+	if item_type == "ring":
+		slot = "ring1" if hero.equipped.get("ring1",null) == null else "ring2"
+	if slot.is_empty():
+		return {"ok":false,"message":"Этот предмет нельзя надеть."}
+	var equipped: Dictionary = hero.get("equipped", {})
+	var previous = equipped.get(slot,null)
+	inventory.remove_at(inventory_index)
+	if previous != null:
+		inventory.append(previous)
+	equipped[slot] = instance
+	hero["inventory"] = inventory
+	hero["equipped"] = equipped
+	world["hero"] = hero
+	return {"ok":true,"message":"Экипировано: %s." % str(item.name)}
 
 
 static func retreat(combat: Dictionary) -> bool:

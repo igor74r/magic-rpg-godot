@@ -47,5 +47,8 @@ jobs:
       - name: Test class abilities and spells
         run: godot --headless --path . --script res://tests/godot/world_combat_engine_test.gd
 
+      - name: Test native inventory and equipment
+        run: godot --headless --path . --script res://tests/godot/world_combat_engine_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2

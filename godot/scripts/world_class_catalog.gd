@@ -6,7 +6,7 @@ const CLASSES := {
 	"warrior": {
 		"name": "Воин", "emoji": "⚔️", "maxHp": 170, "maxMp": 100,
 		"attack": 22, "defense": 16, "resourceName": "Ярость",
-		"spells": [],
+		"spells": [], "startingItems": ["iron-sword","tower-shield","health-potion"],
 		"abilities": [
 			{"id":"charge","name":"Сокрушительный рывок","cost":20,"cooldown":2,"kind":"next_double"},
 			{"id":"war-cry","name":"Боевой клич","cost":20,"cooldown":4,"kind":"attack_buff"},
@@ -17,7 +17,7 @@ const CLASSES := {
 	"mage": {
 		"name": "Маг", "emoji": "🧙", "maxHp": 105, "maxMp": 180,
 		"attack": 12, "defense": 7, "resourceName": "Мана",
-		"spells": ["fireball","ice-bolt","lightning","poison-cloud","arcane-surge","frost-nova","shadow-lance","renewal"],
+		"spells": ["fireball","ice-bolt"], "startingItems": ["apprentice-staff","mana-potion","health-potion"],
 		"abilities": [
 			{"id":"mana-shield","name":"Барьер маны","cost":20,"cooldown":3,"kind":"defense_buff"},
 			{"id":"teleport","name":"Скачок сквозь эфир","cost":25,"cooldown":4,"kind":"dodge"},
@@ -28,7 +28,7 @@ const CLASSES := {
 	"archer": {
 		"name": "Лучник", "emoji": "🏹", "maxHp": 125, "maxMp": 100,
 		"attack": 20, "defense": 10, "resourceName": "Концентрация",
-		"spells": ["poison-arrow"],
+		"spells": ["poison-arrow"], "startingItems": ["hunter-bow","leather-armor","health-potion"],
 		"abilities": [
 			{"id":"aimed-shot","name":"Меткий выстрел","cost":20,"cooldown":2,"kind":"critical"},
 			{"id":"evasion","name":"Уклонение","cost":15,"cooldown":3,"kind":"dodge"},

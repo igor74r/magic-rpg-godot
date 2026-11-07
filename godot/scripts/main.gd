@@ -8,6 +8,7 @@ const EncounterGeneratorScript = preload("res://godot/scripts/world_encounter_ge
 const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd")
 const CombatEngineScript = preload("res://godot/scripts/world_combat_engine.gd")
 const ClassCatalogScript = preload("res://godot/scripts/world_class_catalog.gd")
+const WorldItemCatalogScript = preload("res://godot/scripts/world_item_catalog.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -19,6 +20,7 @@ var detail_label: Label
 var map_view: Control
 var encounters_container: VBoxContainer
 var combat_container: VBoxContainer
+var inventory_container: VBoxContainer
 var combat_state: Dictionary = {}
 
 
@@ -59,6 +61,13 @@ func _build_exploration_ui() -> void:
 	encounters_container = VBoxContainer.new()
 	encounters_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(encounters_container)
+	var inventory_title := Label.new()
+	inventory_title.text = "ИНВЕНТАРЬ И СНАРЯЖЕНИЕ"
+	inventory_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(inventory_title)
+	inventory_container = VBoxContainer.new()
+	inventory_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(inventory_container)
 	combat_container = VBoxContainer.new()
 	combat_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(combat_container)
@@ -90,6 +99,7 @@ func _refresh_exploration() -> void:
 	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
 	map_view.call("set_map", map_grid)
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
+	_refresh_inventory()
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
@@ -153,6 +163,45 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 	encounters_container.add_child(summary)
 
 
+
+func _refresh_inventory() -> void:
+	for child in inventory_container.get_children():
+		child.queue_free()
+	var hero := CombatEngineScript.ensure_hero(world)
+	var heading := Label.new()
+	heading.text = "HP %d/%d · Ресурс %d/%d · Предметов: %d" % [int(hero.hp),int(hero.maxHp),int(hero.mp),int(hero.maxMp),hero.inventory.size()]
+	inventory_container.add_child(heading)
+	for index in range(hero.inventory.size()):
+		var instance: Dictionary = hero.inventory[index]
+		var item := WorldItemCatalogScript.get_item(str(instance.get("id","")))
+		if item.is_empty():
+			continue
+		var button := Button.new()
+		button.text = "%s %s ×%d" % [str(item.get("icon","")),str(item.get("name","Предмет")),int(instance.get("qty",1))]
+		var item_type := str(item.get("type",""))
+		if item_type in ["weapon","head","shoulders","chest","gloves","legs","boots","shield","ring","amulet","cloak","armor"]:
+			button.pressed.connect(_equip_inventory_item.bind(index))
+		elif item_type in ["consumable","scroll"]:
+			button.pressed.connect(_use_inventory_item.bind(str(instance.id)))
+		else:
+			button.disabled = true
+		inventory_container.add_child(button)
+
+
+func _use_inventory_item(item_id: String) -> void:
+	var result := CombatEngineScript.use_item(world,item_id)
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
+func _equip_inventory_item(index: int) -> void:
+	var result := CombatEngineScript.equip_item(world,index)
+	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
 func _begin_combat(enemy: Dictionary) -> void:
 	combat_state = CombatEngineScript.begin(enemy)
 	_refresh_combat_ui()
@@ -214,6 +263,7 @@ func _combat_attack() -> void:
 	if error != OK:
 		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
 	_refresh_combat_ui()
+	_refresh_inventory()
 	if combat_state.get("over", false):
 		_refresh_exploration()
 
@@ -223,6 +273,7 @@ func _use_combat_ability(ability_id: String) -> void:
 	status_label.text = str(result.get("message", ""))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
+	_refresh_inventory()
 
 
 func _cast_combat_spell(spell_id: String) -> void:
@@ -230,6 +281,7 @@ func _cast_combat_spell(spell_id: String) -> void:
 	status_label.text = str(result.get("message", ""))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
+	_refresh_inventory()
 
 
 func _combat_retreat() -> void:

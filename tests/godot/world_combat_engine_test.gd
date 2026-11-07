@@ -56,6 +56,25 @@ func _initialize() -> void:
 	var invalid_spell := Combat.cast_spell(warrior_world, ability_fight, "fireball")
 	if invalid_spell.ok:
 		failures.append("classes must not cast spells they do not know")
+	var inventory_world := WorldState.create(994)
+	var inventory_hero := Combat.ensure_hero(inventory_world)
+	if inventory_hero.inventory.size() != 3:
+		failures.append("new warrior must receive the three authored starting items")
+	var initial_hp := int(inventory_hero.hp)
+	var potion_result := Combat.use_item(inventory_world,"health-potion")
+	if not potion_result.ok or int(inventory_world.hero.hp) < initial_hp:
+		failures.append("health potion must be consumed and restore health")
+	var equip_result := Combat.equip_item(inventory_world,0)
+	if not equip_result.ok or inventory_world.hero.equipped.get("weapon",null) == null:
+		failures.append("weapon must equip into its matching slot")
+	if Combat.effective_stat(inventory_world.hero,"attack") <= int(inventory_world.hero.attack):
+		failures.append("equipped weapon bonus must affect effective attack")
+	var scroll_world := WorldState.create(995)
+	var scroll_hero := Combat.ensure_hero(scroll_world)
+	Combat.add_item(scroll_hero,"scroll-lightning",1)
+	var scroll_result := Combat.use_item(scroll_world,"scroll-lightning")
+	if not scroll_result.ok or not scroll_world.hero.spells.has("lightning"):
+		failures.append("spell scroll must teach a spell and be consumed")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
