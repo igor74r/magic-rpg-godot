@@ -93,6 +93,23 @@ func _initialize() -> void:
 	var loot_result := Combat.player_attack(loot_world,loot_fight)
 	if not loot_result.ok or not loot_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion"):
 		failures.append("boss victory must guarantee its first signature drop")
+	var ability_reward_world := WorldState.create(998)
+	ability_reward_world["currentRegionId"] = "forest"
+	var ability_reward_hero := Combat.ensure_hero(ability_reward_world)
+	var ability_boss := {"name":"Босс от способности","enemyId":"shadow-mage","persistentId":"boss-ability-reward","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":37,"gold":19,"boss":true,"dead":false,"drops":["mana-potion"],"dropSeed":6789}
+	var ability_reward_fight := Combat.begin(ability_boss)
+	var ability_kill := Combat.use_ability(ability_reward_world, ability_reward_fight, "shield-bash")
+	if not ability_kill.ok or ability_reward_fight.result != "victory" or int(ability_reward_hero.exp) != 37 or int(ability_reward_hero.gold) != 19 or not ability_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not ability_reward_world.regions.forest.defeatedBosses.has("boss-ability-reward"):
+		failures.append("ability victory must award XP, gold, guaranteed boss loot and persist boss defeat")
+	var spell_reward_world := WorldState.create(999)
+	spell_reward_world["currentRegionId"] = "forest"
+	spell_reward_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
+	var spell_reward_hero := Combat.ensure_hero(spell_reward_world)
+	var spell_boss := {"name":"Босс от заклинания","enemyId":"shadow-mage","persistentId":"boss-spell-reward","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":41,"gold":23,"boss":true,"dead":false,"drops":["mana-potion"],"dropSeed":9876}
+	var spell_reward_fight := Combat.begin(spell_boss)
+	var spell_kill := Combat.cast_spell(spell_reward_world, spell_reward_fight, "fireball")
+	if not spell_kill.ok or spell_reward_fight.result != "victory" or int(spell_reward_hero.exp) != 41 or int(spell_reward_hero.gold) != 23 or not spell_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not spell_reward_world.regions.forest.defeatedBosses.has("boss-spell-reward"):
+		failures.append("spell victory must award XP, gold, guaranteed boss loot and persist boss defeat")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")

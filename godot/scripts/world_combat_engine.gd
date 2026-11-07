@@ -172,6 +172,50 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	combat["log"] = "\n".join(lines)
 	return {"ok": true, "message": combat.log, "result": combat.get("result", "")}
 
+static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
+	var hero := ensure_hero(world)
+	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
+	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
+	hero["exp"] = int(hero.exp) + reward_exp
+	hero["gold"] = int(hero.gold) + reward_gold
+	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
+	var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
+	var difficulty := str(world.get("difficulty", "normal"))
+	var base_drop_chance := 0.85 if bool(enemy.get("elite", false)) else 0.7 if difficulty == "easy" else 0.3 if difficulty == "hard" else 0.5
+	var luck := clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
+	var drop_chance := minf(1.0, base_drop_chance * (1.0 + luck * 0.005))
+	var drop_rng := RandomScript.new(int(enemy.get("dropSeed", RandomScript.derive_seed([world.get("seed", 1), enemy.get("persistentId", "")]))))
+	var dropped_names: Array[String] = []
+	for drop_index in range(drops.size()):
+		var should_drop := bool(enemy.get("boss", false)) and drop_index == 0
+		if not should_drop:
+			should_drop = drop_rng.next_float() < drop_chance
+		if should_drop:
+			var item_id := str(drops[drop_index])
+			if add_item(hero, item_id, 1):
+				var item_definition := ItemCatalog.get_item(item_id)
+				if not item_definition.is_empty():
+					dropped_names.append(str(item_definition.get("name", item_id)))
+	while int(hero.exp) >= int(hero.level) * 100 and int(hero.level) < 99:
+		hero["exp"] = int(hero.exp) - int(hero.level) * 100
+		hero["level"] = int(hero.level) + 1
+		hero["maxHp"] = int(hero.maxHp) + 12
+		hero["attack"] = int(hero.attack) + 2
+		hero["defense"] = int(hero.defense) + 1
+		hero["hp"] = int(hero.maxHp)
+	var region_id := str(world.get("currentRegionId", "village"))
+	var persistent_id := str(enemy.get("persistentId", ""))
+	if bool(enemy.get("boss", false)):
+		WorldState.mark_boss_defeated(world, region_id, persistent_id)
+	else:
+		WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+	world["hero"] = hero
+	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
+	if not dropped_names.is_empty():
+		message += "\nДобыча: %s." % ", ".join(dropped_names)
+	return message
+
+
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
 		return {"ok": false, "message": "Сейчас нельзя применить способность."}
@@ -251,13 +295,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			combat["result"] = "victory"
 			enemy["dead"] = true
 			enemy["state"] = "dead"
-			var region_id := str(world.get("currentRegionId", "village"))
-			var persistent_id := str(enemy.get("persistentId", ""))
-			if bool(enemy.get("boss", false)):
-				WorldState.mark_boss_defeated(world, region_id, persistent_id)
-			else:
-				WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
-			combat["log"] += "\nПобеда!"
+			combat["log"] += "\n" + _award_victory(world, enemy)
 		else:
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
@@ -311,13 +349,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			combat["over"] = true
 			combat["turn"] = "over"
 			combat["result"] = "victory"
-			var region_id := str(world.get("currentRegionId", "village"))
-			var persistent_id := str(enemy.get("persistentId", ""))
-			if bool(enemy.get("boss", false)):
-				WorldState.mark_boss_defeated(world, region_id, persistent_id)
-			else:
-				WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
-			lines.append("Победа!")
+			lines.append(_award_victory(world, enemy))
 		else:
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
