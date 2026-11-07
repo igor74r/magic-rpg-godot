@@ -190,6 +190,19 @@ func _initialize() -> void:
 		if not bool(shard_gate.shardFound):
 			failures.append("dragon reward must be visible to campaign shard requirements")
 
+	var tower_reward_world := WorldState.create(1003)
+	tower_reward_world["currentRegionId"] = "obsidian-fields"
+	tower_reward_world["hero"] = {"class":"warrior","level":30,"exp":0,"expNext":125,"maxHp":170,"hp":170,"maxMp":100,"mp":100,"attack":22,"defense":16,"str":18,"int":4,"wis":7,"con":16,"dex":6,"gold":0,"inventory":[],"equipped":{},"activeCampaignMission":"a3-m5","campaignKills":{},"campaignClaimed":{}}
+	var tower_reward_enemy := {"name":"Башенный Вестник","enemyId":"flame-lord","persistentId":"tower-reward-test","towerMode":true,"towerFloor":5,"hp":1,"maxHp":1,"attack":1,"defense":0,"exp":31,"gold":17,"boss":true,"dead":false,"drops":["shard-flame"],"dropSeed":222}
+	var tower_reward_fight := Combat.begin(tower_reward_enemy)
+	var tower_reward_result := Combat.player_attack(tower_reward_world,tower_reward_fight)
+	if not tower_reward_result.ok or int(tower_reward_world.hero.exp) != 31 or int(tower_reward_world.hero.gold) != 17:
+		failures.append("Tower victory must still award its authored XP and gold")
+	if tower_reward_world.get("storyDragons",{}).get("ash-herald",false) or tower_reward_world.get("storyShards",{}).get("flame",false) or tower_reward_world.hero.get("storyShards",{}).get("flame",false):
+		failures.append("Tower boss must not trigger campaign dragon story rewards")
+	if tower_reward_world.get("regions",{}).get("obsidian-fields",{}).get("defeatedBosses",[]).has("tower-reward-test"):
+		failures.append("Tower boss must not mark a regional campaign boss as defeated")
+
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")

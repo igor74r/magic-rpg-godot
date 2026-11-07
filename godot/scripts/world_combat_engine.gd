@@ -246,9 +246,11 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	if bool(enemy.get("riftMode", false)):
 		reward_gold = int(round(float(reward_gold) * float(enemy.get("riftGoldMult", 1.0))))
-	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
-	var campaign_message := "" if bool(enemy.get("riftMode", false)) else preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
-	var dragon_reward_message := "" if bool(enemy.get("riftMode", false)) else _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")))
+	var tower_mode := bool(enemy.get("towerMode", false))
+	if not tower_mode:
+		preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
+	var campaign_message := "" if bool(enemy.get("riftMode", false)) or tower_mode else preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
+	var dragon_reward_message := "" if bool(enemy.get("riftMode", false)) or tower_mode else _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")) )
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
@@ -272,10 +274,11 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 
 	var region_id := str(world.get("currentRegionId", "village"))
 	var persistent_id := str(enemy.get("persistentId", ""))
-	if bool(enemy.get("boss", false)):
-		WorldState.mark_boss_defeated(world, region_id, persistent_id)
-	else:
-		WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+	if not tower_mode:
+		if bool(enemy.get("boss", false)):
+			WorldState.mark_boss_defeated(world, region_id, persistent_id)
+		else:
+			WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
 	if not campaign_message.is_empty(): message += "\n" + campaign_message
