@@ -218,6 +218,19 @@ func _initialize() -> void:
 	Combat._award_victory(buff_world,{"enemyId":"goblin","persistentId":"npc-buff-test","exp":100,"gold":0,"hp":0,"maxHp":1,"dead":false,"boss":false,"drops":[],"dropSeed":1})
 	if int(buff_world.hero.exp)!=7 or int(buff_world.hero.level)!=2: failures.append("bard and elder buffs must multiply XP reward to 132 before level-up")
 	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
+
+	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
+	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
+	var purchase: Dictionary=Npc.buy_item(economy_world,"health-potion")
+	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
+	var sale: Dictionary=Npc.sell_item(economy_world,0)
+	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
+	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
+	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp")
+	if not craft_result.ok or str(craft_world.hero.inventory[0].id)!="health-potion": failures.append("alchemist must consume three life herbs and create a health potion")
+	var forge_world := {"hero":{"class":"warrior","level":1,"gold":30,"inventory":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"forgeLevel":0}},"campaignClaimed":{}}}
+	var forge_result: Dictionary=Npc.upgrade_equipment(forge_world,"weapon")
+	if not forge_result.ok or int(forge_world.hero.gold)!=0 or int(forge_world.hero.equipped.weapon.forgeLevel)!=1 or int(forge_world.hero.equipped.weapon.bonus.attack)!=8: failures.append("blacksmith upgrade must charge 30 gold and apply five-percent bonus rounding")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

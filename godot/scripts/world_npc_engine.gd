@@ -5,6 +5,7 @@ const Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
 const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const Catalog = preload("res://godot/scripts/world_npc_catalog.gd")
 const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
+const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
 static func talk(npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -96,7 +97,7 @@ const RECIPES := {
 }
 static func current_act(hero: Dictionary) -> int:
  var claimed: Dictionary=hero.get("campaignClaimed",{}) if hero.get("campaignClaimed",{}) is Dictionary else {}
- for mission in Campaign.MISSIONS:
+ for mission in CampaignCatalog.all_missions():
   if not bool(claimed.get(str(mission.id),false)): return clampi(int(mission.get("act",1)),1,5)
  return 5
 static func buy_item(world: Dictionary,item_id: String) -> Dictionary:

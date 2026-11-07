@@ -365,6 +365,12 @@ func _talk_to_npc(npc_id: String) -> void:
 		_add_npc_action("Испить воду · полное восстановление","well")
 	elif npc_id=="bard":
 		_add_npc_action("Заплатить 15 золота · +10% опыта","bard")
+	elif npc_id=="merchant":
+		_add_npc_action("Открыть ассортимент торговца","shop")
+	elif npc_id=="blacksmith":
+		_add_npc_action("Открыть кузницу и улучшения","forge")
+	elif npc_id=="alchemist":
+		_add_npc_action("Открыть алхимические рецепты","alchemy")
 	WorldStateRepositoryScript.save_world(world)
 
 
@@ -385,11 +391,108 @@ func _perform_npc_action(action: String) -> void:
 		"heal": result=NpcEngineScript.heal(world)
 		"well": result=NpcEngineScript.use_well(world)
 		"bard": result=NpcEngineScript.pay_bard(world)
+		"shop": _show_npc_shop()
+		"forge": _show_npc_forge()
+		"alchemy": _show_npc_alchemy()
 	status_label.text=str(result.get("message",""))
 	var save_error:=WorldStateRepositoryScript.save_world(world)
 	if save_error!=OK: status_label.text+="\nОшибка сохранения: %s" % error_string(save_error)
 	_refresh_inventory()
 	_refresh_npcs()
+
+
+
+func _show_npc_shop() -> void:
+	var hero:=CombatEngineScript.ensure_hero(world)
+	var multipliers: Array=[1.0,1.2,1.4,1.6,1.8]
+	var multiplier: float=multipliers[NpcEngineScript.current_act(hero)-1]
+	for item_id in NpcEngineScript.SHOP_STOCK:
+		var item: Dictionary=WorldItemCatalogScript.get_item(str(item_id))
+		if item.is_empty(): continue
+		var price:=maxi(1,int(round(float(item.get("price",0))*multiplier)))
+		var button:=Button.new()
+		button.name="NpcAction"
+		button.text="%s %s · %d золота" % [str(item.get("icon","📦")),str(item.get("name",item_id)),price]
+		button.disabled=int(hero.get("gold",0))<price
+		button.pressed.connect(_buy_from_npc.bind(str(item_id)))
+		npc_container.add_child(button)
+	for i in range(hero.inventory.size()):
+		var instance: Dictionary=hero.inventory[i]
+		var item:=WorldItemCatalogScript.get_item(str(instance.get("id","")))
+		if item.is_empty() or int(item.get("price",0))<=0: continue
+		var price:=maxi(1,int(floor(float(item.get("price",0))*0.35)))*int(instance.get("qty",1))
+		var button:=Button.new()
+		button.name="NpcAction"
+		button.text="Продать: %s · %d золота" % [str(item.get("name",instance.id)),price]
+		button.pressed.connect(_sell_to_npc.bind(i))
+		npc_container.add_child(button)
+
+
+func _buy_from_npc(item_id: String) -> void:
+	var result: Dictionary=NpcEngineScript.buy_item(world,item_id)
+	status_label.text=str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+	_show_npc_shop()
+
+
+func _sell_to_npc(index: int) -> void:
+	var result: Dictionary=NpcEngineScript.sell_item(world,index)
+	status_label.text=str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+	_show_npc_shop()
+
+
+func _show_npc_alchemy() -> void:
+	for recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
+		_add_recipe_button(recipe_id)
+
+
+func _show_npc_forge() -> void:
+	var hero:=CombatEngineScript.ensure_hero(world)
+	var equipped: Dictionary=hero.get("equipped",{})
+	var costs: Array=[30,75,140]
+	for slot in equipped:
+		var instance=equipped[slot]
+		if not instance is Dictionary: continue
+		var level:=clampi(int(instance.get("forgeLevel",0)),0,3)
+		if level>=3: continue
+		var button:=Button.new()
+		button.name="NpcAction"
+		button.text="Улучшить %s до +%d · %d золота" % [str(slot),level+1,int(costs[level])]
+		button.disabled=int(hero.get("gold",0))<int(costs[level])
+		button.pressed.connect(_upgrade_npc_equipment.bind(str(slot)))
+		npc_container.add_child(button)
+	for recipe_id in ["r-briar-court-mantle","r-mourner-signet","r-oathfire-cleaver","r-mirrorweave-cloak","r-echo-prism-amulet","r5-dragon-blade","r5-dragon-plate","r5-astral-staff"]:
+		_add_recipe_button(recipe_id)
+
+
+func _add_recipe_button(recipe_id: String) -> void:
+	var recipe: Dictionary=NpcEngineScript.RECIPES.get(recipe_id,{})
+	if recipe.is_empty(): return
+	var item:=WorldItemCatalogScript.get_item(str(recipe.result))
+	var button:=Button.new()
+	button.name="NpcAction"
+	button.text="Создать: %s" % str(item.get("name",recipe.result))
+	button.pressed.connect(_craft_npc_recipe.bind(recipe_id))
+	npc_container.add_child(button)
+
+
+func _craft_npc_recipe(recipe_id: String) -> void:
+	var result: Dictionary=NpcEngineScript.craft(world,recipe_id)
+	status_label.text=str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+	_show_npc_alchemy()
+
+
+func _upgrade_npc_equipment(slot: String) -> void:
+	var result: Dictionary=NpcEngineScript.upgrade_equipment(world,slot)
+	status_label.text=str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+	_show_npc_forge()
 
 
 func _refresh_passives() -> void:
