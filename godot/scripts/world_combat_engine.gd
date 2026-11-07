@@ -385,6 +385,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		damage = maxi(1, int(round(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier)))
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 		var lines := ["%s: %d урона." % [str(ability.name), damage]]
+		lines.append_array(_update_boss_phase(enemy))
 		if kind == "meteor":
 			apply_effect(enemy, "burn")
 		if kind == "poison_strike":
@@ -401,7 +402,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			enemy["state"] = "dead"
 			combat["log"] += "\n" + _award_victory(world, enemy)
 		else:
-			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
+			var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(hero.defense) / 2.0)))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
 			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
 			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
@@ -449,6 +450,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			_remove_effect(enemy, "slow")
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 		lines.append("Нанесено %d урона." % damage)
+		lines.append_array(_update_boss_phase(enemy))
 		var effect_id := str(spell.get("effect", ""))
 		if not effect_id.is_empty():
 			apply_effect(enemy, effect_id)
@@ -476,7 +478,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 static func _update_boss_phase(enemy: Dictionary) -> Array[String]:
 	var messages: Array[String] = []
 	var phases: Variant = enemy.get("phases", [])
-	if not bool(enemy.get("boss", false)) or not phases is Array:
+	if not phases is Array or phases.is_empty():
 		return messages
 	var index := maxi(0, int(enemy.get("phase", 0)))
 	var ratio := float(enemy.get("hp", 0)) / float(maxi(1, int(enemy.get("maxHp", 1))))
