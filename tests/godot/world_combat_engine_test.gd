@@ -228,6 +228,10 @@ func _initialize() -> void:
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
 	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp")
 	if not craft_result.ok or str(craft_world.hero.inventory[0].id)!="health-potion": failures.append("alchemist must consume three life herbs and create a health potion")
+	var rarity_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"common"},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"equipped":{},"campaignClaimed":{}}}
+	var rarity_result: Dictionary=Npc.craft(rarity_world,"r-briar-court-mantle")
+	if not rarity_result.ok or str(rarity_world.hero.inventory[0].get("rarity",""))!="common" or str(rarity_world.hero.inventory[3].get("rarity",""))!="uncommon":
+		failures.append("crafting a duplicate named item must apply recipe rarity only to the newly created equipment")
 	var forge_world := {"hero":{"class":"warrior","level":1,"gold":30,"inventory":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"forgeLevel":0}},"campaignClaimed":{}}}
 	var forge_result: Dictionary=Npc.upgrade_equipment(forge_world,"weapon")
 	if not forge_result.ok or int(forge_world.hero.gold)!=0 or int(forge_world.hero.equipped.weapon.forgeLevel)!=1 or int(forge_world.hero.equipped.weapon.bonus.attack)!=8: failures.append("blacksmith upgrade must charge 30 gold and apply five-percent bonus rounding")

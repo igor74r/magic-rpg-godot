@@ -529,7 +529,13 @@ func _craft_npc_recipe(recipe_id: String) -> void:
 	status_label.text=str(result.get("message",""))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
-	_show_npc_alchemy()
+	for child in npc_container.get_children():
+		if child is Button and child.name=="NpcAction":
+			child.queue_free()
+	if recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
+		_show_npc_alchemy()
+	else:
+		_show_npc_forge()
 
 
 func _upgrade_npc_equipment(slot: String) -> void:

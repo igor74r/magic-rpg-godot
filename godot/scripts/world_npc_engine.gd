@@ -204,14 +204,13 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
   if not Combat.remove_item(hero,str(item_id),int(recipe.ingredients[item_id])):
    hero["inventory"]=snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
+ var created_index:=hero.inventory.size()
  if not Combat.add_item(hero,str(recipe.result),1):
   hero["inventory"]=snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
  if not str(recipe.get("rarity","")).is_empty():
-  for instance in hero.inventory:
-   if str(instance.get("id",""))==str(recipe.result):
-    instance["rarity"]=str(recipe.rarity)
-    break
+  if created_index<hero.inventory.size() and str(hero.inventory[created_index].get("id",""))==str(recipe.result):
+   hero.inventory[created_index]["rarity"]=str(recipe.rarity)
  world["hero"]=hero
  return {"ok":true,"message":"Создано: %s." % str(CatalogItem.get_item(str(recipe.result)).get("name",recipe.result))}
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
