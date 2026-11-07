@@ -26,7 +26,12 @@ func _initialize()->void:
 	if not bool(run.get("active",false)) or run.get("enemies",[]).is_empty(): failures.append("floor queue persisted")
 	var enemy:Dictionary=run.enemies[0]
 	if not Tower.sync_encounter(world,enemy): failures.append("enemy state sync")
+	var forged:=enemy.duplicate(true)
+	forged["persistentId"]="forged-tower-enemy"
+	if Tower.sync_encounter(world,forged): failures.append("forged Tower enemy identity must not sync")
+	if bool(Tower.complete_encounter(world,enemy).get("ok",false)): failures.append("live Tower enemy must not complete an encounter")
 	enemy["hp"]=0
+	enemy["dead"]=true
 	var result:=Tower.complete_encounter(world,enemy)
 	if not bool(result.get("ok",false)): failures.append("victory advances floor queue")
 	var resumed_state:=WorldState.normalize(world,4455)
