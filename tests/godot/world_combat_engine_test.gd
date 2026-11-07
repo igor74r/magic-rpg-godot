@@ -48,7 +48,24 @@ func _initialize() -> void:
 	var poison_tick := Combat.tick_effects(poisoned)
 	if int(poison_tick.damage) != 5 or poisoned.effects[0].duration != 2:
 		failures.append("poison must damage and decrement duration")
-	var special_enemy := {"name":"Шаман","persistentId":"enemy-shaman","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"special":{"type":"snipe","every":1,"mult":2.0,"name":"Ядовитые споры","effect":"poison"}}
+	var modifier_world := WorldState.create(9901)
+	var vamp_enemy := {"name":"Вампир","persistentId":"enemy-vamp","hp":40,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"vampiric"}
+	var vamp_fight := Combat.begin(vamp_enemy)
+	var vamp_before := int(vamp_enemy.hp)
+	Combat.player_attack(modifier_world, vamp_fight)
+	if int(vamp_enemy.hp) <= maxi(0, vamp_before - 40):
+		failures.append("vampiric modifier must restore enemy health after its counterattack")
+	var regen_enemy := {"name":"Страж регенерации","persistentId":"enemy-regen","hp":40,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"regenerate"}
+	var regen_fight := Combat.begin(regen_enemy)
+	Combat.player_attack(modifier_world, regen_fight)
+	if int(regen_enemy.hp) <= 40:
+		failures.append("regenerating modifier must restore enemy health each turn")
+	var poison_enemy := {"name":"Ядовитый","persistentId":"enemy-poison","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"poison"}
+	var poison_fight := Combat.begin(poison_enemy)
+	Combat.player_attack(modifier_world, poison_fight)
+	if not modifier_world.hero.effects.any(func(effect): return str(effect.get("id","")) == "poison"):
+		failures.append("poisonous modifier must apply a poison status")
+		var special_enemy := {"name":"Шаман","persistentId":"enemy-shaman","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"special":{"type":"snipe","every":1,"mult":2.0,"name":"Ядовитые споры","effect":"poison"}}
 	var special_fight := Combat.begin(special_enemy)
 	var special_result := Combat.player_attack(world, special_fight)
 	if not special_result.ok or not str(special_result.message).contains("Особый приём") or world.hero.effects.is_empty():
