@@ -81,7 +81,10 @@ static func sync_encounter(world: Dictionary, enemy: Dictionary) -> bool:
 	var run := get_run(world)
 	if not bool(run.get("active", false)) or not bool(enemy.get("riftMode", false)):
 		return false
+	var active_enemy: Dictionary = run.get("enemy", {}) if run.get("enemy", {}) is Dictionary else {}
 	if str(enemy.get("riftLocationId", "")) != str(run.get("locationId", "")) or int(enemy.get("riftFloor", 0)) != int(run.get("floor", -1)):
+		return false
+	if str(enemy.get("persistentId", "")) != str(active_enemy.get("persistentId", "")) or str(enemy.get("enemyId", "")) != str(active_enemy.get("enemyId", "")):
 		return false
 	run["enemy"] = enemy.duplicate(true)
 	world["riftRun"] = run
@@ -91,8 +94,13 @@ static func complete_area(world: Dictionary, enemy: Dictionary) -> Dictionary:
 	var run := get_run(world)
 	if not bool(run.get("active", false)) or not bool(enemy.get("riftMode", false)):
 		return {"ok": false, "message": "Нет активного прохождения Разлома."}
+	var active_enemy: Dictionary = run.get("enemy", {}) if run.get("enemy", {}) is Dictionary else {}
 	if str(enemy.get("riftLocationId", "")) != str(run.get("locationId", "")) or int(enemy.get("riftFloor", 0)) != int(run.get("floor", -1)):
 		return {"ok": false, "message": "Награда Разлома не совпадает с текущим прохождением."}
+	if str(enemy.get("persistentId", "")) != str(active_enemy.get("persistentId", "")) or str(enemy.get("enemyId", "")) != str(active_enemy.get("enemyId", "")):
+		return {"ok": false, "message": "Противник не принадлежит текущему прохождению Разлома."}
+	if not bool(enemy.get("dead", false)) and int(enemy.get("hp", 1)) > 0:
+		return {"ok": false, "message": "Сначала победите противника Разлома."}
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
 	var cleared: Variant = hero.get("riftClearedLocations", [])
 	if not cleared is Array:
