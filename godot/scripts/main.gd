@@ -67,9 +67,9 @@ func _refresh_exploration() -> void:
 		int(visits.get(current, 0)), discovered.size(), WorldGraph.region_ids().size()
 	]
 	status_label.text = "Мир сохранён. Исследуй открытые направления и возвращайся в уже посещённые места."
-	var map_seed := WorldStateScript.region_visit_seed(world, current)
+	var world_seed := int(world.get("seed", 1))
 	var visit_index := int(visits.get(current, 1))
-	map_view.call("set_map", WorldMapGeneratorScript.generate_map(current, 40, 30, map_seed, int(world.get("generatorVersion", 1)), visit_index))
+	map_view.call("set_map", WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index))
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
