@@ -29,6 +29,9 @@ jobs:
       - name: Test deterministic world random contract
         run: godot --headless --path . --script res://tests/godot/world_random_test.gd
 
+      - name: Test campaign mission and story-region progression
+        run: godot --headless --path . --script res://tests/godot/world_campaign_engine_test.gd
+
       - name: Test save-scoped world exploration state
         run: godot --headless --path . --script res://tests/godot/world_state_test.gd
 
