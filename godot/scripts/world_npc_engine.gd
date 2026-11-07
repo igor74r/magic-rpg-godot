@@ -6,6 +6,7 @@ const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const Catalog = preload("res://godot/scripts/world_npc_catalog.gd")
 const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
 const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
+const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -39,8 +40,7 @@ static func dialogue_choices(npc_id: String, world: Dictionary) -> Array:
 				{"id":"rift","label":"Спросить о Разломе","text":"Чем глубже спускаешься, тем опаснее враги. Не забывай о припасах."}
 			]
 		"questBoard":
-			var daily: Variant=world.get("dailyQuests",{})
-			var quests: Array=daily.get("quests",[]) if daily is Dictionary else []
+			var quests: Array = Daily.get_quests(world)
 			var available:=0
 			for quest in quests:
 				if quest is Dictionary and not bool(quest.get("claimed",false)) and bool(quest.get("completed",false)): available+=1
