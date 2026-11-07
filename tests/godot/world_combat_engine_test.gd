@@ -86,6 +86,13 @@ func _initialize() -> void:
 	Combat.apply_effect(slow_target,"slow")
 	if slow_target.effects.is_empty():
 		failures.append("slow status effect must be supported")
+	var loot_world := WorldState.create(997)
+	var loot_hero := Combat.ensure_hero(loot_world)
+	var loot_boss := {"name":"Босс с добычей","enemyId":"shadow-mage","persistentId":"boss-loot","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":1,"gold":1,"boss":true,"dead":false,"drops":["mana-potion","apprentice-staff"],"dropSeed":12345}
+	var loot_fight := Combat.begin(loot_boss)
+	var loot_result := Combat.player_attack(loot_world,loot_fight)
+	if not loot_result.ok or not loot_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion"):
+		failures.append("boss victory must guarantee its first signature drop")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")

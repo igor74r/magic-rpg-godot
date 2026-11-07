@@ -56,6 +56,8 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 			"cell": cell, "hp": hp, "maxHp": hp, "attack": attack,
 			"defense": int(definition.defense), "exp": int(definition.exp), "gold": int(definition.gold),
 			"special": definition.get("special", {}).duplicate(true),
+			"drops": definition.get("drops", []).duplicate(),
+			"dropSeed": region_rng.next_int(2147483647),
 			"elite": elite, "boss": is_boss, "effects": [], "phase": 0,
 			"state": "idle", "dead": false, "respawnAt": 0
 		})
