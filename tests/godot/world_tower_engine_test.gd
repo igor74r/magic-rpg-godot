@@ -19,6 +19,11 @@ func _initialize()->void:
 	var resumed_state:=WorldState.normalize(world,4455)
 	if not bool(resumed_state.towerRun.get("active",false)) or int(resumed_state.towerRun.get("enemyIndex",0))!=1:
 		failures.append("active tower save must allow already defeated enemies in its queue")
+	var guardian_world:=WorldState.create(5566)
+	guardian_world["hero"]={"level":10,"classChosen":true,"towerBest":4,"class":"warrior","hp":100,"maxHp":100,"attack":100,"defense":10,"inventory":[],"gold":0,"exp":0}
+	var guardian_entry:=Tower.begin_floor(guardian_world)
+	if not bool(guardian_entry.get("ok",false)) or not bool(Tower.get_run(guardian_world).get("guardian",false)):
+		failures.append("fifth floor must include a guardian encounter")
 	var bad:=WorldState.create(7788)
 	bad["hero"]={"towerBest":99}
 	bad["towerRun"]={"active":true,"floor":99,"enemyIndex":0,"enemies":[]}

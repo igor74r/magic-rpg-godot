@@ -22,6 +22,14 @@ static func floor_definition(floor:int)->Dictionary:
 		if not def.is_empty() and not bool(def.get("boss",false)) and not ids.has(str(id)):
 			ids.append(str(id))
 			if ids.size()==4: break
+	if ids.size()<4:
+		for region_id in REGIONS:
+			for enemy_id in Regions.enemy_roster(region_id):
+				var fallback_def:=Enemies.get_enemy(str(enemy_id))
+				if not fallback_def.is_empty() and not bool(fallback_def.get("boss",false)) and not ids.has(str(enemy_id)):
+					ids.append(str(enemy_id))
+					if ids.size()==4: break
+			if ids.size()==4: break
 	var guardian:=f%5==0
 	if guardian: ids.append(GUARDIANS[(int(f/5)-1)%GUARDIANS.size()])
 	return {"floor":f,"sourceId":region,"guardian":guardian,"enemyIds":ids}

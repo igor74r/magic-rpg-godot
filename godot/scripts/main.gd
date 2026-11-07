@@ -911,6 +911,9 @@ func _cast_combat_spell(spell_id: String) -> void:
 	status_label.text = str(result.get("message", ""))
 	if not bool(combat_state.get("over", false)):
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+	elif str(result.get("result", "")) == "victory" and bool(combat_state.get("enemy", {}).get("towerMode", false)):
+		_complete_tower_victory(combat_state.enemy)
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
