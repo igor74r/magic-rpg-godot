@@ -6,6 +6,7 @@ const WorldMapGeneratorScript = preload("res://godot/scripts/world_map_generator
 const WorldMapViewScript = preload("res://godot/scripts/world_map_view.gd")
 const EncounterGeneratorScript = preload("res://godot/scripts/world_encounter_generator.gd")
 const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd")
+const CombatEngineScript = preload("res://godot/scripts/world_combat_engine.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -16,6 +17,8 @@ var region_label: Label
 var detail_label: Label
 var map_view: Control
 var encounters_container: VBoxContainer
+var combat_container: VBoxContainer
+var combat_state: Dictionary = {}
 
 
 func _ready() -> void:
@@ -55,6 +58,9 @@ func _build_exploration_ui() -> void:
 	encounters_container = VBoxContainer.new()
 	encounters_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(encounters_container)
+	combat_container = VBoxContainer.new()
+	combat_container.add_theme_constant_override("separation", 6)
+	_insert_before_spacer(combat_container)
 
 	var hint := Label.new()
 	hint.text = "Выбирай открытый путь, чтобы исследовать соседний регион. Прогресс сохраняется локально."
@@ -122,6 +128,10 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 		if enemy.get("dead", false):
 			continue
 		alive_count += 1
+		var enemy_button := Button.new()
+		enemy_button.text = "%s %s — HP %d / ATK %d" % [str(enemy.get("emoji", "👾")), str(enemy.get("name", enemy.get("enemyId", "Противник"))), int(enemy.get("hp", 0)), int(enemy.get("attack", 0))]
+		enemy_button.pressed.connect(_begin_combat.bind(enemy))
+		encounters_container.add_child(enemy_button)
 		var enemy_label := Label.new()
 		var tags: Array[String] = []
 		if enemy.get("boss", false):
@@ -134,7 +144,10 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 			int(enemy.get("hp", 0)), int(enemy.get("attack", 0))
 		]
 		enemy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		encounters_container.add_child(enemy_label)
+		# Additional classification label keeps boss/elite identity visible.
+		if not tags.is_empty():
+			enemy_label.text = "[%s]" % ", ".join(tags)
+			encounters_container.add_child(enemy_label)
 	if alive_count == 0:
 		var cleared := Label.new()
 		cleared.text = "В этом посещении активных противников нет."
@@ -143,6 +156,67 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 	summary.text = "Активных противников: %d" % alive_count
 	summary.add_theme_font_size_override("font_size", 12)
 	encounters_container.add_child(summary)
+
+
+func _begin_combat(enemy: Dictionary) -> void:
+	combat_state = CombatEngineScript.begin(enemy)
+	_refresh_combat_ui()
+
+
+func _refresh_combat_ui() -> void:
+	for child in combat_container.get_children():
+		child.queue_free()
+	if combat_state.is_empty():
+		return
+	var hero := CombatEngineScript.ensure_hero(world)
+	var enemy: Dictionary = combat_state.get("enemy", {})
+	var status := Label.new()
+	status.text = "Герой: HP %d/%d · Ур. %d · ATK %d · DEF %d\n%s: HP %d/%d" % [
+		int(hero.hp), int(hero.maxHp), int(hero.level), int(hero.attack), int(hero.defense),
+		str(enemy.get("name", "Противник")), int(enemy.get("hp", 0)), int(enemy.get("maxHp", 0))
+	]
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	combat_container.add_child(status)
+	var log_label := Label.new()
+	log_label.text = str(combat_state.get("log", ""))
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	combat_container.add_child(log_label)
+	if not combat_state.get("over", false):
+		var attack_button := Button.new()
+		attack_button.text = "Атаковать"
+		attack_button.pressed.connect(_combat_attack)
+		combat_container.add_child(attack_button)
+		var retreat_button := Button.new()
+		retreat_button.text = "Отступить"
+		retreat_button.pressed.connect(_combat_retreat)
+		combat_container.add_child(retreat_button)
+	else:
+		var close_button := Button.new()
+		close_button.text = "Закрыть бой"
+		close_button.pressed.connect(_close_combat)
+		combat_container.add_child(close_button)
+
+
+func _combat_attack() -> void:
+	var result := CombatEngineScript.player_attack(world, combat_state)
+	status_label.text = str(result.get("message", ""))
+	var error := WorldStateRepositoryScript.save_world(world)
+	if error != OK:
+		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
+	_refresh_combat_ui()
+	if combat_state.get("over", false):
+		_refresh_exploration()
+
+
+func _combat_retreat() -> void:
+	CombatEngineScript.retreat(combat_state)
+	_refresh_combat_ui()
+
+
+func _close_combat() -> void:
+	combat_state = {}
+	_refresh_combat_ui()
+	_refresh_exploration()
 
 
 func _travel_to(region_id: String) -> void:

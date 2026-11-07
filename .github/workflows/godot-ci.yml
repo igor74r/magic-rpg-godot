@@ -41,5 +41,8 @@ jobs:
       - name: Test deterministic region encounter generation
         run: godot --headless --path . --script res://tests/godot/world_encounter_generator_test.gd
 
+      - name: Test native turn-based combat loop
+        run: godot --headless --path . --script res://tests/godot/world_combat_engine_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2
