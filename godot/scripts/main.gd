@@ -9,6 +9,8 @@ const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd
 const CombatEngineScript = preload("res://godot/scripts/world_combat_engine.gd")
 const ClassCatalogScript = preload("res://godot/scripts/world_class_catalog.gd")
 const WorldItemCatalogScript = preload("res://godot/scripts/world_item_catalog.gd")
+const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd")
+const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -21,6 +23,7 @@ var map_view: Control
 var encounters_container: VBoxContainer
 var combat_container: VBoxContainer
 var inventory_container: VBoxContainer
+var passives_container: VBoxContainer
 var combat_state: Dictionary = {}
 
 
@@ -68,6 +71,13 @@ func _build_exploration_ui() -> void:
 	inventory_container = VBoxContainer.new()
 	inventory_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(inventory_container)
+	var passives_title := Label.new()
+	passives_title.text = "ДРЕВО ПАССИВНЫХ НАВЫКОВ"
+	passives_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(passives_title)
+	passives_container = VBoxContainer.new()
+	passives_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(passives_container)
 	combat_container = VBoxContainer.new()
 	combat_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(combat_container)
@@ -168,7 +178,7 @@ func _refresh_inventory() -> void:
 	for child in inventory_container.get_children():
 		child.queue_free()
 	var hero := CombatEngineScript.ensure_hero(world)
-if not bool(hero.get("classChosen", false)):
+	if not bool(hero.get("classChosen", false)):
 		var class_title := Label.new()
 		class_title.text = "ВЫБЕРИ КЛАСС ГЕРОЯ"
 		inventory_container.add_child(class_title)
@@ -196,6 +206,46 @@ if not bool(hero.get("classChosen", false)):
 		else:
 			button.disabled = true
 		inventory_container.add_child(button)
+	_refresh_passives()
+
+
+func _refresh_passives() -> void:
+	for child in passives_container.get_children():
+		child.queue_free()
+	var hero := CombatEngineScript.ensure_hero(world)
+	PassiveEngineScript.ensure_passives(hero)
+	var tree: Dictionary = PassiveTreeScript.get_tree(str(hero.get("class", "warrior")))
+	var learned := maxi(0, hero.passives.size() - 1)
+	var heading := Label.new()
+	heading.text = "Очки: %d · Изучено узлов: %d · Уровень: %d" % [int(hero.passivePoints), learned, int(hero.level)]
+	passives_container.add_child(heading)
+	for node_id in tree.nodes:
+		if not PassiveEngineScript.can_allocate(hero, str(node_id)):
+			continue
+		var node: Dictionary = tree.nodes[node_id]
+		var button := Button.new()
+		button.text = "%s %s — %s (ур. %d)" % [str(node.get("icon", "✦")), str(node.get("name", node_id)), str(node.get("desc", "")), int(node.get("levelReq", 1))]
+		button.pressed.connect(_allocate_passive.bind(str(node_id)))
+		passives_container.add_child(button)
+	var reset_button := Button.new()
+	reset_button.text = "Сбросить пассивки · 500 золота"
+	reset_button.disabled = learned == 0 or int(hero.gold) < 500
+	reset_button.pressed.connect(_reset_passives)
+	passives_container.add_child(reset_button)
+
+
+func _allocate_passive(node_id: String) -> void:
+	var result: Dictionary = PassiveEngineScript.allocate(CombatEngineScript.ensure_hero(world), node_id)
+	status_label.text = str(result.get("message", ""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
+func _reset_passives() -> void:
+	var result: Dictionary = PassiveEngineScript.reset(CombatEngineScript.ensure_hero(world))
+	status_label.text = str(result.get("message", "Пассивки сброшены."))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
 
 
 func _select_hero_class(class_id: String) -> void:

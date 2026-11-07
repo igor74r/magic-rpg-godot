@@ -92,7 +92,9 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		return {"ok": false, "message": "Сейчас нельзя атаковать."}
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
-	var damage := maxi(1, effective_stat(hero, "attack") - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
+	var damage := maxi(1, int(round(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0))))
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
 	if int(enemy.hp) <= 0:
@@ -348,7 +350,8 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	var enemy: Dictionary = combat.get("enemy", {})
 	var lines: Array[String] = [str(spell.name)]
 	if spell.has("heal"):
-		var restored := mini(int(spell.heal), int(hero.maxHp) - int(hero.hp))
+		var heal_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+		var restored := mini(int(round(float(spell.heal) * float(heal_bonus.get("healMult", 1.0)))), int(hero.maxHp) - int(hero.hp))
 		hero["hp"] = int(hero.hp) + maxi(0, restored)
 		lines.append("Восстановлено %d HP." % maxi(0, restored))
 	elif spell.has("selfDamagePct"):
@@ -362,7 +365,10 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		hero["buffs"].append({"id":"defense_buff","duration":2})
 		lines.append("Защита усилена на 2 хода.")
 	else:
-		var damage := maxi(1, int(spell.get("damage", 0)) + effective_stat(hero, "magic") - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
+		var raw_damage := int(spell.get("damage", 0)) + effective_stat(hero, "magic") - int(floor(float(enemy_armor) / 2.0))
+		var damage := maxi(1, int(round(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)))))
 		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
 			damage = int(round(float(damage) * 1.2))
 			_remove_effect(enemy, "slow")
