@@ -47,8 +47,19 @@ static func progress(hero: Dictionary,mission: Dictionary) -> Dictionary:
 	var kills:=maxi(0,int(hero.campaignKills.get(id,0)))
 	var shard_id:=str(mission.get("shardId",""))
 	var shards: Dictionary=hero.get("storyShards",{})
-	var shard_found:=shard_id.is_empty() or bool(shards.get(shard_id,false))
+	var shard_found:=shard_id.is_empty() or shards.get(shard_id,false)==true
 	return {"current":mini(kills,required),"kills":kills,"required":required,"complete":kills>=required and shard_found,"claimed":bool(hero.campaignClaimed.get(id,false)),"shardFound":shard_found}
+
+static func record_shard(hero: Dictionary, shard_id: String) -> bool:
+	if not ["flame", "ice", "blood"].has(shard_id):
+		return false
+	if not hero.get("storyShards", {}) is Dictionary:
+		hero["storyShards"] = {}
+	var shards: Dictionary = hero.storyShards
+	shards[shard_id] = true
+	hero["storyShards"] = shards
+	return true
+
 static func record_kill(world: Dictionary,location_id: String,enemy_id: String) -> String:
 	var hero: Dictionary=world.get("hero",{})
 	if hero.is_empty(): return ""

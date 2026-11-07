@@ -10,6 +10,21 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+
+	var shard_hero: Dictionary = {}
+	if Campaign.record_shard(shard_hero, "flame") != true or shard_hero.storyShards.flame != true:
+		failures.append("valid story shard must be recorded")
+	if Campaign.record_shard(shard_hero, "unknown") != false:
+		failures.append("unknown story shard must be rejected")
+	var shard_mission: Dictionary = {"id":"shard-gate","count":1,"shardId":"flame"}
+	shard_hero["campaignKills"]={"shard-gate":1}
+	shard_hero["storyShards"]={"flame":"yes"}
+	if bool(Campaign.progress(shard_hero,shard_mission).complete):
+		failures.append("non-boolean shard state must not complete a mission")
+	shard_hero["storyShards"]={"flame":true}
+	if not bool(Campaign.progress(shard_hero,shard_mission).complete):
+		failures.append("valid shard and kill requirements must complete a mission")
+
 	var hero: Dictionary = {"level": 1}
 
 	var malformed_progress: Dictionary = {

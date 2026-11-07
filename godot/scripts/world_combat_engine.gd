@@ -240,6 +240,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
 	var campaign_message := preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
+	var dragon_reward_message := _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")))
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
@@ -270,11 +271,35 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
 	if not campaign_message.is_empty(): message += "\n" + campaign_message
+	if not dragon_reward_message.is_empty(): message += "\n" + dragon_reward_message
 	if level_ups > 0:
 		message += "\nПолучено уровней: %d." % level_ups
 	if not dropped_names.is_empty():
 		message += "\nДобыча: %s." % ", ".join(dropped_names)
 	return message
+
+
+static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enemy_id: String, location_id: String) -> String:
+	var dragons := {
+		"flame-lord": {"id":"ash-herald","location":"obsidian-fields","mission":"a3-m5","shard":"flame","item":"shard-flame","name":"Осколок Пламени"},
+		"ice-queen": {"id":"ice-grasp","location":"frost-citadel","mission":"a4-m5","shard":"ice","item":"shard-ice","name":"Осколок Льда"},
+		"ancient-dragon": {"id":"blood-crown","location":"dragon-lair","mission":"a5-m5","shard":"blood","item":"shard-blood","name":"Осколок Крови"}
+	}
+	var dragon: Dictionary = dragons.get(enemy_id, {})
+	if dragon.is_empty() or location_id != str(dragon.location) or str(hero.get("activeCampaignMission","")) != str(dragon.mission):
+		return ""
+	var flags: Dictionary = world.get("storyDragons", {})
+	if flags.get(str(dragon.id), false) == true:
+		return ""
+	flags[str(dragon.id)] = true
+	world["storyDragons"] = flags
+	var shards: Dictionary = world.get("storyShards", {})
+	shards[str(dragon.shard)] = true
+	world["storyShards"] = shards
+	var item_id := str(dragon.item)
+	if add_item(hero, item_id, 1):
+		return "Получен сюжетный предмет: %s." % str(dragon.name)
+	return "Получен сюжетный флаг: %s. Предмет не помещён в инвентарь." % str(dragon.name)
 
 
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:

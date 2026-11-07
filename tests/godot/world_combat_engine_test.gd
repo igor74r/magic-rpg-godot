@@ -128,6 +128,25 @@ func _initialize() -> void:
 	var spell_kill := Combat.cast_spell(spell_reward_world, spell_reward_fight, "fireball")
 	if not spell_kill.ok or spell_reward_fight.result != "victory" or int(spell_reward_hero.exp) != 41 or int(spell_reward_hero.gold) != 23 or not spell_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not spell_reward_world.regions.forest.defeatedBosses.has("boss-spell-reward"):
 		failures.append("spell victory must award XP, gold, guaranteed boss loot and persist boss defeat")
+
+	var dragon_world := WorldState.create(1001)
+	dragon_world["currentRegionId"] = "obsidian-fields"
+	dragon_world["hero"] = {"class":"warrior","level":30,"exp":0,"expNext":125,"maxHp":170,"hp":170,"maxMp":100,"mp":100,"attack":22,"defense":16,"str":18,"int":4,"wis":7,"con":16,"dex":6,"gold":0,"inventory":[],"equipped":{},"activeCampaignMission":"a3-m5","campaignKills":{},"campaignClaimed":{}}
+	var dragon_hero := Combat.ensure_hero(dragon_world)
+	var dragon_boss := {"name":"Пепельный Вестник","enemyId":"flame-lord","persistentId":"story-dragon-test","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":10,"gold":5,"boss":true,"dead":false,"drops":[],"dropSeed":123}
+	var dragon_fight := Combat.begin(dragon_boss)
+	var dragon_result := Combat.player_attack(dragon_world,dragon_fight)
+	if not dragon_result.ok or dragon_world.get("storyDragons",{}).get("ash-herald",false)!=true or dragon_world.get("storyShards",{}).get("flame",false)!=true or not dragon_hero.inventory.any(func(item): return str(item.get("id",""))=="shard-flame"):
+		failures.append("accepted Ash Herald finale must grant its story flag, flame shard and quest item")
+	var repeat_dragon := Combat._claim_story_dragon_reward(dragon_world,dragon_hero,"flame-lord","obsidian-fields")
+	if not repeat_dragon.is_empty() or dragon_hero.inventory.filter(func(item): return str(item.get("id",""))=="shard-flame").size()!=1:
+		failures.append("story dragon shard must not be awarded twice")
+	var wrong_mission_world := WorldState.create(1002)
+	wrong_mission_world["currentRegionId"]="obsidian-fields"
+	wrong_mission_world["hero"]={"class":"warrior","level":30,"activeCampaignMission":"a3-m4","inventory":[]}
+	var wrong_hero := Combat.ensure_hero(wrong_mission_world)
+	if not Combat._claim_story_dragon_reward(wrong_mission_world,wrong_hero,"flame-lord","obsidian-fields").is_empty():
+		failures.append("story dragon must not grant a shard outside its finale mission")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
