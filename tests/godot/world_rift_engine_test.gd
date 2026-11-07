@@ -34,6 +34,9 @@ func _run() -> void:
 	var second := Rift.begin_area(world, "rift-02")
 	if not bool(second.get("ok", false)) or int(second.enemy.riftFloor) != 2:
 		failures.append("next Rift entry must advance the floor record")
+	var saved_run := Rift.get_run(world)
+	if not bool(saved_run.get("active", false)) or not saved_run.get("enemy", {}) is Dictionary or saved_run.enemy.is_empty():
+		failures.append("active Rift encounter must be stored for save/load resume")
 	if not Rift.abandon(world) or bool(Rift.get_run(world).get("active", true)):
 		failures.append("abandoning a Rift run must close the active run")
 	world.hero.level = 50

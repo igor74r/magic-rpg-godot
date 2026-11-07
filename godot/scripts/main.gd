@@ -284,6 +284,10 @@ func _refresh_rift() -> void:
 		var active := Label.new()
 		active.text = "Прохождение активно: этаж %d · %s" % [int(run.get("floor", 1)), str(CampaignScript.get_rift_location(str(run.get("locationId", ""))).get("name", ""))]
 		rift_container.add_child(active)
+		var resume := Button.new()
+		resume.text = "Продолжить бой в Разломе"
+		resume.pressed.connect(_resume_rift)
+		rift_container.add_child(resume)
 		var abandon := Button.new()
 		abandon.text = "Покинуть Разлом"
 		abandon.pressed.connect(_abandon_rift)
@@ -291,7 +295,8 @@ func _refresh_rift() -> void:
 		return
 	for location in RiftEngineScript.get_locations(world):
 		var button := Button.new()
-		var is_cleared := hero.get("riftClearedLocations", []).has(str(location.id))
+		var cleared_ids: Variant = hero.get("riftClearedLocations", [])
+		var is_cleared := cleared_ids is Array and cleared_ids.has(str(location.id))
 		button.text = "%s %s%s" % ["✓" if is_cleared else "🌀", str(location.name), " · ур. %d" % int(location.minLevel) if not bool(location.unlocked) else ""]
 		button.disabled = not bool(location.unlocked)
 		button.pressed.connect(_start_rift_area.bind(str(location.id)))
@@ -307,6 +312,15 @@ func _start_rift_area(location_id: String) -> void:
 	WorldStateRepositoryScript.save_world(world)
 	_begin_combat(result.enemy)
 	_refresh_rift()
+
+
+func _resume_rift() -> void:
+	var run := RiftEngineScript.get_run(world)
+	var enemy: Dictionary = run.get("enemy", {}) if run.get("enemy", {}) is Dictionary else {}
+	if enemy.is_empty():
+		status_label.text = "Сохранённый бой Разлома не найден. Покиньте Разлом и начните новый заход."
+		return
+	_begin_combat(enemy)
 
 
 func _abandon_rift() -> void:

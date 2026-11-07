@@ -36,6 +36,8 @@ static func begin_area(world: Dictionary, location_id: String) -> Dictionary:
 	if enemy.is_empty():
 		world.erase("riftRun")
 		return {"ok": false, "message": "В этой области не удалось создать противника."}
+	run["enemy"] = enemy.duplicate(true)
+	world["riftRun"] = run
 	return {"ok": true, "run": run.duplicate(true), "enemy": enemy, "message": "Разлом · этаж %d · %s" % [floor, str(location.name)]}
 
 static func create_encounter(world: Dictionary) -> Dictionary:
@@ -62,8 +64,8 @@ static func create_encounter(world: Dictionary) -> Dictionary:
 		"persistentId": "rift-%s-%d-%s" % [str(run.locationId), floor, enemy_id],
 		"enemyId": enemy_id, "name": str(definition.get("name", enemy_id)), "emoji": str(definition.get("emoji", "🌀")),
 		"hp": hp, "maxHp": hp, "attack": attack, "defense": int(definition.get("defense", 0)),
-		"exp": maxi(1, int(round(float(definition.get("exp", 0)) * float(mult.expMult)))),
-		"gold": maxi(0, int(round(float(definition.get("gold", 0)) * float(mult.goldMult)))),
+		"exp": maxi(1, int(definition.get("exp", 0))),
+		"gold": maxi(0, int(definition.get("gold", 0))),
 		"special": definition.get("special", {}).duplicate(true), "drops": definition.get("drops", []).duplicate(),
 		"dropSeed": floor * 7919 + area_index * 104729, "boss": bool(definition.get("boss", false)),
 		"elite": false, "dead": false, "state": "idle", "effects": [],
