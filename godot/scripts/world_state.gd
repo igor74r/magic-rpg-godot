@@ -171,7 +171,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var location_id := str(run.get("locationId", ""))
 		var floor_value := int(run.get("floor", 0))
 		var enemy_value: Variant = run.get("enemy", {})
-		var valid_enemy := enemy_value is Dictionary and int(enemy_value.get("hp", 0)) > 0 and int(enemy_value.get("maxHp", 0)) >= int(enemy_value.get("hp", 0)) and bool(enemy_value.get("riftMode", false)) and str(enemy_value.get("riftLocationId", "")) == location_id and int(enemy_value.get("riftFloor", 0)) == floor_value
+		var valid_enemy := enemy_value is Dictionary and int(enemy_value.get("hp", 0)) > 0 and int(enemy_value.get("maxHp", 0)) >= int(enemy_value.get("hp", 0)) and not bool(enemy_value.get("dead", false)) and bool(enemy_value.get("riftMode", false)) and str(enemy_value.get("persistentId", "")).is_empty() == false and str(enemy_value.get("enemyId", "")).is_empty() == false and not WorldEnemyCatalog.get_enemy(str(enemy_value.get("enemyId", ""))).is_empty() and str(enemy_value.get("riftLocationId", "")) == location_id and int(enemy_value.get("riftFloor", 0)) == floor_value
 		if location_id in _rift_location_ids() and floor_value >= 1 and valid_enemy:
 			world["riftRun"] = run.duplicate(true)
 		else:
