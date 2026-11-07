@@ -210,6 +210,14 @@ func _initialize() -> void:
 	var well_world := {"hero":{"class":"mage","hp":10,"maxHp":100,"mp":0,"maxMp":80,"gold":0}}
 	if not Npc.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
 	if Npc.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
+
+	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
+	if NpcCatalog.ids().size()!=12: failures.append("NPC catalog must preserve all twelve village NPC definitions")
+	var buff_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":100,"maxMp":0,"hp":100,"mp":0,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0,"gold":0,"inventory":[],"buffs":[{"id":"bardBuff","duration":3}],"effects":[{"id":"elderBlessing","duration":10}]}
+	var buff_world := {"seed":23,"currentRegionId":"village","hero":buff_hero}
+	Combat._award_victory(buff_world,{"enemyId":"goblin","persistentId":"npc-buff-test","exp":100,"gold":0,"hp":0,"maxHp":1,"dead":false,"boss":false,"drops":[],"dropSeed":1})
+	if int(buff_world.hero.exp)!=7 or int(buff_world.hero.level)!=2: failures.append("bard and elder buffs must multiply XP reward to 132 before level-up")
+	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
