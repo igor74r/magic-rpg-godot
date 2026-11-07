@@ -1,6 +1,7 @@
 extends SceneTree
 
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
+const DailyQuestEngine = preload("res://godot/scripts/world_daily_quest_engine.gd")
 
 
 func _initialize() -> void:
@@ -57,10 +58,20 @@ func _run() -> void:
 		failures.append("legacy fast travel must preserve access to every region")
 
 	# Region persistence: chests, enemy respawn deadlines and boss state survive normalization.
+	world["dailyQuests"] = {"date": DailyQuestEngine.today_key(), "list": [
+		{"id":"q-chest","current":0,"claimed":false},
+		{"id":"q-kill-any","current":0,"claimed":false},
+		{"id":"q-kill-goblin","current":0,"claimed":false}
+	]}
 	if not WorldStateScript.mark_chest_opened(world, "forest", "chest-01"):
 		failures.append("first chest open must be recorded")
 	if WorldStateScript.mark_chest_opened(world, "forest", "chest-01"):
 		failures.append("the same chest must not be recorded twice")
+	var chest_quest: Dictionary = {}
+	for quest in DailyQuestEngine.get_quests(world):
+		if str(quest.get("id", "")) == "q-chest": chest_quest = quest
+	if int(chest_quest.get("current", 0)) != 1:
+		failures.append("opening a unique chest must advance the daily chest objective exactly once")
 	if not WorldStateScript.mark_enemy_defeated(world, "forest", "wolf-01", 900.0):
 		failures.append("enemy defeat and respawn deadline must be recorded")
 	if not WorldStateScript.is_enemy_defeated(world, "forest", "wolf-01", 899.0):
