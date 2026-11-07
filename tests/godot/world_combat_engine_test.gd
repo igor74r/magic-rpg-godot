@@ -144,6 +144,8 @@ func _initialize() -> void:
 	var purchase: Dictionary = PassiveEngine.allocate(passive_hero,"warrior-might-1")
 	if not purchase.ok or int(passive_hero.passivePoints)!=1 or not passive_hero.passives.has("warrior-might-1"): failures.append("passive allocation must consume one point")
 	if int(PassiveEngine.get_bonus(passive_hero).atkFlat)!=3: failures.append("might passive must grant +3 attack")
+	var mage_tree_hero := {"class":"mage","level":2,"passivePoints":1,"passives":["start","mage-fire-1"]}
+	if not is_equal_approx(float(PassiveEngine.get_bonus(mage_tree_hero).spellMult),1.06): failures.append("mage fire passive must multiply spell damage by 1.06")
 	if Combat.effective_stat({"class":"warrior","str":18,"passives":["start","warrior-might-1"]},"attack") != 21: failures.append("passive flat attack bonus must feed combat effective stats")
 	if PassiveEngine.can_allocate(passive_hero,"warrior-might-2"): failures.append("second passive must require level 5")
 	passive_hero["level"]=5

@@ -271,6 +271,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	hero["cooldowns"] = cooldowns
 	var enemy: Dictionary = combat.get("enemy", {})
 	var damage := 0
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var kind := str(ability.get("kind", ""))
 	match kind:
 		"next_double":
@@ -310,7 +311,9 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 				apply_effect(enemy, "poison")
 			elif kind == "stun":
 				apply_effect(enemy, "stun")
-		damage = maxi(1, damage - int(floor(float(enemy.get("defense", 0)) / 2.0)))
+		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
+		var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
+		damage = maxi(1, int(round(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier)))
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 		var lines := ["%s: %d урона." % [str(ability.name), damage]]
 		if kind == "meteor":
