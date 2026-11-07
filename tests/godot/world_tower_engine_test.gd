@@ -5,6 +5,19 @@ func _initialize()->void:
 	var failures:Array[String]=[]
 	if Tower.multipliers(1).hpMult!=1.0 or Tower.multipliers(40).hpMult<4.0: failures.append("tower multiplier curve")
 	if not bool(Tower.floor_definition(5).guardian) or bool(Tower.floor_definition(4).guardian): failures.append("guardian every fifth floor")
+	var EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
+	var RegionCatalog = preload("res://godot/scripts/world_region_catalog.gd")
+	for floor_number in range(1, Tower.MAX_FLOOR + 1):
+		var definition: Dictionary = Tower.floor_definition(floor_number)
+		if not RegionCatalog.REGIONS.has(str(definition.get("sourceId", ""))):
+			failures.append("floor %d must reference a real region" % floor_number)
+		for enemy_id in definition.get("enemyIds", []):
+			if EnemyCatalog.get_enemy(str(enemy_id)).is_empty():
+				failures.append("floor %d references missing enemy %s" % [floor_number, str(enemy_id)])
+		if bool(definition.get("guardian", false)) and definition.get("enemyIds", []).size() != 5:
+			failures.append("guardian floor %d must contain four regular enemies and one guardian" % floor_number)
+		if not bool(definition.get("guardian", false)) and definition.get("enemyIds", []).size() != 4:
+			failures.append("regular floor %d must contain exactly four enemies" % floor_number)
 	var world:=WorldState.create(4455)
 	world["hero"]={"level":1,"classChosen":true,"towerBest":0,"class":"warrior","hp":100,"maxHp":100,"attack":1000,"defense":10,"inventory":[],"gold":0,"exp":0}
 	var entered:=Tower.begin_floor(world)
