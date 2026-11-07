@@ -47,6 +47,34 @@ func _run() -> void:
 	if not World.can_travel(legacy, "village", "void-crater"):
 		failures.append("legacy fast travel must preserve access to every region")
 
+	# Region persistence: chests, enemy respawn deadlines and boss state survive normalization.
+	if not World.mark_chest_opened(world, "forest", "chest-01"):
+		failures.append("first chest open must be recorded")
+	if World.mark_chest_opened(world, "forest", "chest-01"):
+		failures.append("the same chest must not be recorded twice")
+	if not World.mark_enemy_defeated(world, "forest", "wolf-01", 900.0):
+		failures.append("enemy defeat and respawn deadline must be recorded")
+	if not World.is_enemy_defeated(world, "forest", "wolf-01", 899.0):
+		failures.append("enemy must remain defeated before its respawn time")
+	if World.is_enemy_defeated(world, "forest", "wolf-01", 900.0):
+		failures.append("enemy must respawn at its deadline")
+	if not World.set_boss_progress(world, "forest", "forest-warden", 0.45, 2, 7, true):
+		failures.append("valid boss progress must be saved")
+	if World.set_boss_progress(world, "forest", "bad-boss", 1.5, 0, 0):
+		failures.append("invalid boss health ratio must be rejected")
+	var saved_region := World.normalize(world, 123456).regions.get("forest", {})
+	if not saved_region.get("openedChests", []).has("chest-01"):
+		failures.append("opened chest state must survive normalization")
+	if float(saved_region.get("defeatedEnemies", {}).get("wolf-01", -1)) != 900.0:
+		failures.append("enemy respawn state must survive normalization")
+	var saved_boss := saved_region.get("bossProgress", {}).get("forest-warden", {})
+	if float(saved_boss.get("hpRatio", 0.0)) != 0.45 or int(saved_boss.get("phase", -1)) != 2 or not saved_boss.get("pendingSpecial", false):
+		failures.append("boss progress must survive normalization")
+	if not World.mark_boss_defeated(world, "forest", "forest-warden"):
+		failures.append("boss defeat must be recorded")
+	if not world.regions.forest.defeatedBosses.has("forest-warden") or world.regions.forest.bossProgress.has("forest-warden"):
+		failures.append("defeating a boss must clear its partial progress")
+
 	if failures.is_empty():
 		print("PASS: save-scoped discovery, route unlocking, visits and legacy travel")
 		quit(0)

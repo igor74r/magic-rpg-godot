@@ -123,10 +123,13 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 
 
 static func can_travel(world: Dictionary, from_id: String, to_id: String) -> bool:
-	if not WorldGraph.is_route(from_id, to_id):
+	var known_regions := WorldGraph.region_ids()
+	if not known_regions.has(from_id) or not known_regions.has(to_id) or from_id == to_id:
 		return false
 	if world.get("legacyFastTravel", false):
 		return true
+	if not WorldGraph.is_route(from_id, to_id):
+		return false
 	return (world.get("unlockedRoutes", []) as Array).has(WorldGraph.route_key(from_id, to_id))
 
 
