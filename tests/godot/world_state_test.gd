@@ -75,6 +75,27 @@ func _run() -> void:
 	if not world.regions.forest.defeatedBosses.has("forest-warden") or world.regions.forest.bossProgress.has("forest-warden"):
 		failures.append("defeating a boss must clear its partial progress")
 
+		# Region threat, resolved encounters and discovered secrets are save-scoped.
+	if not WorldStateScript.set_security_threat(world, "forest", 3):
+		failures.append("valid security threat must be stored")
+	if WorldStateScript.set_security_threat(world, "forest", 4):
+		failures.append("security threat above the supported range must be rejected")
+	if not WorldStateScript.mark_event_resolved(world, "forest", "ambush-01"):
+		failures.append("resolved region event must be recorded")
+	if WorldStateScript.mark_event_resolved(world, "forest", "ambush-01"):
+		failures.append("the same resolved event must not be recorded twice")
+	if not WorldStateScript.mark_secret_discovered(world, "forest", "hidden-cache"):
+		failures.append("discovered secret must be recorded")
+	if WorldStateScript.mark_secret_discovered(world, "forest", "hidden-cache"):
+		failures.append("the same secret must not be recorded twice")
+	var saved_exploration: Dictionary = WorldStateScript.normalize(world, 123456).regions.get("forest", {})
+	if int(saved_exploration.get("securityThreat", -1)) != 3:
+		failures.append("security threat must survive normalization")
+	if not saved_exploration.get("resolvedEvents", []).has("ambush-01"):
+		failures.append("resolved events must survive normalization")
+	if not saved_exploration.get("discoveredSecrets", []).has("hidden-cache"):
+		failures.append("discovered secrets must survive normalization")
+
 	if failures.is_empty():
 		print("PASS: save-scoped discovery, route unlocking, visits and legacy travel")
 		quit(0)

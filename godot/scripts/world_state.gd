@@ -335,3 +335,44 @@ static func set_boss_progress(world: Dictionary, region_id: String, boss_id: Str
 	record["bossProgress"] = progress
 	world["regions"][region_id] = record
 	return true
+
+
+static func set_security_threat(world: Dictionary, region_id: String, threat: int) -> bool:
+	if threat < 0 or threat > 3:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	record["securityThreat"] = threat
+	world["regions"][region_id] = record
+	return true
+
+
+static func mark_event_resolved(world: Dictionary, region_id: String, event_id: String) -> bool:
+	if event_id.is_empty() or event_id.length() > 80:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var resolved: Array = record.get("resolvedEvents", [])
+	if resolved.has(event_id):
+		return false
+	resolved.append(event_id)
+	record["resolvedEvents"] = resolved
+	world["regions"][region_id] = record
+	return true
+
+
+static func mark_secret_discovered(world: Dictionary, region_id: String, secret_id: String) -> bool:
+	if secret_id.is_empty() or secret_id.length() > 80:
+		return false
+	var record := get_region_record(world, region_id)
+	if record.is_empty():
+		return false
+	var discovered: Array = record.get("discoveredSecrets", [])
+	if discovered.has(secret_id):
+		return false
+	discovered.append(secret_id)
+	record["discoveredSecrets"] = discovered
+	world["regions"][region_id] = record
+	return true
