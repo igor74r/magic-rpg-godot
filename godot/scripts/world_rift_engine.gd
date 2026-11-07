@@ -57,6 +57,7 @@ static func create_encounter(world: Dictionary) -> Dictionary:
 	var enemy_id := str(eligible[(floor - 1 + area_index) % eligible.size()])
 	var definition := Enemies.get_enemy(enemy_id)
 	var mult := Campaign.get_rift_multiplier(floor)
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
 	var ng_cycle := maxi(0, int(hero.get("ngPlus", 0)))
 	var ng_hp := 1.0 + 0.5 * ng_cycle
 	var ng_other := 1.0 + 0.3 * ng_cycle
