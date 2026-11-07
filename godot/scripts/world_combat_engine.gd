@@ -49,6 +49,7 @@ static func tick_effects(target: Dictionary) -> Dictionary:
 			remaining.append({"id": effect_id, "duration": duration})
 	target["effects"] = remaining
 	return {"damage": damage}
+
 static func begin(enemy: Dictionary) -> Dictionary:
 	if enemy.is_empty() or bool(enemy.get("dead", false)) or int(enemy.get("hp", 0)) <= 0:
 		return {}
@@ -59,7 +60,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		return {"ok": false, "message": "Сейчас нельзя атаковать."}
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
-	var damage := maxi(1, int(hero.attack) - int(enemy.get("defense", 0)) / 2)
+	var damage := maxi(1, int(hero.attack) - int(floor(float(enemy.get("defense", 0)) / 2.0)))
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
 	if int(enemy.hp) <= 0:
