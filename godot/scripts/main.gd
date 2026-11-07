@@ -296,6 +296,19 @@ func _refresh_campaign() -> void:
 		var finished := Label.new()
 		finished.text = "Основная кампания завершена."
 		campaign_container.add_child(finished)
+		var finale := Label.new()
+		finale.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if CampaignScript.can_complete_main_quest(world):
+			finale.text = "Все 25 заданий пройдены, три осколка собраны, Кровавая Корона повержена. Главная сюжетная развязка готова к переносу в игровой интерфейс."
+		elif CampaignScript.is_rift_unlocked_by_story(world):
+			finale.text = "Кровавая Корона повержена: сюжетное условие открытия Разлома выполнено."
+		else:
+			finale.text = "Для главной развязки нужны все 25 наград за задания, три осколка и победа над Кровавой Короной."
+		campaign_container.add_child(finale)
+		var rift_info := Label.new()
+		rift_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rift_info.text = "Разлом: %d областей · последние 10 требуют 50 уровень · лучший этаж: %d" % [CampaignScript.rift_locations(int(hero.get("level",1))).size(),int(hero.get("riftBest",0))]
+		campaign_container.add_child(rift_info)
 		return
 	var progress: Dictionary = CampaignScript.progress(hero,mission)
 	var description := Label.new()
