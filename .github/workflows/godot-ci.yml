@@ -32,7 +32,7 @@ jobs:
       - name: Test campaign mission and story-region progression
         run: godot --headless --path . --script res://tests/godot/world_campaign_engine_test.gd
 
-      - name: Test story dragon finale rewards
+      - name: Test playable Rift progression\n        run: godot --headless --path . --script res://tests/godot/world_rift_engine_test.gd\n\n      - name: Test story dragon finale rewards
         run: godot --headless --path . --script res://tests/godot/world_combat_engine_test.gd
 
       - name: Test save-scoped world exploration state

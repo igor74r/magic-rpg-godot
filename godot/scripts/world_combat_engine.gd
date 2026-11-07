@@ -232,15 +232,19 @@ static func _consume_combat_effect(hero: Dictionary,effect_id: String,field: Str
 static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
+	if bool(enemy.get("riftMode", false)):
+		reward_exp = int(round(float(reward_exp) * float(enemy.get("riftExpMult", 1.0))))
 	var exp_multiplier := 1.0
 	if bool(enemy.get("elite",false)): exp_multiplier *= 1.5
 	if _consume_combat_effect(hero,"elderBlessing","effects"): exp_multiplier *= 1.2
 	if _consume_combat_effect(hero,"bardBuff","buffs"): exp_multiplier *= 1.1
 	reward_exp = int(round(float(reward_exp)*exp_multiplier))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
+	if bool(enemy.get("riftMode", false)):
+		reward_gold = int(round(float(reward_gold) * float(enemy.get("riftGoldMult", 1.0))))
 	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
-	var campaign_message := preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
-	var dragon_reward_message := _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")))
+	var campaign_message := "" if bool(enemy.get("riftMode", false)) else preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
+	var dragon_reward_message := "" if bool(enemy.get("riftMode", false)) else _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")))
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
