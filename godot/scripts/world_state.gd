@@ -7,6 +7,7 @@ const SCHEMA_VERSION := 1
 const GENERATOR_VERSION := 1
 const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
 const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
+const DailyQuestEngine = preload("res://godot/scripts/world_daily_quest_engine.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -357,6 +358,7 @@ static func mark_chest_opened(world: Dictionary, region_id: String, chest_id: St
 	opened.append(chest_id)
 	record["openedChests"] = opened
 	world["regions"][region_id] = record
+	DailyQuestEngine.update_progress(world, "chest", "chest", 1)
 	return true
 
 
