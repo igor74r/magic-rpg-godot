@@ -343,6 +343,8 @@ func _refresh_npcs() -> void:
 
 
 func _talk_to_npc(npc_id: String) -> void:
+	for child in npc_container.get_children():
+		if child is Button and child.name=="NpcAction": child.queue_free()
 	var result: Dictionary=NpcEngineScript.talk(npc_id)
 	status_label.text=str(result.get("message",""))
 	var hero:=CombatEngineScript.ensure_hero(world)
@@ -351,29 +353,43 @@ func _talk_to_npc(npc_id: String) -> void:
 		if not mission.is_empty():
 			var progress: Dictionary=CampaignScript.progress(hero,mission)
 			status_label.text+="\nПоручение: %s — %d/%d" % [str(mission.title),int(progress.current),int(progress.required)]
-			var action: Dictionary={}
 			if str(hero.get("activeCampaignMission","")).is_empty():
-				action=NpcEngineScript.campaign_action(world,false)
-				status_label.text+="\n"+str(action.get("message",""))
+				_add_npc_action("Принять сюжетное поручение","accept")
 			elif bool(progress.complete):
-				action=NpcEngineScript.campaign_action(world,true)
-				status_label.text+="\n"+str(action.get("message",""))
-		else:
-			status_label.text+="\nВсе 25 поручений завершены."
+				_add_npc_action("Сдать поручение и получить награду","claim")
+		if not NpcEngineScript.has_entry(hero,"elderBlessing","effects"):
+			_add_npc_action("Принять благословение (+20% опыта)","blessing")
 	elif npc_id=="healer":
-		var healer_result: Dictionary=NpcEngineScript.heal(world)
-		status_label.text+="\n"+str(healer_result.get("message",""))
+		_add_npc_action("Полное исцеление · 8 золота","heal")
 	elif npc_id=="well":
-		var well_result: Dictionary=NpcEngineScript.use_well(world)
-		status_label.text+="\n"+str(well_result.get("message",""))
+		_add_npc_action("Испить воду · полное восстановление","well")
 	elif npc_id=="bard":
-		var bard_result: Dictionary=NpcEngineScript.pay_bard(world)
-		status_label.text+="\n"+str(bard_result.get("message",""))
-	elif npc_id=="elder":
-		var blessing_result: Dictionary=NpcEngineScript.take_blessing(world)
-		status_label.text+="\n"+str(blessing_result.get("message",""))
+		_add_npc_action("Заплатить 15 золота · +10% опыта","bard")
 	WorldStateRepositoryScript.save_world(world)
+
+
+func _add_npc_action(label_text: String,action: String) -> void:
+	var button:=Button.new()
+	button.name="NpcAction"
+	button.text=label_text
+	button.pressed.connect(_perform_npc_action.bind(action))
+	npc_container.add_child(button)
+
+
+func _perform_npc_action(action: String) -> void:
+	var result: Dictionary={}
+	match action:
+		"accept": result=NpcEngineScript.campaign_action(world,false)
+		"claim": result=NpcEngineScript.campaign_action(world,true)
+		"blessing": result=NpcEngineScript.take_blessing(world)
+		"heal": result=NpcEngineScript.heal(world)
+		"well": result=NpcEngineScript.use_well(world)
+		"bard": result=NpcEngineScript.pay_bard(world)
+	status_label.text=str(result.get("message",""))
+	var save_error:=WorldStateRepositoryScript.save_world(world)
+	if save_error!=OK: status_label.text+="\nОшибка сохранения: %s" % error_string(save_error)
 	_refresh_inventory()
+	_refresh_npcs()
 
 
 func _refresh_passives() -> void:
