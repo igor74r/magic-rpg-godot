@@ -38,6 +38,9 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	hero["hp"] = clampi(int(hero.get("hp", hero.maxHp)), 0, hero.maxHp)
 	hero["attack"] = clampi(int(hero.get("attack", class_data.attack)), 1, 99999)
 	hero["defense"] = clampi(int(hero.get("defense", class_data.defense)), 0, 99999)
+	hero["attack"] = int(hero.str)
+	hero["magic"] = int(hero.int)
+	hero["defense"] = int(floor(float(hero.con) / 2.0))
 	hero["exp"] = maxi(0, int(hero.get("exp", 0)))
 	hero["gold"] = maxi(0, int(hero.get("gold", 0)))
 	world["hero"] = hero
@@ -191,6 +194,9 @@ static func _grant_experience(hero: Dictionary, amount: int) -> int:
 		hero["statPoints"] = int(hero.get("statPoints", 0)) + 1
 		hero["passivePoints"] = int(hero.get("passivePoints", 0)) + 1
 		hero["hp"] = int(hero.maxHp)
+		hero["attack"] = int(hero.str)
+		hero["magic"] = int(hero.int)
+		hero["defense"] = int(floor(float(hero.con) / 2.0))
 		if str(hero.get("class", "")) == "mage":
 			hero["mp"] = int(hero.maxMp)
 		levels_gained += 1

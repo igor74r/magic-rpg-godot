@@ -10,6 +10,12 @@ func _initialize() -> void:
 	var progression_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":170,"maxMp":100,"hp":170,"mp":100,"attack":22,"defense":16,"str":18,"int":4,"wis":7,"con":16,"dex":6,"statPoints":0,"passivePoints":0,"luck":5.0}
 	if Combat._grant_experience(progression_hero, 125) != 1 or int(progression_hero.level) != 2 or int(progression_hero.statPoints) != 1 or int(progression_hero.passivePoints) != 1 or int(progression_hero.maxHp) != 184 or int(progression_hero.str) != 20 or int(progression_hero.con) != 17 or int(progression_hero.dex) != 7:
 		failures.append("warrior level-up must apply browser XP threshold, class growth and points")
+	var mage_growth := {"class":"mage","level":1,"exp":0,"expNext":125,"maxHp":105,"maxMp":180,"hp":105,"mp":100,"attack":12,"defense":7,"str":4,"int":20,"wis":14,"con":7,"dex":8,"statPoints":0,"passivePoints":0,"luck":5.0}
+	if Combat._grant_experience(mage_growth, 125) != 1 or int(mage_growth.int) != 22 or int(mage_growth.wis) != 15 or int(mage_growth.con) != 8 or int(mage_growth.maxMp) != 193 or int(mage_growth.mp) != 193:
+		failures.append("mage level-up must grow intelligence, wisdom, constitution and restore mana")
+	var archer_growth := {"class":"archer","level":1,"exp":0,"expNext":125,"maxHp":125,"maxMp":100,"hp":125,"mp":50,"attack":20,"defense":10,"str":12,"int":7,"wis":9,"con":10,"dex":18,"statPoints":0,"passivePoints":0,"luck":5.0}
+	if Combat._grant_experience(archer_growth, 125) != 1 or int(archer_growth.dex) != 20 or int(archer_growth.str) != 13 or int(archer_growth.con) != 11 or int(archer_growth.maxHp) != 135:
+		failures.append("archer level-up must grow dexterity, strength and constitution")
 	var class_stats_world := WorldState.create(990)
 	Combat.select_class(class_stats_world, "mage")
 	if int(class_stats_world.hero.str) != 4 or int(class_stats_world.hero.int) != 20 or int(class_stats_world.hero.wis) != 14 or int(class_stats_world.hero.con) != 7 or int(class_stats_world.hero.dex) != 8 or Combat.effective_stat(class_stats_world.hero, "magic") != 20:
