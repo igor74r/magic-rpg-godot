@@ -1,0 +1,131 @@
+{
+  "name": "Shards of the Rift — 16-bit pixel-art terrain atlas",
+  "license": "Original project assets; created for this game",
+  "tileSize": 96,
+  "terrain": {
+    "file": "terrain/atlas.png",
+    "columns": [
+      "grass",
+      "path",
+      "biome-object",
+      "liquid",
+      "rock"
+    ],
+    "rows": [
+      "village",
+      "forest",
+      "ruins",
+      "shadow",
+      "swamp",
+      "volcano",
+      "ice",
+      "desert"
+    ],
+    "displaySize": 48,
+    "sourceScale": 2
+  },
+  "dungeons": {
+    "file": "dungeons/atlas.png",
+    "tileSize": 48,
+    "columns": 10,
+    "rows": 4,
+    "usage": "decorative dungeon floors, walls, doors, cracks and seals"
+  },
+  "props": {
+    "file": "props/atlas.png",
+    "tileSize": 96,
+    "displaySize": 48,
+    "columns": 8,
+    "rows": 4,
+    "usage": "chests, crystals, altars, lanterns, bridges, portals, bones, mushrooms"
+  },
+  "biomeRows": {
+    "village": 0,
+    "forest": 1,
+    "ruins": 2,
+    "shadow": 3,
+    "swamp": 4,
+    "graveyard": 3,
+    "volcano": 5,
+    "dragon": 5,
+    "ice": 6,
+    "desert": 7,
+    "library": 2,
+    "briar-hollow": 1,
+    "sunken-necropolis": 2,
+    "obsidian-fields": 5,
+    "frost-citadel": 6,
+    "void-crater": 3
+  },
+  "auroraGround": {
+    "file": "../aurora/ground-atlas.png",
+    "tileSize": 96,
+    "columns": 8,
+    "rows": 1,
+    "variantsPerType": 4,
+    "types": [
+      "grass",
+      "path"
+    ],
+    "displaySize": 48,
+    "usage": "Original 16-bit village ground tiles; four seamless visual variants for grass and cobblestone"
+  },
+  "villageProps": {
+    "file": "../aurora/village-props-atlas.png",
+    "tileSize": 64,
+    "columns": 16,
+    "rows": 1,
+    "displaySize": 96,
+    "styles": [
+      "lantern",
+      "memorial",
+      "bench",
+      "stall",
+      "fountain",
+      "planter",
+      "banner",
+      "brazier",
+      "anvil",
+      "woodpile",
+      "cart",
+      "barrels",
+      "herb-rack",
+      "frost-lantern",
+      "rift-ward",
+      "tower-gate"
+    ],
+    "usage": "Authored 16-bit pixel-art village prop sprites with transparent backgrounds; nearest-neighbour rendering"
+  },
+  "auroraNature": {
+    "file": "../aurora/nature-atlas.png",
+    "frameWidth": 64,
+    "frameHeight": 80,
+    "columns": 8,
+    "rows": 1,
+    "displaySizes": {
+      "tree": [72, 90],
+      "hedge": [78, 62],
+      "fence": [78, 42],
+      "flowerbed": [60, 34]
+    },
+    "styles": [
+      "oak",
+      "pine",
+      "bush",
+      "rock",
+      "stump",
+      "hedge",
+      "fence",
+      "flowerbed"
+    ],
+    "usage": "Authored 16-bit pixel-art Aurora trees, shrubs, rocks, stump, hedge, fence and flowerbed; transparent RGBA frames rendered nearest-neighbour"
+  },
+  "auroraWorldPortal": {
+    "file": "../aurora/world-portal.png",
+    "tileSize": 64,
+    "columns": 1,
+    "rows": 1,
+    "displaySize": 96,
+    "usage": "Dedicated 16-bit pixel-art stone arch and rift aperture for Aurora's central world portal"
+  }
+}

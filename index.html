@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // Early startup guard: captures failures before ES modules initialize and
+  // renders a readable fallback instead of leaving the player with a blank screen.
+  (() => {
+    const queue = window.__GAME_DIAGNOSTICS_EARLY__ = [];
+    let fallbackShown = false;
+    const add = (type, message, source = '', line = 0, column = 0) => {
+      const entry = {
+        type,
+        message: String(message || type).slice(0, 1000),
+        source: String(source || '').slice(0, 500),
+        line: Number(line) || 0,
+        column: Number(column) || 0,
+        time: new Date().toISOString()
+      };
+      queue.push(entry);
+      if (queue.length > 100) queue.shift();
+      return entry;
+    };
+
+    const showStartupFallback = (entry) => {
+      if (fallbackShown || window.__GAME_DIAGNOSTICS_READY__) return;
+      fallbackShown = true;
+      const render = () => {
+        if (!document.body || document.getElementById('game-startup-error')) return;
+        const panel = document.createElement('section');
+        panel.id = 'game-startup-error';
+        panel.setAttribute('role', 'alert');
+        panel.setAttribute('aria-live', 'assertive');
+        panel.style.cssText = [
+          'position:fixed','inset:0','z-index:2147483647','display:flex',
+          'align-items:center','justify-content:center','padding:24px',
+          'box-sizing:border-box','background:rgba(8,10,18,.97)',
+          'color:#f4e8d0','font:16px/1.6 system-ui,sans-serif'
+        ].join(';');
+        const card = document.createElement('div');
+        card.style.cssText = [
+          'width:min(680px,100%)','padding:clamp(20px,5vw,40px)',
+          'border:1px solid #8b6b42','border-radius:14px',
+          'background:linear-gradient(145deg,#191b29,#101119)',
+          'box-shadow:0 20px 70px #0009'
+        ].join(';');
+        const title = document.createElement('h1');
+        title.textContent = 'Не удалось запустить игру';
+        title.style.cssText = 'margin:0 0 12px;color:#ffcc82;font-size:clamp(24px,5vw,34px)';
+        const message = document.createElement('p');
+        message.textContent = 'Один из игровых модулей не загрузился или произошла ошибка при запуске. Ваши сохранения не затронуты. Попробуйте обновить страницу. Если ошибка повторится, отправьте разработчику технические сведения ниже.';
+        message.style.margin = '0 0 16px';
+        const details = document.createElement('pre');
+        details.textContent = [
+          'Тип: ' + entry.type,
+          'Ошибка: ' + entry.message,
+          entry.source ? 'Файл: ' + entry.source : '',
+          entry.line ? 'Строка: ' + entry.line + (entry.column ? ', столбец: ' + entry.column : '') : ''
+        ].filter(Boolean).join('\n');
+        details.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:30vh;overflow:auto;padding:12px;background:#08090f;border-radius:8px;color:#d7c6a8;font:13px/1.5 ui-monospace,monospace';
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;margin-top:18px';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Обновить игру';
+        retry.onclick = () => window.location.reload();
+        retry.style.cssText = 'padding:11px 18px;border:1px solid #d5a45e;border-radius:8px;background:#5a3b20;color:#fff4df;font:inherit;cursor:pointer';
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.textContent = 'Скопировать ошибку';
+        copy.style.cssText = 'padding:11px 18px;border:1px solid #716b60;border-radius:8px;background:#252630;color:#f4e8d0;font:inherit;cursor:pointer';
+        copy.onclick = async () => {
+          const text = details.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            copy.textContent = 'Скопировано';
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(details);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            copy.textContent = 'Выделено — нажмите Ctrl+C';
+          }
+        };
+        actions.append(retry, copy);
+        card.append(title, message, details, actions);
+        panel.append(card);
+        document.body.append(panel);
+      };
+      if (document.body) render();
+      else document.addEventListener('DOMContentLoaded', render, { once: true });
+    };
+
+    window.addEventListener('error', event => {
+      if (window.__GAME_DIAGNOSTICS_READY__) return;
+      let entry;
+      if (event.target && event.target !== window && (event.target.src || event.target.href)) {
+        const target = event.target;
+        const tag = (target.tagName || 'resource').toLowerCase();
+        const url = target.src || target.href;
+        entry = add('resource-load', 'Не удалось загрузить ресурс <' + tag + '> ' + url, url);
+        if (tag === 'script') showStartupFallback(entry);
+      } else {
+        entry = add('uncaught-error', event.message || 'Необработанная ошибка JavaScript', event.filename, event.lineno, event.colno);
+        showStartupFallback(entry);
+      }
+    }, true);
+
+    window.addEventListener('unhandledrejection', event => {
+      if (window.__GAME_DIAGNOSTICS_READY__) return;
+      const reason = event.reason;
+      const entry = add('unhandled-rejection',
+        reason && (reason.stack || reason.message) || String(reason || 'Promise отклонён без причины'));
+      showStartupFallback(entry);
+    });
+  })();</script>
+<title>Осколки Разлома</title>
+<link rel="icon" type="image/png" href="assets/branding/mana-crystal.png">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/rpg-overhaul.css?v=20261103-hud-polish" id="rpg-overhaul-css">
+<link rel="stylesheet" href="css/2d-art-direction.css?v=20261104-aurora-flat-grass-7">
+<link rel="stylesheet" href="css/dashboard-refresh.css?v=20261103-dashboard-refresh">
+<link rel="stylesheet" href="css/experience-refresh.css?v=20261105-cinematic-prologue-1">
+<link rel="stylesheet" href="css/ui-pixel-polish.css?v=20261105-1">
+</head>
+<body>
+
+<!-- ================== КИНЕМАТОГРАФИЧЕСКИЙ ПРОЛОГ ================== -->
+<div id="screen-prologue" class="screen">
+  <main class="prologue-cinematic" aria-label="Пролог: Осколки Разлома">
+    <header class="prologue-heading">
+      <span class="prologue-kicker">ЛЕТОПИСЬ ПЯТИ ЗЕМЕЛЬ</span>
+      <h1>Осколки Разлома</h1>
+      <span class="prologue-chapter" id="prologue-chapter">Глава I · До того, как всё сломалось</span>
+    </header>
+    <div class="prologue-illustration-frame">
+      <canvas id="prologue-art" width="640" height="360" role="img" aria-label="Монохромная рисованная сцена пролога"></canvas>
+      <span class="prologue-art-caption" id="prologue-art-caption">МИР ДО ПАДЕНИЯ</span>
+      <span class="prologue-frame-counter" id="prologue-frame-counter">01 / 05</span>
+    </div>
+    <section class="prologue-narrative" aria-live="polite" aria-atomic="true">
+      <p id="prologue-narration"></p>
+    </section>
+    <div class="prologue-progress" aria-label="Ход повествования">
+      <span id="prologue-progress-fill"></span>
+    </div>
+    <div class="prologue-controls">
+      <button type="button" id="prologue-voice-btn" class="prologue-control">🔊 Озвучить</button>
+      <button type="button" id="prologue-prev-btn" class="prologue-control" disabled>← Назад</button>
+      <button type="button" id="prologue-next-btn" class="prologue-control prologue-next">Далее →</button>
+      <button type="button" id="prologue-skip-btn" class="prologue-skip" onclick="GameAPI.skipPrologue()">Пропустить пролог</button>
+    </div>
+    <p class="prologue-footnote">История продолжается, даже когда рассказчик делает вид, что всё под контролем.</p>
+  </main>
+</div>
+
+<!-- ================== ГЛАВНОЕ МЕНЮ ================== -->
+<div id="screen-main" class="screen">
+  <main class="main-menu" aria-label="Главное меню игры">
+    <header class="menu-topline">
+      <div class="logo-block">
+        <span class="title-side-mark title-side-mark-left" aria-hidden="true">❖</span>
+        <h1 class="game-title">Осколки<br><span>Разлома</span></h1>
+        <p class="subtitle">Тёмное фэнтези · Магия · RPG</p><span class="title-side-mark title-side-mark-right" aria-hidden="true">❖</span>
+      </div>
+    </header>
+
+    <div class="menu-content-grid">
+      <section class="menu-story-panel" aria-labelledby="menu-story-title">
+        <span class="menu-kicker">ЛЕГЕНДА ПРОДОЛЖАЕТСЯ</span>
+        <h2 id="menu-story-title">Три печати. Пять земель. Один выбор.</h2>
+        <p>Драконы всё ещё удерживают Разлом. Собери осколки древнего Кристалла, раскрой тайну пяти земель и реши судьбу мира. Продолжи свой путь или создай нового героя.</p>
+        <button type="button" class="menu-primary-action" onclick="GameAPI.startNewGame()">⚔️ Начать новое приключение</button>
+      </section>
+
+      <section class="slots-area" aria-labelledby="slots-heading-title">
+        <div class="slots-heading">
+          <h2 id="slots-heading-title">Сохранения</h2>
+          <span>3 СЛОТА</span>
+        </div>
+        <div class="slots-grid" id="slots-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <nav class="main-menu-buttons" aria-label="Дополнительные разделы">
+      <button type="button" onclick="GameAPI.openSettings()" class="mm-btn">⚙️ Настройки</button>
+      <button type="button" onclick="GameAPI.openAchievementsMenu()" class="mm-btn">🏆 Достижения</button>
+      <button type="button" onclick="GameAPI.openHelp()" class="mm-btn">❓ Как играть</button>
+      <button type="button" class="mm-btn mm-btn-prologue" aria-label="Пролог">📜 Пролог</button>
+    </nav>
+
+    <footer class="menu-footer">
+      <span>v0.27 · Осколки Разлома</span>
+    </footer>
+  </main>
+</div>
+
+<!-- ================== НАСТРОЙКИ ================== -->
+<div id="screen-settings" class="screen">
+  <div class="game-container" style="max-width:660px;">
+    <h1>⚙️ Настройки</h1>
+    <div class="settings-tabs" role="tablist" aria-label="Разделы настроек">
+      <button type="button" class="settings-tab active" id="settings-tab-sound" role="tab" aria-selected="true" aria-controls="settings-content" tabindex="0" data-tab="sound" onclick="GameAPI.switchSettingsTab('sound')" onkeydown="GameAPI.handleSettingsTabKey(event)">🔊 Звук</button>
+      <button type="button" class="settings-tab" id="settings-tab-game" role="tab" aria-selected="false" aria-controls="settings-content" tabindex="-1" data-tab="game" onclick="GameAPI.switchSettingsTab('game')" onkeydown="GameAPI.handleSettingsTabKey(event)">🎮 Игра</button>
+      <button type="button" class="settings-tab" id="settings-tab-graphics" role="tab" aria-selected="false" aria-controls="settings-content" tabindex="-1" data-tab="graphics" onclick="GameAPI.switchSettingsTab('graphics')" onkeydown="GameAPI.handleSettingsTabKey(event)">🎨 Графика</button>
+      <button type="button" class="settings-tab" id="settings-tab-accessibility" role="tab" aria-selected="false" aria-controls="settings-content" tabindex="-1" data-tab="accessibility" onclick="GameAPI.switchSettingsTab('accessibility')" onkeydown="GameAPI.handleSettingsTabKey(event)">♿ Доступность</button>
+      <button type="button" class="settings-tab" id="settings-tab-data" role="tab" aria-selected="false" aria-controls="settings-content" tabindex="-1" data-tab="data" onclick="GameAPI.switchSettingsTab('data')" onkeydown="GameAPI.handleSettingsTabKey(event)">💾 Данные</button>
+    </div>
+    <div class="panel" id="settings-content" role="tabpanel" aria-labelledby="settings-tab-sound" tabindex="0"></div>
+    <button onclick="GameAPI.backFromSettings()" class="settings-back-btn">← Назад</button>
+  </div>
+</div>
+
+<!-- ================== ПОМОЩЬ ================== -->
+<div id="screen-help" class="screen">
+  <div class="game-container" style="max-width:760px;">
+    <h1>❓ Как играть</h1>
+    <div class="panel help-panel">
+      <section class="help-section">
+        <h3>🎯 Ваша цель</h3>
+        <p>Исследуйте мир, выполняйте задания и проходите пять сюжетных актов. Победите трёх драконов-печатей — Пепельного Вестника, Ледяную Хватку и Кровавую Корону. Соберите их осколки, чтобы открыть и стабилизировать Разлом.</p>
+      </section>
+      <div class="divider"></div>
+      <section class="help-section">
+        <h3>🧭 Исследование и развитие</h3>
+        <ul>
+          <li>Начинайте с деревни: поговорите с персонажами и принимайте задания.</li>
+          <li>Следуйте сюжету и карте. Некоторые локации доступны только при нужном уровне или этапе истории.</li>
+          <li>Сражайтесь, получайте опыт и повышайте уровень героя.</li>
+          <li>Улучшайте персонажа: экипируйте оружие, броню и аксессуары, используйте предметы из инвентаря.</li>
+          <li>Сохраняйте прогресс через меню сохранения.</li>
+        </ul>
+      </section>
+      <div class="divider"></div>
+      <section class="help-section">
+        <h3>⚔️ Бой и управление</h3>
+        <p>В бою выбирайте действие с умом: атакуйте, применяйте магию или умения, используйте предметы, защищайтесь либо попытайтесь отступить.</p>
+        <div class="help-keys">
+          <div class="help-key-row"><kbd>WASD</kbd><span>/</span><kbd>↑ ↓ ← →</kbd><span>Перемещение</span></div>
+          <div class="help-key-row"><kbd>Пробел</kbd><span>/</span><kbd>1</kbd><span>Обычная атака</span></div>
+          <div class="help-key-row"><kbd>2</kbd><span>Магия (если доступна)</span></div>
+          <div class="help-key-row"><kbd>3</kbd><span>Использовать предмет</span></div>
+          <div class="help-key-row"><kbd>4</kbd><span>Попытаться сбежать</span></div>
+          <div class="help-key-row"><kbd>5</kbd><span>Защита: следующий удар врага ослабляется (не менее чем на 50%)</span></div>
+          <div class="help-key-row"><kbd>6</kbd><span>Открыть умения класса; выберите нужное цифровой клавишей</span></div>
+          <div class="help-key-row"><kbd>E</kbd><span>Проверить ближайшую секретную стену вне боя</span></div>
+          <div class="help-key-row"><kbd>Esc</kbd><span>Пауза вне боя; в бою — запрос на побег, в меню — закрыть окно</span></div>
+          <p class="settings-note">В списке магии, предметов и умений нажмите клавишу с номером нужного действия. На телефоне используйте экранные кнопки движения и боевые кнопки.</p>
+        </div>
+      </section>
+      <div class="divider"></div>
+      <section class="help-section">
+        <h3>🧙 Выберите свой стиль</h3>
+        <p><b>⚔️ Воин</b> — стойкий боец ближнего боя. Накапливает Ярость в сражении и расходует её на мощные умения.</p>
+        <p><b>🧙 Маг</b> — сильная магическая атака, но слабее в обычном физическом бою. Следите за запасом маны.</p>
+        <p><b>🏹 Лучник</b> — ловкий боец дальнего боя. Накапливает Концентрацию и использует меткие и ядовитые выстрелы, уклонение и особые умения.</p>
+      </section>
+      <div class="divider"></div>
+      <section class="help-section">
+        <h3>🏆 После основного сюжета</h3>
+        <p>Победа над драконами открывает Разлом: 30 дополнительных областей, 40-этажную Башню и режим NG+ для нового прохождения.</p>
+      </section>
+    </div>
+    <button onclick="GameAPI.showScreen('screen-main')" class="settings-back-btn">← Назад</button>
+  </div>
+</div>
+
+<!-- ================== ДОСТИЖЕНИЯ (просмотр) ================== -->
+<div id="screen-achievements-menu" class="screen">
+  <div class="game-container" style="max-width:760px;">
+    <h1>🏆 Достижения</h1>
+    <div class="panel" id="menu-achievements-content"></div>
+    <button onclick="GameAPI.showScreen('screen-main')" class="settings-back-btn">← Назад</button>
+  </div>
+</div>
+
+<!-- ================== ВЫБОР И СОЗДАНИЕ ГЕРОЯ ================== -->
+<div id="screen-char" class="screen">
+  <div class="game-container character-creation-container">
+    <div class="character-creation-heading">
+      <span class="character-creation-eyebrow">ПРОБУЖДЕНИЕ ПЕРЕД ПУТЁМ</span>
+      <h1>Выбери свою судьбу</h1>
+      <p class="subtitle">Три пути. Одна легенда. Каким героем ты станешь?</p>
+    </div>
+
+    <nav class="character-stepper" aria-label="Этапы создания героя">
+      <span class="character-step" data-character-step="selection" aria-current="step"><b>1</b> Выбор класса</span>
+      <span class="character-step" data-character-step="review"><b>2</b> Подтверждение</span>
+    </nav>
+
+    <section id="class-selection-stage" aria-labelledby="class-selection-title">
+      <h2 id="class-selection-title" class="class-stage-title">I · Выбери класс</h2>
+      <div class="classes-grid" id="classes-grid"></div>
+      <div class="character-name-panel">
+        <label for="char-name">ИМЯ БУДУЩЕГО ГЕРОЯ</label>
+        <input type="text" id="char-name" placeholder="Введи имя…" value="Герой" maxlength="24" autocomplete="nickname">
+        <p>Имя можно изменить до начала приключения.</p>
+      </div>
+      <div class="character-stage-actions">
+        <button id="class-review-next" type="button" class="character-primary-action" onclick="GameAPI.reviewClassSelection()" disabled>Проверить героя <span aria-hidden="true">→</span></button>
+        <button type="button" class="character-secondary-action" onclick="GameAPI.showScreen('screen-main');GameAPI.updateMainMenu();">← Вернуться к слотам</button>
+      </div>
+    </section>
+
+    <section id="class-review-stage" aria-labelledby="class-review-title" style="display:none;">
+      <h2 id="class-review-title" class="class-stage-title">II · Твой герой готов?</h2>
+      <p class="class-review-intro">Проверь имя и начальные характеристики. После подтверждения сохранение начнётся в выбранном слоте.</p>
+      <div id="class-review-content"></div>
+      <div class="character-stage-actions">
+        <button type="button" class="character-primary-action" onclick="GameAPI.confirmClassSelection()">✦ Создать героя и начать</button>
+        <button type="button" class="character-secondary-action" onclick="GameAPI.cancelClassReview()">← Изменить выбор</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ================== ИГРА (ДАШБОРД) ================== -->
+<div id="screen-game" class="screen screen-dashboard">
+  <div class="dashboard-layout">
+    
+    <!-- ЛЕВАЯ ПАНЕЛЬ (ВКЛАДКИ) -->
+    <aside class="dashboard-sidebar" aria-label="Главная навигация">
+      <div class="dashboard-brand">
+        
+        <div><b>ОСКОЛКИ РАЗЛОМА</b><span>ПАНЕЛЬ ПУТНИКА</span></div>
+      </div>
+      <div class="sidebar-title">Разделы игры</div>
+      <label class="visually-hidden" for="dashboard-nav-search">Поиск по разделам меню</label>
+      <input id="dashboard-nav-search" class="dashboard-nav-search" type="search" placeholder="⌕ Найти раздел…" autocomplete="off">
+      <div class="dashboard-tablist" role="tablist" aria-label="Разделы игры">
+        <div class="tab" id="game-tab-quests" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="quests" onclick="GameAPI.switchTab('quests')"><span class="tab-icon">📜</span> <span class="tab-text">Журнал заданий</span></div>
+        <div class="dashboard-nav-caption">ГЕРОЙ</div>
+        <div class="tab" id="game-tab-hero" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="hero" onclick="GameAPI.switchTab('hero')"><span class="tab-icon">🧙</span> <span class="tab-text">Мой герой</span></div>
+        <div class="tab" id="game-tab-inventory" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="inventory" onclick="GameAPI.switchTab('inventory')"><span class="tab-icon">🎒</span> <span class="tab-text">Экипировка</span></div>
+        <div class="tab" id="game-tab-spells" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="spells" onclick="GameAPI.switchTab('spells')"><span class="tab-icon">✨</span> <span class="tab-text">Магия и навыки</span></div>
+        <div class="tab" id="game-tab-talents" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="talents" onclick="GameAPI.switchTab('talents')"><span class="tab-icon">🌳</span> <span class="tab-text">Древо талантов</span></div>
+        <div class="dashboard-nav-caption">ЗНАНИЯ И ПРОГРЕСС</div>
+        <div class="tab" id="game-tab-bestiary" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="bestiary" onclick="GameAPI.switchTab('bestiary')"><span class="tab-icon">📖</span> <span class="tab-text">Бестиарий</span></div>
+        <div class="tab" id="game-tab-achievements" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="achievements" onclick="GameAPI.switchTab('achievements')"><span class="tab-icon">🏆</span> <span class="tab-text">Достижения</span></div>
+        <div class="tab" id="game-tab-statistics" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="statistics" onclick="GameAPI.switchTab('statistics')"><span class="tab-icon">📊</span> <span class="tab-text">Статистика</span></div>
+        <div class="tab" id="game-tab-chronicles" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="chronicles" onclick="GameAPI.switchTab('chronicles')"><span class="tab-icon">📜</span> <span class="tab-text">Хроники мира</span></div>
+        <div class="tab" id="game-tab-world" role="tab" aria-selected="false" aria-controls="tab-content" tabindex="-1" data-tab="world" onclick="GameAPI.switchTab('world')"><span class="tab-icon">🌍</span> <span class="tab-text">Мир и фракции</span></div>
+      </div>
+      <div class="sidebar-bottom">
+        <button type="button" onclick="GameAPI.saveAndMenu()" class="save-menu-btn">💾 Сохранить и в меню</button>
+      </div>
+    </aside>
+
+    <!-- ЦЕНТРАЛЬНАЯ ПАНЕЛЬ (КОНТЕНТ) -->
+    <main class="dashboard-main">
+      <header class="dashboard-header" id="game-header"></header>
+      <div class="dashboard-content" id="tab-content" role="tabpanel" aria-labelledby="game-tab-quests" tabindex="0"></div>
+    <!-- Игровая сцена внутри центральной колонки дашборда -->
+<div id="screen-overworld" class="dashboard-overworld">
+  <div class="game-container" style="max-width:1000px; width: 100%;">
+    <div class="overworld-toolbar" aria-label="Заголовок игровой локации">
+      <h2 id="overworld-title">Локация</h2>
+    </div>
+    <div style="position:relative;">
+      <canvas id="overworld-canvas" width="800" height="500" tabindex="0" aria-label="Игровой мир. WASD или стрелки — движение, E — взаимодействие, Escape — пауза." style="border:2px solid #5a4a3a;border-radius:8px;width:100%;height:auto;display:block;background:#1a2e1a;image-rendering:pixelated;"></canvas>
+      
+      <div id="combat-panel" role="region" aria-label="Боевая панель">
+        <div id="combat-panel-info" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div class="actions" id="combat-panel-actions" role="group" aria-label="Боевые действия"></div>
+      </div>
+      <div id="npc-panel" style="display:none; background:rgba(10,6,18,0.94); border:2px solid #c9a227; border-top:none; border-radius:0 0 8px 8px; padding:12px;">
+        <div id="npc-panel-info" style="color:#d4c8a8; font-size:14px; margin-bottom:8px;"></div>
+        <div class="actions" id="npc-panel-actions"></div>
+      </div>
+      <!-- Модальное окно NPC — отдельный слой поверх карты -->
+      <div id="npc-dialog-modal" class="npc-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Диалог с персонажем">
+        <div class="npc-modal-content">
+          <button class="npc-modal-close" aria-label="Закрыть диалог" onclick="GameAPI.closeNpcAndResume()">✖</button>
+          <div id="npc-dialog-content"></div>
+        </div>
+      </div>
+	  
+      <!-- Мобильный D-Pad -->
+      <div id="mobile-dpad" style="display:none;position:absolute;bottom:20px;left:20px;z-index:100;user-select:none;">
+        <div style="display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(3,60px);gap:4px;">
+          <div></div>
+          <button type="button" class="dpad-btn" data-key="w" aria-label="Двигаться вверх" style="grid-column:2;">⬆️</button>
+          <div></div>
+          <button type="button" class="dpad-btn" data-key="a" aria-label="Двигаться влево">⬅️</button>
+          <div></div>
+          <button type="button" class="dpad-btn" data-key="d" aria-label="Двигаться вправо">➡️</button>
+          <div></div>
+          <button type="button" class="dpad-btn" data-key="s" aria-label="Двигаться вниз" style="grid-column:2;">⬇️</button>
+          <div></div>
+        </div>
+      </div>
+    </div>
+    <p style="color:#a89060;font-size:13px;text-align:center;margin-top:8px;">
+      WASD / стрелки — движение · Пробел / 1 — атака · 2 — магия · 3 — предмет · 4 — побег · 5 — блок · 6 — способность · Esc — выход
+    </p>
+  </div>
+</div>
+    </main>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ (ЖУРНАЛ) -->
+    <aside class="dashboard-log" aria-label="Путеводитель и журнал событий">
+      <section class="dashboard-context-panel" id="dashboard-context" aria-label="Текущая цель"></section>
+      <div class="log-header"><span>📜 Журнал событий</span><span class="log-live-indicator">● LIVE</span></div>
+      <div class="dashboard-log-tools">
+        <div class="log-filter-row" role="group" aria-label="Фильтр журнала">
+          <button type="button" class="log-filter active" data-log-filter="all" aria-pressed="true">Все</button>
+          <button type="button" class="log-filter" data-log-filter="combat" aria-pressed="false">Бой</button>
+          <button type="button" class="log-filter" data-log-filter="loot" aria-pressed="false">Добыча</button>
+          <button type="button" class="log-filter" data-log-filter="story" aria-pressed="false">Сюжет</button>
+        </div>
+        <label class="visually-hidden" for="game-log-search">Поиск по журналу</label>
+        <input id="game-log-search" class="log-search" type="search" placeholder="Найти событие…" autocomplete="off">
+      </div>
+      <div class="log-body" id="game-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ================== СМЕРТЬ ================== -->
+<div id="screen-death" class="screen">
+  <div class="center-flex">
+    <h1 style="color:#8b1a1a;font-size:60px;text-shadow:0 0 30px rgba(139,26,26,0.6);">💀 Вы пали</h1>
+    <p class="subtitle" style="max-width:500px;line-height:1.7;text-align:center;">
+      Тьма оказалась сильнее. Но смерть — это ещё не конец пути.<br>
+      Возродитесь в деревне с половиной здоровья и маны.
+    </p>
+    <div class="menu">
+      <button onclick="GameAPI.respawnInVillage()" style="min-width:280px;border-color:#60ff60;">🏘️ Возродиться в деревне</button>
+      <button onclick="GameAPI.deathToMenu()" style="min-width:280px;">← В главное меню</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================== ПОБЕДА ================== -->
+<div id="screen-victory" class="screen">
+  <div class="center-flex">
+    <h1 style="font-size:50px;">🏆 Победа!</h1>
+    <p class="subtitle" style="font-size:16px;max-width:600px;line-height:1.7;">
+      Вы победили трёх драконов-печатей и открыли Разлом. Три осколка стабилизировали его края. Теперь решите судьбу раны между мирами.<br><br>Ваш выбор определит, останется ли Разлом частью этого мира.
+    </p>
+    <div id="ending-choice-status" style="max-width:620px;margin:10px auto;color:#c8aab4;">Выберите судьбу Разлома.</div>
+    <div class="menu">
+      <button onclick="GameAPI.chooseRiftEnding('closed')" style="min-width:320px;border-color:#b060ff;">🔒 Закрыть Разлом навсегда</button>
+      <button onclick="GameAPI.chooseRiftEnding('open')" style="min-width:320px;border-color:#b060ff;">🌀 Оставить Разлом открытым</button>
+      <button onclick="GameAPI.startNGPlus()" style="min-width:320px;border-color:#b060ff;">🔄 Начать NG+ (сохранить экипировку)</button>
+      <button onclick="GameAPI.showScreen('screen-main');GameAPI.updateMainMenu();" style="min-width:320px;">← В главное меню</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js?v=20261105-cinematic-prologue-1"></script>
+</body>
+</html>
