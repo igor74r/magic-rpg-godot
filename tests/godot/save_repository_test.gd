@@ -29,8 +29,17 @@ func _run() -> void:
 		failures.append("valid v18 payload could not be saved (error %d)" % save_error)
 	else:
 		var loaded: Dictionary = SaveRepo.load_slot(TEST_SLOT)
-		if loaded != payload:
-			failures.append("saved payload did not round-trip")
+		# JSON numbers are decoded as numeric Variants; compare the contract
+		# fields rather than relying on Dictionary's strict Variant equality.
+		if int(loaded.get("version", -1)) != 18:
+			failures.append("loaded save has the wrong schema version")
+		var loaded_player: Dictionary = loaded.get("player", {})
+		if loaded_player.get("name", "") != "Godot CI fixture":
+			failures.append("loaded save lost the player name")
+		if int(loaded_player.get("level", 0)) != 1:
+			failures.append("loaded save lost the player level")
+		if int(loaded.get("worldSeed", 0)) != 123456:
+			failures.append("loaded save lost the world seed")
 
 	if FileAccess.file_exists(TEST_PATH):
 		var absolute_path := ProjectSettings.globalize_path(TEST_PATH)
@@ -39,7 +48,7 @@ func _run() -> void:
 			failures.append("test save file cleanup failed (error %d)" % remove_error)
 
 	if failures.is_empty():
-		print("PASS: save repository slot bounds, version guard and JSON round-trip")
+		print("PASS: save repository slot bounds, version guard and JSON field round-trip")
 		quit(0)
 	else:
 		for failure in failures:
