@@ -73,7 +73,7 @@ static func sync_encounter(world:Dictionary,enemy:Dictionary)->bool:
 	var run:=get_run(world)
 	var queue:Array=run.get("enemies",[])
 	var index:=int(run.get("enemyIndex",-1))
-	if not bool(run.get("active",false)) or index<0 or index>=queue.size() or not bool(enemy.get("towerMode",false)) or str(queue[index].get("persistentId",""))!=str(enemy.get("persistentId","")): return false
+	if not bool(run.get("active",false)) or index<0 or index>=queue.size() or not bool(enemy.get("towerMode",false)) or str(queue[index].get("persistentId","")).is_empty() or str(queue[index].get("persistentId",""))!=str(enemy.get("persistentId","")) or str(queue[index].get("enemyId",""))!=str(enemy.get("enemyId","")) or int(enemy.get("towerFloor",0))!=int(run.get("floor",0)): return false
 	queue[index]=enemy.duplicate(true)
 	run["enemies"]=queue
 	world["towerRun"]=run
