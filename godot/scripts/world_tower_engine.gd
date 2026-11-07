@@ -76,6 +76,11 @@ static func complete_encounter(world:Dictionary,enemy:Dictionary)->Dictionary:
 	var index:=int(run.get("enemyIndex",-1))
 	if not bool(run.get("active",false)) or index<0 or index>=queue.size() or not bool(enemy.get("towerMode",false)) or str(queue[index].get("persistentId",""))!=str(enemy.get("persistentId","")):
 		return {"ok":false,"message":"Противник не относится к активному этажу."}
+	var defeated: Dictionary = queue[index].duplicate(true)
+	defeated["hp"] = 0
+	defeated["dead"] = true
+	defeated["state"] = "dead"
+	queue[index] = defeated
 	index+=1
 	if index<queue.size():
 		run["enemyIndex"]=index

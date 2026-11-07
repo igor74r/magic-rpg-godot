@@ -135,8 +135,12 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var tower_index := int(tower_run.get("enemyIndex", -1))
 		var tower_valid := tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
 		if tower_valid:
-			for tower_enemy in tower_queue:
-				if not tower_enemy is Dictionary or not bool(tower_enemy.get("towerMode", false)) or int(tower_enemy.get("towerFloor", 0)) != tower_floor or int(tower_enemy.get("hp", 0)) <= 0:
+			for enemy_index in range(tower_queue.size()):
+				var tower_enemy: Variant = tower_queue[enemy_index]
+				if not tower_enemy is Dictionary or not bool(tower_enemy.get("towerMode", false)) or int(tower_enemy.get("towerFloor", 0)) != tower_floor:
+					tower_valid = false
+					break
+				if enemy_index == tower_index and int(tower_enemy.get("hp", 0)) <= 0:
 					tower_valid = false
 					break
 		world["towerRun"] = tower_run.duplicate(true) if tower_valid else {"active": false, "invalidated": true}

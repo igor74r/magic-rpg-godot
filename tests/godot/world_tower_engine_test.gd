@@ -13,8 +13,12 @@ func _initialize()->void:
 	if not bool(run.get("active",false)) or run.get("enemies",[]).is_empty(): failures.append("floor queue persisted")
 	var enemy:Dictionary=run.enemies[0]
 	if not Tower.sync_encounter(world,enemy): failures.append("enemy state sync")
+	enemy["hp"]=0
 	var result:=Tower.complete_encounter(world,enemy)
 	if not bool(result.get("ok",false)): failures.append("victory advances floor queue")
+	var resumed_state:=WorldState.normalize(world,4455)
+	if not bool(resumed_state.towerRun.get("active",false)) or int(resumed_state.towerRun.get("enemyIndex",0))!=1:
+		failures.append("active tower save must allow already defeated enemies in its queue")
 	var bad:=WorldState.create(7788)
 	bad["hero"]={"towerBest":99}
 	bad["towerRun"]={"active":true,"floor":99,"enemyIndex":0,"enemies":[]}
