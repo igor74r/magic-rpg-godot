@@ -4,6 +4,8 @@ const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const WorldStateRepositoryScript = preload("res://godot/scripts/world_state_repository.gd")
 const WorldMapGeneratorScript = preload("res://godot/scripts/world_map_generator.gd")
 const WorldMapViewScript = preload("res://godot/scripts/world_map_view.gd")
+const EncounterGeneratorScript = preload("res://godot/scripts/world_encounter_generator.gd")
+const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -13,6 +15,7 @@ var routes_container: GridContainer
 var region_label: Label
 var detail_label: Label
 var map_view: Control
+var encounters_container: VBoxContainer
 
 
 func _ready() -> void:
@@ -45,6 +48,14 @@ func _build_exploration_ui() -> void:
 	routes_container.add_theme_constant_override("v_separation", 12)
 	_insert_before_spacer(routes_container)
 
+	var encounter_title := Label.new()
+	encounter_title.text = "ПРОТИВНИКИ РЕГИОНА"
+	encounter_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(encounter_title)
+	encounters_container = VBoxContainer.new()
+	encounters_container.add_theme_constant_override("separation", 6)
+	_insert_before_spacer(encounters_container)
+
 	var hint := Label.new()
 	hint.text = "Выбирай открытый путь, чтобы исследовать соседний регион. Прогресс сохраняется локально."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -69,7 +80,9 @@ func _refresh_exploration() -> void:
 	status_label.text = "Мир сохранён. Исследуй открытые направления и возвращайся в уже посещённые места."
 	var world_seed := int(world.get("seed", 1))
 	var visit_index := int(visits.get(current, 1))
-	map_view.call("set_map", WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index))
+	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
+	map_view.call("set_map", map_grid)
+	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
@@ -87,6 +100,49 @@ func _refresh_exploration() -> void:
 		var no_routes := Label.new()
 		no_routes.text = "Нет открытых путей."
 		routes_container.add_child(no_routes)
+
+
+func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, visit_index: int) -> void:
+	for child in encounters_container.get_children():
+		child.queue_free()
+	if RegionCatalogScript.is_safe(region_id):
+		var safe_label := Label.new()
+		safe_label.text = "Здесь безопасно. Противников нет."
+		encounters_container.add_child(safe_label)
+		return
+	var record := WorldStateScript.get_region_record(world, region_id)
+	var threat := int(record.get("securityThreat", 0))
+	var enemies := EncounterGeneratorScript.generate(
+		region_id, map_grid, world_seed, int(world.get("generatorVersion", 1)),
+		visit_index, Vector2i(20, 15), threat
+	)
+	WorldStateScript.apply_region_persistence(world, region_id, enemies, [])
+	var alive_count := 0
+	for enemy in enemies:
+		if enemy.get("dead", false):
+			continue
+		alive_count += 1
+		var enemy_label := Label.new()
+		var tags: Array[String] = []
+		if enemy.get("boss", false):
+			tags.append("БОСС")
+		elif enemy.get("elite", false):
+			tags.append("ЭЛИТА")
+		var prefix := "[%s] " % ", ".join(tags) if not tags.is_empty() else ""
+		enemy_label.text = "%s%s %s — HP %d / ATK %d" % [
+			prefix, str(enemy.get("emoji", "👾")), str(enemy.get("name", enemy.get("enemyId", "Противник"))),
+			int(enemy.get("hp", 0)), int(enemy.get("attack", 0))
+		]
+		enemy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		encounters_container.add_child(enemy_label)
+	if alive_count == 0:
+		var cleared := Label.new()
+		cleared.text = "В этом посещении активных противников нет."
+		encounters_container.add_child(cleared)
+	var summary := Label.new()
+	summary.text = "Активных противников: %d" % alive_count
+	summary.add_theme_font_size_override("font_size", 12)
+	encounters_container.add_child(summary)
 
 
 func _travel_to(region_id: String) -> void:
