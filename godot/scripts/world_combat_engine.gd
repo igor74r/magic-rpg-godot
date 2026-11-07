@@ -227,7 +227,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
 	if level_ups > 0:
-		message += "\\nПолучено уровней: %d." % level_ups
+		message += "\nПолучено уровней: %d." % level_ups
 	if not dropped_names.is_empty():
 		message += "\nДобыча: %s." % ", ".join(dropped_names)
 	return message
