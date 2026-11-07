@@ -6,12 +6,64 @@ const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const Catalog = preload("res://godot/scripts/world_npc_catalog.gd")
 const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
 const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
-static func talk(npc_id: String) -> Dictionary:
+static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
+	var counts: Dictionary=world.get("npcDialogueCounts",{}) if world.get("npcDialogueCounts",{}) is Dictionary else {}
+	var count:=maxi(0,int(counts.get(npc_id,0)))
 	var greetings: Array=npc.get("greetings",[])
-	var greeting:=str(greetings[0]) if not greetings.is_empty() else "..."
-	return {"ok":true,"npc":npc,"message":"%s\n«%s»" % [str(npc.name),greeting]}
+	var greeting:=str(greetings[count % greetings.size()]) if not greetings.is_empty() else "..."
+	counts[npc_id]=count+1
+	world["npcDialogueCounts"]=counts
+	return {"ok":true,"npc":npc,"message":"%s\\n«%s»" % [str(npc.name),greeting],"choices":dialogue_choices(npc_id,world)}
+
+static func dialogue_choices(npc_id: String, world: Dictionary) -> Array:
+	match npc_id:
+		"guard":
+			return [
+				{"id":"forest","label":"Что известно о Лесе шепчущих?","text":"Гоблины держатся стаями. Следи за тропами и не недооценивай шипастых тварей."},
+				{"id":"ruins","label":"Что скрывают Руины?","text":"Там бродит нежить. Скелеты уязвимы, но тёмные рыцари опаснее обычных мертвецов."},
+				{"id":"shadow","label":"Расскажи о Пещере теней","text":"Маги теней бьют издали. Подготовь защиту от магии, прежде чем идти туда."}
+			]
+		"cat":
+			return [{"id":"pet","label":"Погладить кошку","text":"Кошка довольно мурлычет и трётся о вашу руку."}]
+		"kids":
+			return [
+				{"id":"heroes","label":"Рассказать о приключениях","text":"Дети слушают, затаив дыхание. Теперь они мечтают стать искателями приключений."},
+				{"id":"coin","label":"Подарить детям 1 золото","text":"Дети радостно благодарят вас за монетку."}
+			]
+		"herald":
+			return [
+				{"id":"elite","label":"Спросить об элитных врагах","text":"Элитные противники крепче обычных, но их добыча ценнее."},
+				{"id":"treasure","label":"Спросить о сокровищах","text":"Слухи ведут к тайникам. Осматривай стены и подозрительные участки."},
+				{"id":"rift","label":"Спросить о Разломе","text":"Чем глубже спускаешься, тем опаснее враги. Не забывай о припасах."}
+			]
+		"questBoard":
+			var daily: Variant=world.get("dailyQuests",{})
+			var quests: Array=daily.get("quests",[]) if daily is Dictionary else []
+			var available:=0
+			for quest in quests:
+				if quest is Dictionary and not bool(quest.get("claimed",false)) and bool(quest.get("completed",false)): available+=1
+			return [{"id":"daily","label":"Проверить ежедневные поручения","text":"На доске %d ежедневных заданий, готовых к сдаче. Подробности и награды отмечены в журнале поручений." % available}]
+	return []
+
+static func choose_dialogue(world: Dictionary, npc_id: String, choice_id: String) -> Dictionary:
+	var selected: Dictionary={}
+	for choice in dialogue_choices(npc_id,world):
+		if str(choice.get("id",""))==choice_id:
+			selected=choice
+			break
+	if selected.is_empty(): return {"ok":false,"message":"Такого варианта диалога нет."}
+	if npc_id=="kids" and choice_id=="coin":
+		var hero:=hero_for(world)
+		if int(hero.get("gold",0))<1: return {"ok":false,"message":"У вас нет даже одной золотой монеты."}
+		hero["gold"]=int(hero.gold)-1
+		world["hero"]=hero
+	var flags: Dictionary=world.get("npcDialogueFlags",{}) if world.get("npcDialogueFlags",{}) is Dictionary else {}
+	flags["%s:%s" % [npc_id,choice_id]]=true
+	world["npcDialogueFlags"]=flags
+	return {"ok":true,"message":str(selected.get("text",""))}
+
 static func hero_for(world: Dictionary) -> Dictionary:
 	return Combat.ensure_hero(world)
 static func has_entry(hero: Dictionary,key: String,field: String="buffs") -> bool:

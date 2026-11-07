@@ -50,6 +50,7 @@ func _build_exploration_ui() -> void:
 
 	map_view = WorldMapViewScript.new()
 	map_view.custom_minimum_size = Vector2(320, 240)
+	map_view.connect("npc_clicked", Callable(self, "_on_map_npc_clicked"))
 	map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_insert_before_spacer(map_view)
 
@@ -135,7 +136,7 @@ func _refresh_exploration() -> void:
 	var world_seed := int(world.get("seed", 1))
 	var visit_index := int(visits.get(current, 1))
 	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
-	map_view.call("set_map", map_grid)\n\t_refresh_map_npcs(current)\n\tif not map_view.npc_clicked.is_connected(_on_map_npc_clicked): map_view.npc_clicked.connect(_on_map_npc_clicked)
+	map_view.call("set_map", map_grid)\n\t_refresh_map_npcs(current)\n\t
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	_refresh_inventory()
 	for child in routes_container.get_children():
@@ -347,6 +348,8 @@ func _talk_to_npc(npc_id: String) -> void:
 		if child is Button and child.name=="NpcAction": child.queue_free()
 	var result: Dictionary=NpcEngineScript.talk(world,npc_id)
 	status_label.text=str(result.get("message",""))
+	for choice in result.get("choices",[]):
+		_add_dialogue_choice(npc_id,str(choice.get("id","")),str(choice.get("label","")))
 	var hero:=CombatEngineScript.ensure_hero(world)
 	if npc_id=="elder":
 		var mission: Dictionary=CampaignScript.get_next(hero)
