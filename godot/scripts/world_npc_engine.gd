@@ -193,26 +193,34 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
  var recipe: Dictionary=RECIPES.get(recipe_id,{})
  if recipe.is_empty(): return {"ok":false,"message":"Рецепт не найден."}
  if int(recipe.get("act",1))>current_act(hero): return {"ok":false,"message":"Рецепт откроется в акте %d." % int(recipe.act)}
- for item_id in recipe.ingredients:
-  var needed:=int(recipe.ingredients[item_id])
+ var result_id := str(recipe.get("result", ""))
+ var result_definition := CatalogItem.get_item(result_id)
+ if result_definition.is_empty() or str(result_definition.get("type", "")) == "quest" or bool(result_definition.get("storyShard", false)) or bool(result_definition.get("bossOnly", false)):
+  return {"ok":false,"message":"Этот предмет нельзя создавать по рецепту."}
+ var ingredients: Variant = recipe.get("ingredients", {})
+ if not ingredients is Dictionary or ingredients.is_empty(): return {"ok":false,"message":"Рецепт повреждён: нет ингредиентов."}
+ for item_id in ingredients:
+  var ingredient_id := str(item_id)
+  var ingredient_definition := CatalogItem.get_item(ingredient_id)
+  var needed := int(ingredients[item_id])
+  if ingredient_definition.is_empty() or str(ingredient_definition.get("type", "")) == "quest" or bool(ingredient_definition.get("storyShard", false)) or needed < 1:
+   return {"ok":false,"message":"Рецепт содержит недопустимый ингредиент."}
   var have:=0
   for instance in hero.inventory:
-   if str(instance.get("id",""))==str(item_id): have+=int(instance.get("qty",1))
-  if have<needed: return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(CatalogItem.get_item(str(item_id)).get("name",item_id)),have,needed]}
+   if str(instance.get("id",""))==ingredient_id: have+=int(instance.get("qty",1))
+  if have<needed: return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(ingredient_definition.get("name",ingredient_id)),have,needed]}
  var snapshot: Array=hero.inventory.duplicate(true)
- for item_id in recipe.ingredients:
-  if not Combat.remove_item(hero,str(item_id),int(recipe.ingredients[item_id])):
+ for item_id in ingredients:
+  if not Combat.remove_item(hero,str(item_id),int(ingredients[item_id])):
    hero["inventory"]=snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
- var created_index:=hero.inventory.size()
- if not Combat.add_item(hero,str(recipe.result),1):
+ var rarity := str(recipe.get("rarity", ""))
+ if not Combat.add_item(hero,result_id,1,rarity):
   hero["inventory"]=snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
- if not str(recipe.get("rarity","")).is_empty():
-  if created_index<hero.inventory.size() and str(hero.inventory[created_index].get("id",""))==str(recipe.result):
-   hero.inventory[created_index]["rarity"]=str(recipe.rarity)
  world["hero"]=hero
- return {"ok":true,"message":"Создано: %s." % str(CatalogItem.get_item(str(recipe.result)).get("name",recipe.result))}
+ return {"ok":true,"message":"Создано: %s." % str(result_definition.get("name",result_id))}
+
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
  var hero:=hero_for(world)
  var equipped: Dictionary=hero.get("equipped",{})

@@ -573,7 +573,7 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
 
-static func add_item(hero: Dictionary, item_id: String, quantity: int = 1) -> bool:
+static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> bool:
 	var item := ItemCatalog.get_item(item_id)
 	if item.is_empty() or quantity < 1:
 		return false
@@ -581,11 +581,13 @@ static func add_item(hero: Dictionary, item_id: String, quantity: int = 1) -> bo
 	var stackable := str(item.get("type", "")) in ["consumable","scroll","quest","material","rune"]
 	if stackable:
 		for instance in inventory:
-			if str(instance.get("id", "")) == item_id and not instance.has("rarity"):
+			if str(instance.get("id", "")) == item_id and str(instance.get("rarity", "")) == rarity:
 				instance["qty"] = int(instance.get("qty", 1)) + quantity
 				hero["inventory"] = inventory
 				return true
-		inventory.append({"id":item_id,"qty":quantity})
+		var stack: Dictionary = {"id":item_id,"qty":quantity}
+		if not rarity.is_empty(): stack["rarity"] = rarity
+		inventory.append(stack)
 	else:
 		for index in range(quantity):
 			inventory.append({"id":item_id,"qty":1,"bonus":item.get("bonus",{}).duplicate(true),"runes":[],"sockets":int(item.get("sockets",0))})
