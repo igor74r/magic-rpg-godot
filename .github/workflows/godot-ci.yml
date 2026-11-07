@@ -23,5 +23,8 @@ jobs:
       - name: Test save repository contract
         run: godot --headless --path . --script res://tests/godot/save_repository_test.gd
 
+      - name: Test canonical world graph
+        run: godot --headless --path . --script res://tests/godot/world_graph_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2
