@@ -132,20 +132,9 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 			var healed := mini(incoming, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
 			enemy["hp"] = int(enemy.hp) + maxi(0, healed)
 			lines.append("Противник восстановил %d HP." % maxi(0, healed))
-		var modifier_effect := str(enemy.get("modifierEffect", ""))
-		if modifier_effect == "poison":
-			apply_effect(hero, "poison")
-			lines.append("Ядовитая атака накладывает отравление.")
-		elif modifier_effect == "vampiric":
-			var vamp_heal := mini(maxi(1, int(round(float(incoming) * 0.3))), int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
-			enemy["hp"] = int(enemy.hp) + maxi(0, vamp_heal)
-			if vamp_heal > 0:
-				lines.append("Вампирский враг поглощает %d HP." % vamp_heal)
-		elif modifier_effect == "regenerate":
-			var regen := mini(5, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
-			enemy["hp"] = int(enemy.hp) + maxi(0, regen)
-			if regen > 0:
-				lines.append("Враг восстанавливает %d HP." % regen)
+		var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
+		if not modifier_message.is_empty():
+			lines.append(modifier_message)
 		var effect_tick := tick_effects(hero)
 		if int(effect_tick.damage) > 0:
 			hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
@@ -411,6 +400,9 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
 			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
+			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
+			if not modifier_message.is_empty():
+				combat["log"] += "\n" + modifier_message
 		combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -469,9 +461,28 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
 			lines.append("Противник отвечает: %d урона." % incoming)
+			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
+			if not modifier_message.is_empty():
+				lines.append(modifier_message)
 	combat["log"] = "\n".join(lines)
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
+
+
+static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming: int) -> String:
+	match str(enemy.get("modifierEffect", "")):
+		"poison":
+			apply_effect(hero, "poison")
+			return "Ядовитая атака накладывает отравление."
+		"vampiric":
+			var healed := mini(maxi(1, int(round(float(incoming) * 0.3))), int(enemy.get("maxHp", enemy.get("hp", 0))) - int(enemy.get("hp", 0)))
+			enemy["hp"] = int(enemy.get("hp", 0)) + maxi(0, healed)
+			return "Вампирский враг поглощает %d HP." % healed if healed > 0 else ""
+		"regenerate":
+			var healed := mini(5, int(enemy.get("maxHp", enemy.get("hp", 0))) - int(enemy.get("hp", 0)))
+			enemy["hp"] = int(enemy.get("hp", 0)) + maxi(0, healed)
+			return "Враг восстанавливает %d HP." % healed if healed > 0 else ""
+	return ""
 
 
 static func _has_effect(target: Dictionary, effect_id: String) -> bool:

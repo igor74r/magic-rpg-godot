@@ -52,8 +52,9 @@ func _initialize() -> void:
 	var vamp_enemy := {"name":"Вампир","persistentId":"enemy-vamp","hp":40,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"vampiric"}
 	var vamp_fight := Combat.begin(vamp_enemy)
 	var vamp_before := int(vamp_enemy.hp)
+	var vamp_expected := vamp_before - Combat.effective_stat(Combat.ensure_hero(modifier_world), "attack")
 	Combat.player_attack(modifier_world, vamp_fight)
-	if int(vamp_enemy.hp) <= maxi(0, vamp_before - 40):
+	if int(vamp_enemy.hp) <= vamp_expected:
 		failures.append("vampiric modifier must restore enemy health after its counterattack")
 	var regen_enemy := {"name":"Страж регенерации","persistentId":"enemy-regen","hp":40,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"regenerate"}
 	var regen_fight := Combat.begin(regen_enemy)
