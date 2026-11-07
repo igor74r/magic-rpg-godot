@@ -10,6 +10,7 @@ This directory is the first native Godot 4 project shell. The browser game at th
 - `godot/scripts/world_state_repository.gd` stores native exploration state separately from browser v18 character saves.
 - `godot/scripts/main.gd` now provides a minimal playable region-travel loop: open routes, visit counters, discovery and local persistence.
 - `godot/scripts/world_graph.gd` ports the canonical 16-region, bidirectional world graph from the browser reference.
+- `godot/scripts/world_map_generator.gd` adds seeded generic region maps, central safe roads, tile collision rules, and free-cell selection. The hand-authored village layout remains a temporary simplified hub.
 - `tests/godot/save_repository_test.gd` checks slot bounds, schema-version rejection, and JSON round-trip behavior.
 - `tests/godot/world_graph_test.gd` checks region count, route symmetry, starting exits, and graph connectivity.
 - `.github/workflows/godot-ci.yml` imports the project, runs both headless data tests, and boots the main scene with Godot 4.4.1.

@@ -32,5 +32,8 @@ jobs:
       - name: Test save-scoped world exploration state
         run: godot --headless --path . --script res://tests/godot/world_state_test.gd
 
+      - name: Test deterministic overworld map generation
+        run: godot --headless --path . --script res://tests/godot/world_map_generator_test.gd
+
       - name: Boot the main scene
         run: godot --headless --path . --quit-after 2
