@@ -7,9 +7,13 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	if Combat.progression_exp_next(1) != 125 or Combat.progression_exp_next(11) != 259 or Combat.progression_exp_next(21) != 269 or Combat.progression_exp_next(31) != 369 or Combat.progression_exp_next(41) != 535 or Combat.progression_exp_next(51) != int(floor(535.0 * pow(51.0 / 50.0, 1.5))):
 		failures.append("native XP thresholds must match browser progression bands")
-	var progression_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":170,"maxMp":100,"hp":170,"mp":100,"attack":22,"defense":16,"statPoints":0,"passivePoints":0,"luck":5.0}
-	if Combat._grant_experience(progression_hero, 125) != 1 or int(progression_hero.level) != 2 or int(progression_hero.statPoints) != 1 or int(progression_hero.passivePoints) != 1 or int(progression_hero.maxHp) != 184:
+	var progression_hero := {"class":"warrior","level":1,"exp":0,"expNext":125,"maxHp":170,"maxMp":100,"hp":170,"mp":100,"attack":22,"defense":16,"str":18,"int":4,"wis":7,"con":16,"dex":6,"statPoints":0,"passivePoints":0,"luck":5.0}
+	if Combat._grant_experience(progression_hero, 125) != 1 or int(progression_hero.level) != 2 or int(progression_hero.statPoints) != 1 or int(progression_hero.passivePoints) != 1 or int(progression_hero.maxHp) != 184 or int(progression_hero.str) != 20 or int(progression_hero.con) != 17 or int(progression_hero.dex) != 7:
 		failures.append("warrior level-up must apply browser XP threshold, class growth and points")
+	var class_stats_world := WorldState.create(990)
+	Combat.select_class(class_stats_world, "mage")
+	if int(class_stats_world.hero.str) != 4 or int(class_stats_world.hero.int) != 20 or int(class_stats_world.hero.wis) != 14 or int(class_stats_world.hero.con) != 7 or int(class_stats_world.hero.dex) != 8 or Combat.effective_stat(class_stats_world.hero, "magic") != 20:
+		failures.append("native class attributes and derived magic must match browser class base stats")
 	var world := WorldState.create(991)
 	world["currentRegionId"] = "forest"
 	var hero := Combat.ensure_hero(world)

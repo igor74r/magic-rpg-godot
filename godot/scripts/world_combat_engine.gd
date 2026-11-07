@@ -22,6 +22,8 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 	hero["luck"] = clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
 	hero["maxHp"] = clampi(int(hero.get("maxHp", class_data.maxHp)), 1, 999999)
 	hero["maxMp"] = clampi(int(hero.get("maxMp", class_data.maxMp)), 0, 999999)
+	for stat_name in ["str", "int", "wis", "con", "dex"]:
+		hero[stat_name] = clampi(int(hero.get(stat_name, int(class_data.get(stat_name, 0)))), 0, 999999)
 	hero["mp"] = clampi(int(hero.get("mp", hero.maxMp)), 0, hero.maxMp)
 	hero["inventory"] = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
 	hero["equipped"] = hero.get("equipped", {}) if hero.get("equipped", {}) is Dictionary else {}
@@ -171,18 +173,21 @@ static func _grant_experience(hero: Dictionary, amount: int) -> int:
 			"warrior":
 				hero["maxHp"] = int(hero.maxHp) + 14
 				hero["maxMp"] = int(hero.maxMp) + 5
-				hero["attack"] = int(hero.attack) + 2
-				hero["defense"] = int(hero.defense) + 1
-			"mage":
+				hero["str"] = int(hero.str) + 2
+				hero["con"] = int(hero.con) + 1
+				hero["dex"] = int(hero.dex) + 1
+			"mage", "priest":
 				hero["maxHp"] = int(hero.maxHp) + 8
 				hero["maxMp"] = int(hero.maxMp) + 13
-				hero["magic"] = int(hero.get("magic", 0)) + 2
-				hero["defense"] = int(hero.defense) + 1
+				hero["int"] = int(hero.int) + 2
+				hero["wis"] = int(hero.wis) + 1
+				hero["con"] = int(hero.con) + 1
 			"archer":
 				hero["maxHp"] = int(hero.maxHp) + 10
 				hero["maxMp"] = int(hero.maxMp) + 7
-				hero["attack"] = int(hero.attack) + 1
-				hero["defense"] = int(hero.defense) + 1
+				hero["dex"] = int(hero.dex) + 2
+				hero["str"] = int(hero.str) + 1
+				hero["con"] = int(hero.con) + 1
 		hero["statPoints"] = int(hero.get("statPoints", 0)) + 1
 		hero["passivePoints"] = int(hero.get("passivePoints", 0)) + 1
 		hero["hp"] = int(hero.maxHp)
@@ -402,6 +407,7 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 		"maxHp":int(definition.maxHp),"hp":int(definition.maxHp),
 		"maxMp":int(definition.maxMp),"mp":int(definition.maxMp),
 		"attack":int(definition.attack),"defense":int(definition.defense),
+		"str":int(definition.get("str",0)),"int":int(definition.get("int",0)),"wis":int(definition.get("wis",0)),"con":int(definition.get("con",0)),"dex":int(definition.get("dex",0)),
 		"exp":0,"expNext":125,"statPoints":0,"passivePoints":0,"luck":5.0,"gold":0,"spells":definition.spells.duplicate(),
 		"inventory":[],"equipped":{},"inventoryInitialized":false,
 		"effects":[],"buffs":[],"cooldowns":{}
@@ -412,6 +418,13 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 
 static func effective_stat(hero: Dictionary, stat: String) -> int:
 	var total := int(hero.get(stat, 0))
+	match stat:
+		"attack":
+			total = int(hero.get("str", total))
+		"magic":
+			total = int(hero.get("int", hero.get("magic", total)))
+		"defense":
+			total = int(floor(float(hero.get("con", total * 2)) / 2.0))
 	var equipped: Dictionary = hero.get("equipped", {})
 	for instance in equipped.values():
 		if instance == null:
