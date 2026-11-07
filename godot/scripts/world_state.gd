@@ -1,6 +1,6 @@
 # Save-scoped exploration state, ported from systems/world-state.js.
 # This is separate from WorldGraph: graph topology is immutable; this data is mutable per save.
-class_name WorldState
+class_name WorldStateData
 extends RefCounted
 
 const SCHEMA_VERSION := 1
