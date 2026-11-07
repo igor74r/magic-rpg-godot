@@ -238,6 +238,7 @@ func _initialize() -> void:
 	var greeting_a: Dictionary=NpcEngine.talk(dialogue_world,"guard")
 	var greeting_b: Dictionary=NpcEngine.talk(dialogue_world,"guard")
 	if str(greeting_a.message)==str(greeting_b.message): failures.append("NPC greetings must rotate instead of repeating a fixed line")
+	if not str(greeting_a.message).contains("\n"): failures.append("NPC name and greeting must render on separate lines")
 	if int(dialogue_world.npcDialogueCounts.guard)!=2: failures.append("NPC dialogue counters must persist in world state")
 	var rumor: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"herald","treasure")
 	if not rumor.ok or not str(rumor.message).contains("тайникам"): failures.append("herald treasure choice must return its matching dialogue branch")

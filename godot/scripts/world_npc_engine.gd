@@ -15,7 +15,7 @@ static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var greeting:=str(greetings[count % greetings.size()]) if not greetings.is_empty() else "..."
 	counts[npc_id]=count+1
 	world["npcDialogueCounts"]=counts
-	return {"ok":true,"npc":npc,"message":"%s\\n«%s»" % [str(npc.name),greeting],"choices":dialogue_choices(npc_id,world)}
+	return {"ok":true,"npc":npc,"message":"%s\n«%s»" % [str(npc.name),greeting],"choices":dialogue_choices(npc_id,world)}
 
 static func dialogue_choices(npc_id: String, world: Dictionary) -> Array:
 	match npc_id:
