@@ -101,6 +101,7 @@ static func complete_area(world: Dictionary, enemy: Dictionary) -> Dictionary:
 		cleared.append(str(run.locationId))
 	hero["riftClearedLocations"] = cleared
 	var new_record := Campaign.record_rift_floor(hero, int(run.floor))
+	preload("res://godot/scripts/world_daily_quest_engine.gd").set_progress(world, "rift", "floor", int(run.floor))
 	world["hero"] = hero
 	world["riftRun"] = {"active": false, "locationId": str(run.locationId), "floor": int(run.floor), "completed": true}
 	return {"ok": true, "newRecord": new_record, "floor": int(run.floor), "message": "Область Разлома очищена · этаж %d%s" % [int(run.floor), " · новый рекорд!" if new_record else ""]}

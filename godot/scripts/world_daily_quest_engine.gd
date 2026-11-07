@@ -62,6 +62,17 @@ static func update_progress(world: Dictionary,kind: String,target: String,amount
 		if str(quest.target)!="any" and str(quest.target)!=target:continue
 		quest["current"]=mini(int(quest.max),int(quest.current)+amount)
 		quest["completed"]=int(quest.current)>=int(quest.max)
+# Set a cumulative objective (such as the deepest Rift floor reached) without
+# incrementing it once per UI refresh or allowing progress to move backwards.
+static func set_progress(world: Dictionary,kind: String,target: String,value: int) -> void:
+	if value < 0:return
+	var quests := get_quests(world)
+	for quest in quests:
+		if bool(quest.completed) or bool(quest.claimed) or str(quest.type)!=kind:continue
+		if str(quest.target)!="any" and str(quest.target)!=target:continue
+		quest["current"]=mini(int(quest.max),maxi(int(quest.current),value))
+		quest["completed"]=int(quest.current)>=int(quest.max)
+
 static func claim(world: Dictionary,quest_id: String) -> Dictionary:
 	var hero: Dictionary=world.get("hero",{})
 	if hero.is_empty():return {"ok":false,"message":"Нет персонажа"}
