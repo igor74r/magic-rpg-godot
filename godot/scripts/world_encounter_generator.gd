@@ -9,8 +9,17 @@ const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
 const TILE_SIZE := 32
 const ELITE_HP_MULT := 1.5
 const ELITE_ATTACK_MULT := 1.3
+const MODIFIER_CHANCE := 0.10
+const MODIFIERS := {
+	"poisonous": {"hpMult": 1.0, "atkMult": 1.15, "defMult": 1.0, "effect": "poison"},
+	"armored": {"hpMult": 1.3, "atkMult": 1.0, "defMult": 1.5, "effect": ""},
+	"swift": {"hpMult": 0.9, "atkMult": 1.2, "defMult": 1.0, "effect": ""},
+	"vampiric": {"hpMult": 1.0, "atkMult": 1.0, "defMult": 1.0, "effect": "vampiric"},
+	"regenerating": {"hpMult": 1.1, "atkMult": 1.0, "defMult": 1.0, "effect": "regenerate"},
+	"berserk": {"hpMult": 0.9, "atkMult": 1.25, "defMult": 1.0, "effect": ""}
+}
 
-static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal") -> Array:
+static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal", ng_plus: int = 0) -> Array:
 	if Catalog.is_safe(region_id) or grid.is_empty():
 		return []
 	var region_rng := RandomScript.for_region(world_seed, generator_version, region_id, visit_index)
@@ -46,15 +55,23 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 			occurrence = int(boss_occurrences.get(enemy_id, 0)) + 1
 			boss_occurrences[enemy_id] = occurrence
 		var elite := not is_boss and region_rng.next_float() < elite_chance
-		var hp := int(round(float(definition.hp) * (ELITE_HP_MULT if elite else 1.0)))
-		var attack := int(round(float(definition.attack) * (ELITE_ATTACK_MULT if elite else 1.0)))
+		var modifier_id := ""
+		if not is_boss and not elite and region_rng.next_float() < MODIFIER_CHANCE:
+			var modifier_keys: Array = MODIFIERS.keys()
+			modifier_id = str(modifier_keys[region_rng.next_int(modifier_keys.size())])
+		var modifier: Dictionary = MODIFIERS.get(modifier_id, {})
+		var ng := maxi(0, ng_plus)
+		var hp := int(round(float(definition.hp) * (ELITE_HP_MULT if elite else 1.0) * float(modifier.get("hpMult", 1.0)) * (1.0 + 0.5 * ng)))
+		var attack := int(round(float(definition.attack) * (ELITE_ATTACK_MULT if elite else 1.0) * float(modifier.get("atkMult", 1.0)) * (1.0 + 0.3 * ng)))
+		var defense := int(round(float(definition.defense) * float(modifier.get("defMult", 1.0))))
 		var persistent_id := "boss-%s%s" % [enemy_id, "" if occurrence <= 1 else "-%d" % occurrence] if is_boss else "enemy-%d" % index
 		enemies.append({
 			"id": index, "persistentId": persistent_id, "enemyId": enemy_id,
 			"name": definition.name, "emoji": definition.emoji,
 			"x": cell.x * TILE_SIZE + TILE_SIZE / 2, "y": cell.y * TILE_SIZE + TILE_SIZE / 2,
 			"cell": cell, "hp": hp, "maxHp": hp, "attack": attack,
-			"defense": int(definition.defense), "exp": int(definition.exp), "gold": int(definition.gold),
+			"defense": defense, "exp": int(round(float(definition.exp) * (1.0 + 0.3 * ng))), "gold": int(round(float(definition.gold) * (1.0 + 0.3 * ng))),
+			"modifier": modifier_id, "modifierEffect": str(modifier.get("effect", "")),
 			"special": definition.get("special", {}).duplicate(true),
 			"drops": definition.get("drops", []).duplicate(),
 			"dropSeed": region_rng.next_int(2147483647),

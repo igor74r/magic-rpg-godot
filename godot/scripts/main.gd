@@ -191,7 +191,7 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 	var threat := int(record.get("securityThreat", 0))
 	var enemies := EncounterGeneratorScript.generate(
 		region_id, map_grid, world_seed, int(world.get("generatorVersion", 1)),
-		visit_index, Vector2i(20, 15), threat
+		visit_index, Vector2i(20, 15), threat, str(world.get("difficulty", "normal")), int(CombatEngineScript.ensure_hero(world).get("ngPlus", 0))
 	)
 	WorldStateScript.apply_region_persistence(world, region_id, enemies, [])
 	var alive_count := 0
@@ -208,6 +208,8 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 			tags.append("БОСС")
 		elif enemy.get("elite", false):
 			tags.append("ЭЛИТА")
+		if not str(enemy.get("modifier", "")).is_empty():
+			tags.append(str(enemy.modifier).to_upper())
 		if not tags.is_empty():
 			var enemy_label := Label.new()
 			enemy_label.text = "[%s]" % ", ".join(tags)

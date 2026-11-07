@@ -57,8 +57,11 @@ static func create_encounter(world: Dictionary) -> Dictionary:
 	var enemy_id := str(eligible[(floor - 1 + area_index) % eligible.size()])
 	var definition := Enemies.get_enemy(enemy_id)
 	var mult := Campaign.get_rift_multiplier(floor)
-	var hp := maxi(1, int(round(float(definition.get("hp", 1)) * float(mult.hpMult))))
-	var attack := maxi(1, int(round(float(definition.get("attack", 1)) * float(mult.atkMult))))
+	var ng_cycle := maxi(0, int(hero.get("ngPlus", 0)))
+	var ng_hp := 1.0 + 0.5 * ng_cycle
+	var ng_other := 1.0 + 0.3 * ng_cycle
+	var hp := maxi(1, int(round(float(definition.get("hp", 1)) * float(mult.hpMult) * ng_hp)))
+	var attack := maxi(1, int(round(float(definition.get("attack", 1)) * float(mult.atkMult) * ng_other)))
 	return {
 		"id": "rift-%s-%d" % [str(run.locationId), floor],
 		"persistentId": "rift-%s-%d-%s" % [str(run.locationId), floor, enemy_id],
@@ -70,7 +73,7 @@ static func create_encounter(world: Dictionary) -> Dictionary:
 		"dropSeed": floor * 7919 + area_index * 104729, "boss": bool(definition.get("boss", false)),
 		"elite": false, "dead": false, "state": "idle", "effects": [],
 		"riftMode": true, "riftLocationId": str(run.locationId), "riftFloor": floor,
-		"riftExpMult": float(mult.expMult), "riftGoldMult": float(mult.goldMult)
+		"riftExpMult": float(mult.expMult) * ng_other, "riftGoldMult": float(mult.goldMult) * ng_other
 	}
 
 static func sync_encounter(world: Dictionary, enemy: Dictionary) -> bool:

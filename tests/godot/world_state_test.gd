@@ -88,6 +88,15 @@ func _run() -> void:
 		failures.append("discovered secret must be recorded")
 	if WorldStateScript.mark_secret_discovered(world, "forest", "hidden-cache"):
 		failures.append("the same secret must not be recorded twice")
+	world["hero"] = {"riftBest": 12, "riftClearedLocations": ["rift-01", "rift-01", "invalid"]}
+	world["riftRun"] = {"active": true, "locationId": "rift-01", "floor": 12, "enemy": {"hp": 15, "maxHp": 40, "riftMode": true, "riftLocationId": "rift-01", "riftFloor": 12}}
+	var normalized_rift: Dictionary = WorldStateScript.normalize(world, 123456)
+	if int(normalized_rift.hero.riftBest) != 12 or normalized_rift.hero.riftClearedLocations != ["rift-01"] or not bool(normalized_rift.riftRun.active):
+		failures.append("valid Rift record and active encounter must survive normalization")
+	world["riftRun"] = {"active": true, "locationId": "rift-99", "floor": -1, "enemy": {}}
+	var sanitized_rift: Dictionary = WorldStateScript.normalize(world, 123456)
+	if bool(sanitized_rift.riftRun.get("active", false)):
+		failures.append("invalid Rift runtime state must be discarded")
 	var saved_exploration: Dictionary = WorldStateScript.normalize(world, 123456).regions.get("forest", {})
 	if int(saved_exploration.get("securityThreat", -1)) != 3:
 		failures.append("security threat must survive normalization")

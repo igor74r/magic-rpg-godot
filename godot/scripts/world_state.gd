@@ -110,6 +110,32 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 			if valid_regions.has(region_id):
 				clean_regions[region_id] = _normalize_region_record(source_regions[region_id])
 	world["regions"] = clean_regions
+	# Rift progression is validated as part of the save payload.
+	var hero_value: Variant = world.get("hero", {})
+	if hero_value is Dictionary:
+		var hero: Dictionary = hero_value
+		hero["riftBest"] = clampi(int(hero.get("riftBest", 0)), 0, 2147483647)
+		var clean_cleared: Array = []
+		var source_cleared: Variant = hero.get("riftClearedLocations", [])
+		if source_cleared is Array:
+			for location_id in source_cleared:
+				if location_id is String and location_id in _rift_location_ids() and not clean_cleared.has(location_id):
+					clean_cleared.append(location_id)
+		hero["riftClearedLocations"] = clean_cleared
+		world["hero"] = hero
+	var run_value: Variant = world.get("riftRun", {})
+	if run_value is Dictionary and bool(run_value.get("active", false)):
+		var run: Dictionary = run_value
+		var location_id := str(run.get("locationId", ""))
+		var floor_value := int(run.get("floor", 0))
+		var enemy_value: Variant = run.get("enemy", {})
+		var valid_enemy := enemy_value is Dictionary and int(enemy_value.get("hp", 0)) > 0 and int(enemy_value.get("maxHp", 0)) >= int(enemy_value.get("hp", 0)) and bool(enemy_value.get("riftMode", false)) and str(enemy_value.get("riftLocationId", "")) == location_id and int(enemy_value.get("riftFloor", 0)) == floor_value
+		if location_id in _rift_location_ids() and floor_value >= 1 and valid_enemy:
+			world["riftRun"] = run.duplicate(true)
+		else:
+			world["riftRun"] = {"active": false, "completed": false, "invalidated": true}
+	else:
+		world["riftRun"] = run_value.duplicate(true) if run_value is Dictionary else {}
 	if not world.get("factionCampaigns", {}) is Dictionary:
 		world["factionCampaigns"] = {}
 	if not world.get("events", {}) is Dictionary:
@@ -125,6 +151,13 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	if not events.get("nextSpawnAt", -1) is int or int(events.get("nextSpawnAt", -1)) < 0:
 		events["nextSpawnAt"] = defaults.events.nextSpawnAt
 	return world
+
+
+static func _rift_location_ids() -> Array:
+	var ids: Array = []
+	for index in range(1, 31):
+		ids.append("rift-%02d" % index)
+	return ids
 
 
 static func can_travel(world: Dictionary, from_id: String, to_id: String) -> bool:

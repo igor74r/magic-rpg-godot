@@ -20,6 +20,14 @@ func _initialize() -> void:
 		failures.append("same seed and visit must produce identical encounters")
 	if not Encounter.generate("village", grid, 123456).is_empty():
 		failures.append("safe village must not spawn enemies")
+	var ng_plus := Encounter.generate("forest", grid, 123456, 1, 1, Vector2i(20, 15), 3, "hard", 2)
+	if ng_plus.size() != first.size():
+		failures.append("NG+ must retain the authored encounter count")
+	for enemy in ng_plus:
+		if int(enemy.hp) < 1 or int(enemy.attack) < 1 or int(enemy.exp) < 1 or int(enemy.gold) < 0:
+			failures.append("NG+ scaling must preserve valid combat stats and rewards")
+		if not str(enemy.get("modifier", "")).is_empty() and not Encounter.MODIFIERS.has(str(enemy.modifier)):
+			failures.append("enemy modifier must map to a canonical modifier")
 	for enemy in first:
 		if enemy.hp <= 0 or enemy.maxHp != enemy.hp or enemy.cell.x < 0:
 			failures.append("spawned enemy has invalid stats or position")

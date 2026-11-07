@@ -22,6 +22,10 @@ func _run() -> void:
 		failures.append("Rift run must create a tagged floor encounter")
 	if int(enemy.get("hp", 0)) < 1 or int(enemy.get("attack", 0)) < 1:
 		failures.append("Rift encounter stats must remain valid")
+	var ng_world := {"hero":{"level":1,"ngPlus":2,"riftBest":0},"storyDragons":{"blood-crown":true}}
+	var ng_entry := Rift.begin_area(ng_world, "rift-01")
+	if not bool(ng_entry.get("ok", false)) or int(ng_entry.enemy.hp) <= int(enemy.hp) or float(ng_entry.enemy.riftExpMult) <= float(enemy.riftExpMult):
+		failures.append("Rift enemy and reward multipliers must include NG+")
 	var forged := enemy.duplicate(true)
 	forged["riftFloor"] = 99
 	if bool(Rift.complete_area(world, forged).get("ok", false)):
