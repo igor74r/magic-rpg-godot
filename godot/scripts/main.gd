@@ -132,21 +132,15 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 		enemy_button.text = "%s %s — HP %d / ATK %d" % [str(enemy.get("emoji", "👾")), str(enemy.get("name", enemy.get("enemyId", "Противник"))), int(enemy.get("hp", 0)), int(enemy.get("attack", 0))]
 		enemy_button.pressed.connect(_begin_combat.bind(enemy))
 		encounters_container.add_child(enemy_button)
-		var enemy_label := Label.new()
 		var tags: Array[String] = []
 		if enemy.get("boss", false):
 			tags.append("БОСС")
 		elif enemy.get("elite", false):
 			tags.append("ЭЛИТА")
-		var prefix := "[%s] " % ", ".join(tags) if not tags.is_empty() else ""
-		enemy_label.text = "%s%s %s — HP %d / ATK %d" % [
-			prefix, str(enemy.get("emoji", "👾")), str(enemy.get("name", enemy.get("enemyId", "Противник"))),
-			int(enemy.get("hp", 0)), int(enemy.get("attack", 0))
-		]
-		enemy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		# Additional classification label keeps boss/elite identity visible.
 		if not tags.is_empty():
+			var enemy_label := Label.new()
 			enemy_label.text = "[%s]" % ", ".join(tags)
+			enemy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			encounters_container.add_child(enemy_label)
 	if alive_count == 0:
 		var cleared := Label.new()
