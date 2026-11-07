@@ -203,6 +203,25 @@ func _initialize() -> void:
 	if tower_reward_world.get("regions",{}).get("obsidian-fields",{}).get("defeatedBosses",[]).has("tower-reward-test"):
 		failures.append("Tower boss must not mark a regional campaign boss as defeated")
 
+	var PhaseCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
+	var authored_phase_ids := ["shadow-mage","grave-king","archmage","flame-lord","ice-queen","sand-king","ancient-dragon","fire-drake","elder-treant","bone-colossus","bone-tyrant","void-harbinger","root-court-executioner","drowned-queen","oath-forge-warden","mirror-icekeeper","echo-devourer"]
+	for phase_id in authored_phase_ids:
+		var phase_definition: Dictionary = PhaseCatalog.get_enemy(phase_id)
+		if phase_definition.is_empty() or phase_definition.get("phases", []).is_empty():
+			failures.append("browser phase data must be present for %s" % phase_id)
+	var ability_phase_world := WorldState.create(1004)
+	var ability_phase_enemy := {"name":"Фазовый босс","enemyId":"elder-treant","persistentId":"phase-ability","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":true,"dead":false,"phases":[{"atHp":0.9,"atkMult":1.3,"msg":"Фаза способности","specialEvery":1}]}
+	var ability_phase_fight := Combat.begin(ability_phase_enemy)
+	var ability_phase_result := Combat.use_ability(ability_phase_world,ability_phase_fight,"shield-bash")
+	if not ability_phase_result.ok or int(ability_phase_enemy.get("phase",0)) != 1:
+		failures.append("ability damage must trigger a boss phase transition")
+	var spell_phase_world := WorldState.create(1005)
+	spell_phase_world["hero"] = {"class":"mage","level":1,"hp":105,"maxHp":105,"mp":180,"maxMp":180,"inventory":[],"spells":["fireball"]}
+	var spell_phase_enemy := {"name":"Фазовый босс","enemyId":"elder-treant","persistentId":"phase-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":true,"dead":false,"phases":[{"atHp":0.9,"atkMult":1.3,"msg":"Фаза заклинания","specialEvery":1}]}
+	var spell_phase_fight := Combat.begin(spell_phase_enemy)
+	var spell_phase_result := Combat.cast_spell(spell_phase_world,spell_phase_fight,"fireball")
+	if not spell_phase_result.ok or int(spell_phase_enemy.get("phase",0)) != 1:
+		failures.append("spell damage must trigger a boss phase transition")
 	var retreat_fight := Combat.begin(strong)
 	if not Combat.retreat(retreat_fight) or retreat_fight.result != "retreat":
 		failures.append("retreat must close combat without killing enemy")
