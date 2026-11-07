@@ -22,7 +22,7 @@ static func _imul(a: int, b: int) -> int:
 
 static func derive_seed(parts: Array) -> int:
 	# Mirrors deriveWorldSeed(): FNV-1a over String(parts).join("|").
-	var values: Array[String] = []
+	var values := PackedStringArray()
 	for part in parts:
 		values.append("" if part == null else str(part))
 	var input := "|".join(values)
@@ -34,8 +34,11 @@ static func derive_seed(parts: Array) -> int:
 
 
 static func derive_region_seed(world_seed: int, generator_version: int, region_id: String, visit_index: int = 0) -> int:
+	var normalized_world_seed := _uint32(world_seed)
+	if normalized_world_seed == 0:
+		normalized_world_seed = 1
 	return derive_seed([
-		_uint32(world_seed) if _uint32(world_seed) != 0 else 1,
+		normalized_world_seed,
 		generator_version,
 		region_id,
 		maxi(0, visit_index)
