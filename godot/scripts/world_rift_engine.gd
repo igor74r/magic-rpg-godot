@@ -73,6 +73,16 @@ static func create_encounter(world: Dictionary) -> Dictionary:
 		"riftExpMult": float(mult.expMult), "riftGoldMult": float(mult.goldMult)
 	}
 
+static func sync_encounter(world: Dictionary, enemy: Dictionary) -> bool:
+	var run := get_run(world)
+	if not bool(run.get("active", false)) or not bool(enemy.get("riftMode", false)):
+		return false
+	if str(enemy.get("riftLocationId", "")) != str(run.get("locationId", "")) or int(enemy.get("riftFloor", 0)) != int(run.get("floor", -1)):
+		return false
+	run["enemy"] = enemy.duplicate(true)
+	world["riftRun"] = run
+	return true
+
 static func complete_area(world: Dictionary, enemy: Dictionary) -> Dictionary:
 	var run := get_run(world)
 	if not bool(run.get("active", false)) or not bool(enemy.get("riftMode", false)):

@@ -37,6 +37,10 @@ func _run() -> void:
 	var saved_run := Rift.get_run(world)
 	if not bool(saved_run.get("active", false)) or not saved_run.get("enemy", {}) is Dictionary or saved_run.enemy.is_empty():
 		failures.append("active Rift encounter must be stored for save/load resume")
+	var damaged_enemy := second.enemy.duplicate(true)
+	damaged_enemy["hp"] = maxi(1, int(damaged_enemy.hp) - 7)
+	if not Rift.sync_encounter(world, damaged_enemy) or int(Rift.get_run(world).enemy.hp) != int(damaged_enemy.hp):
+		failures.append("current Rift combat HP must be synchronized into the saved run")
 	if not Rift.abandon(world) or bool(Rift.get_run(world).get("active", true)):
 		failures.append("abandoning a Rift run must close the active run")
 	world.hero.level = 50

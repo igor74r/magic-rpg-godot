@@ -791,6 +791,8 @@ func _refresh_combat_ui() -> void:
 func _combat_attack() -> void:
 	var result := CombatEngineScript.player_attack(world, combat_state)
 	status_label.text = str(result.get("message", ""))
+	if not bool(combat_state.get("over", false)):
+		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	if str(result.get("result", "")) == "victory":
 		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
 		if bool(defeated_enemy.get("riftMode", false)):
@@ -809,6 +811,8 @@ func _combat_attack() -> void:
 func _use_combat_ability(ability_id: String) -> void:
 	var result := CombatEngineScript.use_ability(world, combat_state, ability_id)
 	status_label.text = str(result.get("message", ""))
+	if not bool(combat_state.get("over", false)):
+		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
@@ -817,6 +821,8 @@ func _use_combat_ability(ability_id: String) -> void:
 func _cast_combat_spell(spell_id: String) -> void:
 	var result := CombatEngineScript.cast_spell(world, combat_state, spell_id)
 	status_label.text = str(result.get("message", ""))
+	if not bool(combat_state.get("over", false)):
+		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
