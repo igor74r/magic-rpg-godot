@@ -198,6 +198,18 @@ func _initialize() -> void:
 	var campaign_reward: Dictionary=Campaign.claim(campaign_hero)
 	if not campaign_reward.ok or not bool(campaign_hero.campaignClaimed.get("a1-m1",false)): failures.append("completed campaign mission must be claimable once")
 	if Campaign.claim(campaign_hero).ok or str(Campaign.get_next(campaign_hero).id)!="a1-m2": failures.append("campaign must advance after claimed mission")
+
+	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
+	var npc_world := {"seed":17,"hero":{"class":"warrior","level":1,"gold":30,"hp":50,"maxHp":100,"mp":0,"maxMp":0,"exp":0,"expNext":125,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0,"inventory":[],"buffs":[],"effects":[]}}
+	var healer_result: Dictionary=Npc.heal(npc_world)
+	if not healer_result.ok or int(npc_world.hero.hp)!=100 or int(npc_world.hero.gold)!=22: failures.append("healer must fully restore hero for 8 gold")
+	var bard_result: Dictionary=Npc.pay_bard(npc_world)
+	if not bard_result.ok or int(npc_world.hero.gold)!=7 or not Npc.has_entry(npc_world.hero,"bardBuff"): failures.append("bard must charge 15 gold and grant three-battle buff")
+	var blessing_result: Dictionary=Npc.take_blessing(npc_world)
+	if not blessing_result.ok or not Npc.has_entry(npc_world.hero,"elderBlessing","effects"): failures.append("elder must grant ten-battle experience blessing")
+	var well_world := {"hero":{"class":"mage","hp":10,"maxHp":100,"mp":0,"maxMp":80,"gold":0}}
+	if not Npc.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
+	if Npc.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

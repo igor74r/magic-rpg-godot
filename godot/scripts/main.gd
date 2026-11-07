@@ -13,6 +13,8 @@ const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd
 const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
 const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
+const NpcCatalogScript = preload("res://godot/scripts/world_npc_catalog.gd")
+const NpcEngineScript = preload("res://godot/scripts/world_npc_engine.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -28,6 +30,7 @@ var inventory_container: VBoxContainer
 var passives_container: VBoxContainer
 var daily_quests_container: VBoxContainer
 var campaign_container: VBoxContainer
+var npc_container: VBoxContainer
 var combat_state: Dictionary = {}
 
 
@@ -96,6 +99,13 @@ func _build_exploration_ui() -> void:
 	campaign_container = VBoxContainer.new()
 	campaign_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(campaign_container)
+	var npc_title := Label.new()
+	npc_title.text = "ЖИТЕЛИ И СЛУЖБЫ РЕГИОНА"
+	npc_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(npc_title)
+	npc_container = VBoxContainer.new()
+	npc_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(npc_container)
 	combat_container = VBoxContainer.new()
 	combat_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(combat_container)
@@ -226,6 +236,7 @@ func _refresh_inventory() -> void:
 		inventory_container.add_child(button)
 	_refresh_daily_quests()
 	_refresh_campaign()
+	_refresh_npcs()
 	_refresh_passives()
 
 
@@ -310,6 +321,57 @@ func _claim_campaign_mission() -> void:
 	CombatEngineScript.grant_experience(hero,int(reward.exp))
 	CombatEngineScript.add_item(hero,str(reward.itemId),1)
 	status_label.text = "%s · +%d золота, +%d опыта, материал: %s" % [str(result.message),int(reward.gold),int(reward.exp),str(reward.itemId)]
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
+
+func _refresh_npcs() -> void:
+	for child in npc_container.get_children(): child.queue_free()
+	if str(world.get("currentRegionId","village"))!="village":
+		var note:=Label.new()
+		note.text="В этом регионе пока нет перенесённых NPC."
+		npc_container.add_child(note)
+		return
+	for npc_id in ["elder","healer","well","bard","blacksmith","alchemist","merchant","guard","cat","kids","herald","questBoard"]:
+		var npc: Dictionary=NpcCatalogScript.get_npc(npc_id)
+		if npc.is_empty(): continue
+		var button:=Button.new()
+		button.text="%s %s" % [str(npc.get("emoji","✦")),str(npc.get("name",npc_id))]
+		button.pressed.connect(_talk_to_npc.bind(npc_id))
+		npc_container.add_child(button)
+
+
+func _talk_to_npc(npc_id: String) -> void:
+	var result: Dictionary=NpcEngineScript.talk(npc_id)
+	status_label.text=str(result.get("message",""))
+	var hero:=CombatEngineScript.ensure_hero(world)
+	if npc_id=="elder":
+		var mission: Dictionary=CampaignScript.get_next(hero)
+		if not mission.is_empty():
+			var progress: Dictionary=CampaignScript.progress(hero,mission)
+			status_label.text+="\nПоручение: %s — %d/%d" % [str(mission.title),int(progress.current),int(progress.required)]
+			var action: Dictionary={}
+			if str(hero.get("activeCampaignMission","")).is_empty():
+				action=NpcEngineScript.campaign_action(world,false)
+				status_label.text+="\n"+str(action.get("message",""))
+			elif bool(progress.complete):
+				action=NpcEngineScript.campaign_action(world,true)
+				status_label.text+="\n"+str(action.get("message",""))
+		else:
+			status_label.text+="\nВсе 25 поручений завершены."
+	elif npc_id=="healer":
+		var healer_result: Dictionary=NpcEngineScript.heal(world)
+		status_label.text+="\n"+str(healer_result.get("message",""))
+	elif npc_id=="well":
+		var well_result: Dictionary=NpcEngineScript.use_well(world)
+		status_label.text+="\n"+str(well_result.get("message",""))
+	elif npc_id=="bard":
+		var bard_result: Dictionary=NpcEngineScript.pay_bard(world)
+		status_label.text+="\n"+str(bard_result.get("message",""))
+	elif npc_id=="elder":
+		var blessing_result: Dictionary=NpcEngineScript.take_blessing(world)
+		status_label.text+="\n"+str(blessing_result.get("message",""))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
 

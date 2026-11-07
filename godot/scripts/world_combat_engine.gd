@@ -37,6 +37,7 @@ static func ensure_hero(world: Dictionary) -> Dictionary:
 		hero["inventoryInitialized"] = true
 	hero["cooldowns"] = hero.get("cooldowns", {}) if hero.get("cooldowns", {}) is Dictionary else {}
 	hero["buffs"] = hero.get("buffs", []) if hero.get("buffs", []) is Array else []
+	hero["effects"] = hero.get("effects", []) if hero.get("effects", []) is Array else []
 	hero["spells"] = hero.get("spells", class_data.spells.duplicate()) if hero.get("spells", class_data.spells) is Array else class_data.spells.duplicate()
 	hero["hp"] = clampi(int(hero.get("hp", hero.maxHp)), 0, hero.maxHp)
 	hero["attack"] = clampi(int(hero.get("attack", class_data.attack)), 1, 99999)
@@ -213,9 +214,29 @@ static func _grant_experience(hero: Dictionary, amount: int) -> int:
 	return levels_gained
 
 
+static func _consume_combat_effect(hero: Dictionary,effect_id: String,field: String) -> bool:
+	var entries: Array=hero.get(field,[])
+	var found:=false
+	var remaining: Array=[]
+	for entry in entries:
+		if entry is Dictionary and str(entry.get("id",""))==effect_id and int(entry.get("duration",0))>0 and not found:
+			found=true
+			var duration:=int(entry.get("duration",0))-1
+			if duration>0: remaining.append({"id":effect_id,"duration":duration})
+		else:
+			if entry is Dictionary: remaining.append(entry)
+	hero[field]=remaining
+	return found
+
+
 static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
+	var exp_multiplier := 1.0
+	if bool(enemy.get("elite",false)): exp_multiplier *= 1.5
+	if _consume_combat_effect(hero,"elderBlessing","effects"): exp_multiplier *= 1.2
+	if _consume_combat_effect(hero,"bardBuff","buffs"): exp_multiplier *= 1.1
+	reward_exp = int(round(float(reward_exp)*exp_multiplier))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
 	var campaign_message := preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
