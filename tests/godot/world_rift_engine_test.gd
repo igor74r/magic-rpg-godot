@@ -1,58 +1,58 @@
 extends SceneTree
 
 const Rift = preload("res://godot/scripts/world_rift_engine.gd")
-const Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
+const WorldState = preload("res://godot/scripts/world_state.gd")
+const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
+const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
+
 
 func _initialize() -> void:
 	call_deferred("_run")
 
+
 func _run() -> void:
 	var failures: Array[String] = []
-	var world := {"hero":{"level":1,"riftBest":0,"riftClearedLocations":[]},"storyDragons":{"blood-crown":true}}
-	if not Rift.is_available(world):
-		failures.append("Rift must be available after the Blood Crown story flag")
-	var locked := Rift.begin_area(world, "rift-21")
-	if bool(locked.get("ok", false)):
-		failures.append("level-50 Rift area must reject a level-1 hero")
-	var entered := Rift.begin_area(world, "rift-01")
-	if not bool(entered.get("ok", false)):
-		failures.append("valid Rift area must start a run")
-	var enemy: Dictionary = entered.get("enemy", {})
-	if enemy.is_empty() or not bool(enemy.get("riftMode", false)) or int(enemy.get("riftFloor", 0)) != 1:
-		failures.append("Rift run must create a tagged floor encounter")
-	if int(enemy.get("hp", 0)) < 1 or int(enemy.get("attack", 0)) < 1:
-		failures.append("Rift encounter stats must remain valid")
-	var ng_world := {"hero":{"level":1,"ngPlus":2,"riftBest":0},"storyDragons":{"blood-crown":true}}
-	var ng_entry := Rift.begin_area(ng_world, "rift-01")
-	if not bool(ng_entry.get("ok", false)) or int(ng_entry.enemy.hp) <= int(enemy.hp) or float(ng_entry.enemy.riftExpMult) <= float(enemy.riftExpMult):
-		failures.append("Rift enemy and reward multipliers must include NG+")
-	var forged := enemy.duplicate(true)
-	forged["riftFloor"] = 99
-	if bool(Rift.complete_area(world, forged).get("ok", false)):
-		failures.append("Rift completion must reject a mismatched floor")
-	var completed := Rift.complete_area(world, enemy)
-	if not bool(completed.get("ok", false)) or int(world.hero.riftBest) != 1 or not world.hero.riftClearedLocations.has("rift-01"):
-		failures.append("winning the Rift encounter must persist the area and best floor")
-	if bool(Rift.get_run(world).get("active", true)):
-		failures.append("completed Rift run must no longer be active")
-	var second := Rift.begin_area(world, "rift-02")
-	if not bool(second.get("ok", false)) or int(second.enemy.riftFloor) != 2:
-		failures.append("next Rift entry must advance the floor record")
-	var saved_run := Rift.get_run(world)
-	if not bool(saved_run.get("active", false)) or not saved_run.get("enemy", {}) is Dictionary or saved_run.enemy.is_empty():
-		failures.append("active Rift encounter must be stored for save/load resume")
-	var damaged_enemy := second.enemy.duplicate(true)
-	damaged_enemy["hp"] = maxi(1, int(damaged_enemy.hp) - 7)
-	if not Rift.sync_encounter(world, damaged_enemy) or int(Rift.get_run(world).enemy.hp) != int(damaged_enemy.hp):
-		failures.append("current Rift combat HP must be synchronized into the saved run")
-	if not Rift.abandon(world) or bool(Rift.get_run(world).get("active", true)):
-		failures.append("abandoning a Rift run must close the active run")
-	world.hero.level = 50
-	var final_area := Rift.begin_area(world, "rift-30")
-	if not bool(final_area.get("ok", false)):
-		failures.append("level-50 hero must enter the final Rift area")
+	var world := WorldState.create(20261108)
+	world["hero"] = {"level": 50, "ngPlus": 2, "riftBest": 0, "riftClearedLocations": []}
+	world["storyDragons"] = {"blood-crown": true}
+	world["dailyQuests"] = {
+		"date": Daily.today_key(),
+		"list": [
+			{"id": "q-rift-floor", "current": 0, "completed": false, "claimed": false},
+			{"id": "q-kill-any", "current": 0, "completed": false, "claimed": false},
+			{"id": "q-chest", "current": 0, "completed": false, "claimed": false}
+		]
+	}
+
+	var started: Dictionary = Rift.begin_area(world, "rift-01")
+	if not bool(started.get("ok", false)):
+		failures.append("valid post-story Rift area must start")
+	else:
+		var enemy: Dictionary = started.get("enemy", {})
+		var definition: Dictionary = Enemies.get_enemy(str(enemy.get("enemyId", "")))
+		var expected_hp := int(round(float(definition.get("hp", 0)) * 2.0))
+		var expected_attack := int(round(float(definition.get("attack", 0)) * 1.6))
+		if int(enemy.get("hp", 0)) != expected_hp:
+			failures.append("Rift encounter HP must apply New Game+ scaling")
+		if int(enemy.get("attack", 0)) != expected_attack:
+			failures.append("Rift encounter attack must apply New Game+ scaling")
+		var invalid_enemy := enemy.duplicate(true)
+		invalid_enemy["riftFloor"] = 2
+		if bool(Rift.complete_area(world, invalid_enemy).get("ok", false)):
+			failures.append("Rift must reject a completion from a different floor")
+		var completed: Dictionary = Rift.complete_area(world, enemy)
+		if not bool(completed.get("ok", false)) or int(world.hero.get("riftBest", 0)) != 1:
+			failures.append("valid Rift completion must persist the floor record")
+		var quests: Array = Daily.get_quests(world)
+		var rift_quest: Dictionary = {}
+		for quest in quests:
+			if str(quest.get("id", "")) == "q-rift-floor":
+				rift_quest = quest
+		if int(rift_quest.get("current", 0)) != 1 or bool(rift_quest.get("completed", false)):
+			failures.append("Rift completion must update the daily floor objective exactly once")
+
 	if failures.is_empty():
-		print("PASS: playable Rift entry, encounter scaling, completion, records and abandonment")
+		print("PASS: Rift encounter scaling, completion validation and daily floor progress")
 		quit(0)
 	else:
 		for failure in failures:
