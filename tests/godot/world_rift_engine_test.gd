@@ -53,6 +53,8 @@ func _run() -> void:
 		var completed: Dictionary = Rift.complete_area(world, enemy)
 		if not bool(completed.get("ok", false)) or int(world.hero.get("riftBest", 0)) != 1:
 			failures.append("valid Rift completion must persist the floor record")
+		if bool(Rift.complete_area(world, enemy).get("ok", false)):
+			failures.append("the same Rift encounter must not award completion twice")
 		var quests: Array = Daily.get_quests(world)
 		var rift_quest: Dictionary = {}
 		for quest in quests:
