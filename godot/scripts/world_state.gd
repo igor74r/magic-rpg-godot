@@ -7,6 +7,7 @@ const SCHEMA_VERSION := 1
 const GENERATOR_VERSION := 1
 const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
 const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
+const WorldTowerEngine = preload("res://godot/scripts/world_tower_engine.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -143,6 +144,10 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var tower_index := int(tower_run.get("enemyIndex", -1))
 		var tower_valid := tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
 		if tower_valid:
+			var expected_floor: Dictionary = WorldTowerEngine.floor_definition(tower_floor)
+			var expected_ids: Array = expected_floor.get("enemyIds", [])
+			if tower_queue.size() != expected_ids.size() or str(tower_run.get("sourceId", "")) != str(expected_floor.get("sourceId", "")) or bool(tower_run.get("guardian", false)) != bool(expected_floor.get("guardian", false)):
+				tower_valid = false
 			var persistent_ids: Array[String] = []
 			for enemy_index in range(tower_queue.size()):
 				var tower_enemy: Variant = tower_queue[enemy_index]
@@ -151,6 +156,11 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 					break
 				var tower_enemy_id := str(tower_enemy.get("enemyId", ""))
 				var persistent_id := str(tower_enemy.get("persistentId", ""))
+				var expected_enemy_id := str(expected_ids[enemy_index]) if enemy_index < expected_ids.size() else ""
+				var expected_persistent_id := "tower-%02d-%02d-%s" % [tower_floor, enemy_index, expected_enemy_id]
+				if tower_enemy_id != expected_enemy_id or persistent_id != expected_persistent_id:
+					tower_valid = false
+					break
 				var enemy_hp := int(tower_enemy.get("hp", -1))
 				if WorldEnemyCatalog.get_enemy(tower_enemy_id).is_empty() or persistent_id.is_empty() or persistent_ids.has(persistent_id) or enemy_hp < 0:
 					tower_valid = false
