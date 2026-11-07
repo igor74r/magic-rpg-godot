@@ -184,6 +184,20 @@ func _initialize() -> void:
 	var daily_claim: Dictionary=DailyQuest.claim(claim_world,"q-kill-any")
 	if not daily_claim.ok or int(claim_world.hero.gold)!=8 or int(claim_world.hero.exp)!=50: failures.append("daily quest claim must award gold and experience")
 	if DailyQuest.claim(claim_world,"q-kill-any").ok: failures.append("daily quest reward must not be claimed twice")
+
+	var Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
+	var campaign_hero := {"level":1,"gold":0,"campaignKills":{},"campaignClaimed":{},"activeCampaignMission":""}
+	var campaign_next: Dictionary = Campaign.get_next(campaign_hero)
+	if str(campaign_next.id)!="a1-m1" or Campaign.Catalog.all_missions().size()!=25: failures.append("campaign catalog must preserve all 25 story missions")
+	if not Campaign.accept(campaign_hero,"a1-m1"): failures.append("first story mission must be accepted")
+	if Campaign.accept(campaign_hero,"a1-m2"): failures.append("later story mission must remain locked")
+	var campaign_world := {"hero":campaign_hero,"currentRegionId":"briar-hollow"}
+	for i in range(3): Campaign.record_kill(campaign_world,"briar-hollow","goblin")
+	var campaign_progress: Dictionary=Campaign.progress(campaign_hero,campaign_next)
+	if int(campaign_progress.current)!=3 or not bool(campaign_progress.complete): failures.append("story mission kill progress must match region and enemy")
+	var campaign_reward: Dictionary=Campaign.claim(campaign_hero)
+	if not campaign_reward.ok or not bool(campaign_hero.campaignClaimed.get("a1-m1",false)): failures.append("completed campaign mission must be claimable once")
+	if Campaign.claim(campaign_hero).ok or str(Campaign.get_next(campaign_hero).id)!="a1-m2": failures.append("campaign must advance after claimed mission")
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)

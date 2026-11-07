@@ -12,6 +12,7 @@ const WorldItemCatalogScript = preload("res://godot/scripts/world_item_catalog.g
 const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd")
 const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -26,6 +27,7 @@ var combat_container: VBoxContainer
 var inventory_container: VBoxContainer
 var passives_container: VBoxContainer
 var daily_quests_container: VBoxContainer
+var campaign_container: VBoxContainer
 var combat_state: Dictionary = {}
 
 
@@ -87,6 +89,13 @@ func _build_exploration_ui() -> void:
 	daily_quests_container = VBoxContainer.new()
 	daily_quests_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(daily_quests_container)
+	var campaign_title := Label.new()
+	campaign_title.text = "СЮЖЕТНАЯ КАМПАНИЯ"
+	campaign_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(campaign_title)
+	campaign_container = VBoxContainer.new()
+	campaign_container.add_theme_constant_override("separation", 4)
+	_insert_before_spacer(campaign_container)
 	combat_container = VBoxContainer.new()
 	combat_container.add_theme_constant_override("separation", 6)
 	_insert_before_spacer(combat_container)
@@ -216,6 +225,7 @@ func _refresh_inventory() -> void:
 			button.disabled = true
 		inventory_container.add_child(button)
 	_refresh_daily_quests()
+	_refresh_campaign()
 	_refresh_passives()
 
 
@@ -243,6 +253,63 @@ func _refresh_daily_quests() -> void:
 func _claim_daily_quest(quest_id: String) -> void:
 	var result: Dictionary = DailyQuestScript.claim(world,quest_id)
 	status_label.text = str(result.get("message",""))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
+
+func _refresh_campaign() -> void:
+	for child in campaign_container.get_children():
+		child.queue_free()
+	var hero := CombatEngineScript.ensure_hero(world)
+	CampaignScript.ensure_state(hero)
+	var totals: Dictionary = CampaignScript.campaign_progress(hero)
+	var summary := Label.new()
+	summary.text = "Пройдено сюжетных заданий: %d/%d (%d%%)" % [int(totals.completed),int(totals.total),int(totals.percent)]
+	campaign_container.add_child(summary)
+	var mission: Dictionary = CampaignScript.get_next(hero)
+	if mission.is_empty():
+		var finished := Label.new()
+		finished.text = "Основная кампания завершена."
+		campaign_container.add_child(finished)
+		return
+	var progress: Dictionary = CampaignScript.progress(hero,mission)
+	var description := Label.new()
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.text = "%s\n%s\nЦель: %s · %d/%d" % [str(mission.title),str(mission.desc),str(mission.objective),int(progress.current),int(progress.required)]
+	campaign_container.add_child(description)
+	if str(hero.get("activeCampaignMission","")).is_empty():
+		var accept_button := Button.new()
+		accept_button.text = "Принять сюжетное задание"
+		accept_button.pressed.connect(_accept_campaign_mission.bind(str(mission.id)))
+		campaign_container.add_child(accept_button)
+	else:
+		var claim_button := Button.new()
+		claim_button.text = "Забрать награду" if bool(progress.complete) else "Задание выполняется"
+		claim_button.disabled = not bool(progress.complete)
+		claim_button.pressed.connect(_claim_campaign_mission)
+		campaign_container.add_child(claim_button)
+
+
+func _accept_campaign_mission(mission_id: String) -> void:
+	var hero := CombatEngineScript.ensure_hero(world)
+	var accepted := CampaignScript.accept(hero,mission_id)
+	status_label.text = "Сюжетное задание принято." if accepted else "Нельзя принять это задание."
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_inventory()
+
+
+func _claim_campaign_mission() -> void:
+	var hero := CombatEngineScript.ensure_hero(world)
+	var result: Dictionary = CampaignScript.claim(hero)
+	if not bool(result.get("ok",false)):
+		status_label.text = str(result.get("message",""))
+		return
+	var reward: Dictionary = result.reward
+	hero["gold"]=mini(2147483647,int(hero.get("gold",0))+int(reward.gold))
+	CombatEngineScript.grant_experience(hero,int(reward.exp))
+	CombatEngineScript.add_item(hero,str(reward.itemId),1)
+	status_label.text = "%s · +%d золота, +%d опыта, материал: %s" % [str(result.message),int(reward.gold),int(reward.exp),str(reward.itemId)]
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
 

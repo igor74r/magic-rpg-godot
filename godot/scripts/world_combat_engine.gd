@@ -218,6 +218,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	preload("res://godot/scripts/world_daily_quest_engine.gd").update_progress(world,"kill",str(enemy.get("enemyId","")))
+	var campaign_message := preload("res://godot/scripts/world_campaign_engine.gd").record_kill(world,str(world.get("currentRegionId","")),str(enemy.get("enemyId","")) )
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
@@ -247,6 +248,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 		WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
+	if not campaign_message.is_empty(): message += "\n" + campaign_message
 	if level_ups > 0:
 		message += "\nПолучено уровней: %d." % level_ups
 	if not dropped_names.is_empty():
