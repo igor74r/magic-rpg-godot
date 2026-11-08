@@ -69,8 +69,16 @@ func _run() -> void:
 		failures.append("unsupported v16 payload must not be migrated blindly")
 	if not SaveRepo.migrate_payload({"version":18.5,"player":{"name":"Fractional version"}}).is_empty():
 		failures.append("fractional save versions must be rejected")
-	if not SaveRepo.migrate_payload({"version":"18","player":{"name":"String version"}}).is_empty():
-		failures.append("string save versions must be rejected")
+	var numeric_string_version := SaveRepo.migrate_payload({"version":"17","player":{"name":"Numeric string version","level":1}})
+	if int(numeric_string_version.get("version", -1)) != 18:
+		failures.append("legacy migration must coerce numeric string versions like browser Number()")
+	var integral_float_version := SaveRepo.migrate_payload({"version":17.0,"player":{"name":"Integral float version","level":1}})
+	if int(integral_float_version.get("version", -1)) != 18:
+		failures.append("legacy migration must accept integral numeric versions like browser Number()")
+	if not SaveRepo.migrate_payload({"version":"eighteen","player":{"name":"Invalid string version"}}).is_empty():
+		failures.append("legacy migration must reject non-numeric version strings")
+	if not SaveRepo.migrate_payload({"version":true,"player":{"name":"Boolean version"}}).is_empty():
+		failures.append("legacy migration must reject boolean versions")
 	if not SaveRepo.migrate_payload({"version":17,"worldSeed":9876}).is_empty():
 		failures.append("v17 payload without a hero record must be rejected")
 	if not SaveRepo.migrate_payload({"version":17,"player":"corrupt"}).is_empty():
