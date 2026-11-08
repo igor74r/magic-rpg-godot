@@ -1178,6 +1178,7 @@ func _record_world_event_victory(enemy: Dictionary) -> void:
 	var completed: Array = WorldEventEngineScript.record_kill(world, str(world.get("currentRegionId", "village")), enemy)
 	for event in completed:
 		status_label.text += "\nСобытие выполнено: %s. Награда доступна в разделе событий мира." % str(event.get("name", ""))
+	_refresh_world_events()
 
 
 func _refresh_passives() -> void:
@@ -1369,8 +1370,11 @@ func _cast_combat_spell(spell_id: String) -> void:
 	if not bool(combat_state.get("over", false)):
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
-	elif str(result.get("result", "")) == "victory" and bool(combat_state.get("enemy", {}).get("towerMode", false)):
-		_complete_tower_victory(combat_state.enemy)
+	elif str(result.get("result", "")) == "victory":
+		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
+		_record_world_event_victory(defeated_enemy)
+		if bool(defeated_enemy.get("towerMode", false)):
+			_complete_tower_victory(defeated_enemy)
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
