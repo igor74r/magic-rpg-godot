@@ -23,7 +23,7 @@ const TEMPLATES := [
 	{"id":"ash-warband-scouting","name":"I. Следы военного отряда","regions":["wasteland","volcano","obsidian-fields"],"factionId":"ash-nomads","minFactionReputation":50,"campaignId":"ash-nomad-warband","campaignStage":1,"goldMin":45,"goldMax":60,"reputationReward":8,"failureReputationDelta":-4,"objectiveType":"elite-kill","targetCount":2,"objectiveText":"Победите двух элитных разведчиков пепельного отряда."},
 	{"id":"ash-warband-champion","name":"II. Вызов предводителю","regions":["wasteland","volcano","obsidian-fields"],"factionId":"ash-nomads","campaignId":"ash-nomad-warband","campaignStage":2,"goldMin":100,"goldMax":140,"reputationReward":12,"failureReputationDelta":-8,"objectiveType":"boss-kill","targetCount":1,"objectiveText":"Найдите и победите предводителя пепельного отряда."},
 	{"id":"regional-boss-bounty","name":"Охота на регионального босса","regions":["shadow","sunken-necropolis","volcano","obsidian-fields","void-crater"],"factionId":"rift-cult","minFactionReputation":30,"goldMin":90,"goldMax":130,"reputationReward":-12,"failureReputationDelta":6,"objectiveType":"boss-kill","targetCount":1,"objectiveText":"Найдите и победите регионального босса."},
-	{"id":"frontier-survey","name":"Разведка неизведанной границы","regions":WorldGraphScript.region_ids().filter(func(id): return id != "village"),"factionId":"free-traders","goldMin":55,"goldMax":80,"reputationReward":10,"failureReputationDelta":-4,"objectiveType":"region-discovery","targetCount":1,"objectiveText":"Откройте соседний неизведанный регион."},
+	{"id":"frontier-survey","name":"Разведка неизведанной границы","regions":["forest","briar-hollow","ruins","shadow","swamp","graveyard","library","sunken-necropolis","wasteland","volcano","obsidian-fields","ice-peaks","frost-citadel","dragon-lair","void-crater"],"factionId":"free-traders","goldMin":55,"goldMax":80,"reputationReward":10,"failureReputationDelta":-4,"objectiveType":"region-discovery","targetCount":1,"objectiveText":"Откройте соседний неизведанный регион."},
 	{"id":"elite-hunt","name":"Охота на элиту","regions":WorldGraphScript.region_ids().filter(func(id): return id != "village"),"factionId":"","goldMin":25,"goldMax":45,"reputationReward":0,"failureReputationDelta":0,"objectiveType":"elite-kill","targetCount":1,"objectiveText":"Победите элитного противника."}
 ]
 
@@ -50,7 +50,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 	var now := maxf(0.0, float(world.get("clockMinutes", 0.0))) + minf(delta_minutes, 1440.0)
 	world["clockMinutes"] = now
 	var finished: Array = []
-	for event_value in events.get("active", []).duplicate(true):
+	for event_value in events.get("active", []).duplicate():
 		if not event_value is Dictionary:
 			continue
 		var event: Dictionary = event_value
