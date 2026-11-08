@@ -75,7 +75,10 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 		if float(events.cooldowns[key]) <= now:
 			events.cooldowns.erase(key)
 	var started: Array = []
-	var active: Array = events.get("active", [])
+	var active: Array = []
+	for active_value in events.get("active", []):
+		if active_value is Dictionary:
+			active.append(active_value)
 	var occupied := false
 	for item in active:
 		if str(item.get("regionId", "")) == region_id and item.get("status") == "active":
