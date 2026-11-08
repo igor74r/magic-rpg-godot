@@ -1103,36 +1103,52 @@ func _refresh_chronicles() -> void:
 	archive_note.modulate = Color(0.78, 0.78, 0.72)
 	chronicles_container.add_child(archive_note)
 	for chapter in ChroniclesCatalogScript.CHAPTERS:
-		var heading := Label.new()
-		heading.text = "ГЛАВА %s · %s · %s" % [str(chapter.id), str(chapter.title), str(chapter.period)]
-		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		heading.add_theme_font_size_override("font_size", 15)
-		chronicles_container.add_child(heading)
+		var section_title := "ГЛАВА %s · %s · %s" % [str(chapter.id), str(chapter.title), str(chapter.period)]
+		var section := _add_chronicle_section(section_title, chronicles_container)
 		var summary := Label.new()
 		summary.text = str(chapter.summary)
 		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		chronicles_container.add_child(summary)
+		section.add_child(summary)
 		for entry in chapter.entries:
+			var entry_title := Label.new()
+			entry_title.text = str(entry.title)
+			entry_title.add_theme_font_size_override("font_size", 14)
+			section.add_child(entry_title)
 			var note := Label.new()
-			note.text = "• %s: %s" % [str(entry.title), str(entry.text)]
+			note.text = str(entry.text)
 			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			chronicles_container.add_child(note)
-	var factions_heading := Label.new()
-	factions_heading.text = "Знамёна старого мира"
-	chronicles_container.add_child(factions_heading)
+			section.add_child(note)
+	var factions_section := _add_chronicle_section("Знамёна старого мира", chronicles_container)
 	for faction in ChroniclesCatalogScript.LORE_FACTIONS:
 		var note := Label.new()
 		note.text = "%s %s — %s. %s" % [str(faction.symbol), str(faction.name), str(faction.tone), str(faction.text)]
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		chronicles_container.add_child(note)
-	var stories_heading := Label.new()
-	stories_heading.text = "Нити побочных историй"
-	chronicles_container.add_child(stories_heading)
+		factions_section.add_child(note)
+	var stories_section := _add_chronicle_section("Нити побочных историй", chronicles_container)
 	for story in ChroniclesCatalogScript.SIDE_STORIES:
 		var note := Label.new()
 		note.text = "%s · %s — %s" % [str(story.place), str(story.title), str(story.hook)]
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		chronicles_container.add_child(note)
+		stories_section.add_child(note)
+
+
+func _add_chronicle_section(title: String, parent: VBoxContainer) -> VBoxContainer:
+	var toggle := Button.new()
+	toggle.text = "▶ " + title
+	toggle.toggle_mode = true
+	toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	parent.add_child(toggle)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 5)
+	body.visible = false
+	parent.add_child(body)
+	toggle.toggled.connect(_set_chronicle_section.bind(body, toggle, title))
+	return body
+
+
+func _set_chronicle_section(expanded: bool, body: VBoxContainer, toggle: Button, title: String) -> void:
+	body.visible = expanded
+	toggle.text = ("▼ " if expanded else "▶ ") + title
 
 
 func _refresh_factions() -> void:
