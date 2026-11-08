@@ -68,7 +68,7 @@ assert.ok(village.statics.some(item => item.id === 'tower-portal' && item.propSt
 const plazaProps = village.statics.filter(item => item.propStyle);
 assert.ok(plazaProps.some(item => item.propStyle === 'fountain'), 'central square must have its fountain');
 assert.ok(plazaProps.some(item => item.propStyle === 'lantern'), 'central square must have lanterns');
-assert.ok(plazaProps.some(item => item.propStyle === 'planter'), 'central square must have flower planters');
+assert.ok(!plazaProps.some(item => item.propStyle === 'planter'), 'minimal central square must keep flower planters out of the walking lanes');
 assert.ok(plazaProps.every(item => item.decorative || ['world-portal', 'tower-portal'].includes(item.id)),
   'only portals may intercept interactions among plaza props');
 const northCourtyard = village.statics.filter(item => item.id.startsWith('aurora-north-garden-'));
