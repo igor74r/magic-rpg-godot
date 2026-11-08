@@ -56,6 +56,33 @@ func _run() -> void:
 		failures.append("v17 payload without a hero record must be rejected")
 	if not SaveRepo.migrate_payload({"version":17,"player":"corrupt"}).is_empty():
 		failures.append("v17 payload with a malformed player record must be rejected")
+	var version_one := SaveRepo.migrate_payload({
+		"version": 1,
+		"location": "village",
+		"shards": {"forest": true},
+		"player": {
+			"name": "Ancient hero", "class": "warrior", "level": 10, "gold": 75,
+			"hp": 50, "maxHp": 50, "mp": 0, "maxMp": 0,
+			"equipped": {"helmet": "iron-helm", "hands": "tower-shield"},
+			"inventory": ["mana-crystal"], "campaignKills": {"a1-m1": 3},
+			"activeCampaignMission": "a1-m2"
+		}
+	})
+	var version_one_player: Dictionary = version_one.get("player", {})
+	if int(version_one.get("version", -1)) != 18:
+		failures.append("v1 browser save must migrate through every schema boundary to v18")
+	if version_one_player.get("equipped", {}).get("head", {}).get("id", "") != "iron-helm":
+		failures.append("legacy equipment slots must be normalized without losing equipped items")
+	if version_one_player.get("equipped", {}).get("shield", {}).get("id", "") != "tower-shield":
+		failures.append("legacy hand equipment must identify and preserve the tower shield")
+	if version_one_player.get("inventory", []).is_empty() or version_one_player.inventory[0].get("id", "") != "old-archive-seal":
+		failures.append("v17 token migration must rename Mana Crystal to the archive seal")
+	if float(version_one_player.get("luck", 0)) != 9.5:
+		failures.append("v15 migration must backfill level-scaled luck")
+	if version_one_player.get("campaignShards", {}).get("forest", false) != true:
+		failures.append("v13 migration must preserve legacy campaign shard progress")
+	if version_one_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m2":
+		failures.append("v18 migration must map the legacy active mission to its campaign branch")
 	if not SaveRepo.migrate_payload({"version":18,"player":null}).is_empty():
 		failures.append("v18 payload without a valid player record must be rejected")
 	var hero_alias := SaveRepo.migrate_payload({"version":17,"hero":{"name":"Legacy alias","level":9}})
