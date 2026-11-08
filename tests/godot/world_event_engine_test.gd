@@ -59,7 +59,9 @@ func _initialize() -> void:
 	if defense.get("objectiveType") != "defend-region":
 		failures.append("defense template spawns in eligible region")
 	EventEngine.accept_event(defend_world, str(defense.get("id", "")))
-	var defense_result := EventEngine.advance_time(defend_world, 3.0, "forest")
+	var defense_result: Dictionary = {"finished":[]}
+	for _minute_step in range(12):
+		defense_result = EventEngine.advance_time(defend_world, 0.25, "forest")
 	if defense_result.finished.size() != 1 or Factions.get_reputation(defend_world, "hub-guardians") != 10:
 		failures.append("holding the region completes defense and grants reputation")
 
@@ -72,9 +74,16 @@ func _initialize() -> void:
 	var failed_tick := EventEngine.advance_time(failed_world, 1.0, "forest")
 	var failed_event: Dictionary = failed_tick.started[0] if not failed_tick.started.is_empty() else {}
 	EventEngine.accept_event(failed_world, str(failed_event.get("id", "")))
-	var expiry := EventEngine.advance_time(failed_world, EventEngine.DURATION + 1.0, "forest")
+	failed_world["clockMinutes"] = float(failed_event.get("expiresAt", 0.0))
+	var expiry := EventEngine.advance_time(failed_world, 0.25, "forest")
 	if expiry.finished.size() != 1 or expiry.finished[0].get("status") != "failed" or Factions.get_reputation(failed_world, "hub-guardians") != -5:
 		failures.append("accepted event expiry applies the failure reputation penalty")
+
+	var malformed_world := WorldState.create(77)
+	malformed_world.events.active = ["invalid", null, 42]
+	malformed_world.events.history = ["invalid", null]
+	if not EventEngine.record_kill(malformed_world, "forest", normal_enemy).is_empty() or not EventEngine.claim_reward(malformed_world, "missing").is_empty():
+		failures.append("malformed imported event entries must be ignored safely")
 
 	if failures.is_empty():
 		print("PASS: regional event generation, acceptance, objectives, timed defense, expiry, faction rewards, claims and persistence")
