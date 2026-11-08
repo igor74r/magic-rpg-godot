@@ -217,7 +217,8 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var attack_style := "ranged" if str(hero.get("class", "")) == "archer" else "melee"
 	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), attack_style)
-	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style))))
+	var charge_multiplier := 2.0 if _consume_combat_effect(hero, "double_next", "buffs") else 1.0
+	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style) * charge_multiplier)))
 	consume_enemy_adaptation(enemy, attack_style)
 	record_player_style(combat, attack_style)
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
@@ -229,8 +230,12 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var is_critical := crit_rng.next_float() < crit_chance
 	if is_critical:
 		damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
+	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+	var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
 	var lines: Array[String] = ["Вы нанесли %d урона.%s" % [damage, " КРИТ!" if is_critical else ""]]
+	if lifesteal_healed > 0:
+		lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
 	lines.append_array(_update_boss_phase(enemy))
 	if int(enemy.hp) <= 0:
 		enemy["dead"] = true
@@ -569,11 +574,11 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		"next_double":
 			hero["buffs"].append({"id":"double_next","duration":1})
 		"attack_buff":
-			hero["buffs"].append({"id":"attack_buff","duration":2})
+			apply_effect(hero, "atkBuff")
 		"lifesteal":
-			hero["buffs"].append({"id":"lifesteal","duration":2})
+			apply_effect(hero, "lifesteal")
 		"defense_buff":
-			hero["buffs"].append({"id":"defense_buff","duration":2})
+			apply_effect(hero, "defBuff")
 		"dodge":
 			hero["buffs"].append({"id":"dodge","duration":1})
 		_:
@@ -611,8 +616,12 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
 		consume_enemy_adaptation(enemy, ability_style)
 		record_player_style(combat, ability_style)
+		var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+		var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
 		var lines := ["%s: %d урона." % [str(ability.name), damage]]
+		if lifesteal_healed > 0:
+			lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
 		lines.append_array(_update_boss_phase(enemy))
 		if kind == "meteor":
 			apply_effect(enemy, "burn")
@@ -671,7 +680,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		hero["mp"] = mini(int(hero.maxMp), int(hero.mp) + int(spell.get("restoreMp", 0)))
 		lines.append("Здоровье обменено на ману.")
 	elif spell.has("selfEffect"):
-		hero["buffs"].append({"id":"defense_buff","duration":2})
+		apply_effect(hero, "defBuff")
 		lines.append("Защита усилена на 2 хода.")
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
@@ -698,8 +707,12 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		var is_critical := crit_rng.next_float() < critical_chance(hero)
 		if is_critical:
 			damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
+		var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+		var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
 		lines.append("Нанесено %d урона.%s" % [damage, " КРИТ!" if is_critical else ""])
+		if lifesteal_healed > 0:
+			lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
 		lines.append_array(_update_boss_phase(enemy))
 		var effect_id := str(spell.get("effect", ""))
 		if not effect_id.is_empty():
@@ -885,6 +898,20 @@ static func _effect_multiplier(hero: Dictionary, key: String) -> float:
 		if effect_data.has(key):
 			multiplier *= float(effect_data[key])
 	return multiplier
+
+
+static func _apply_lifesteal(hero: Dictionary, actual_damage: int) -> int:
+	if actual_damage <= 0:
+		return 0
+	var healed := 0
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary or str(effect.get("id", "")) != "lifesteal":
+			continue
+		var percentage := clampf(float(EFFECTS.get("lifesteal", {}).get("lifestealPct", 0.0)), 0.0, 1.0)
+		healed = mini(maxi(0, int(hero.get("maxHp", 0)) - int(hero.get("hp", 0))), int(floor(float(actual_damage) * percentage)))
+		hero["hp"] = int(hero.get("hp", 0)) + healed
+		break
+	return healed
 
 
 static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> bool:
