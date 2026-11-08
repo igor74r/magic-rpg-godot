@@ -73,11 +73,11 @@ func _initialize() -> void:
 	else:
 		var cat_combat_world := WorldState.create(crit_seed)
 		cat_combat_world["hero"] = crit_hero.duplicate(true)
-		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
+		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":30,"maxHp":30,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 		var cat_fight := Combat.begin(cat_enemy)
 		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack")
 		Combat.player_attack(cat_combat_world, cat_fight)
-		if int(cat_enemy.hp) != 1000 - int(floor(float(cat_base_damage) * 1.5)):
+		if int(cat_enemy.hp) != 30 - int(floor(float(cat_base_damage) * 1.5)):
 			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
 		if not cat_combat_world.hero.buffs.is_empty():
 			failures.append("catLuck must be consumed after victorious combat")
