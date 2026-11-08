@@ -126,7 +126,10 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		if not version_text.is_empty():
 			# JavaScript Number() also accepts hexadecimal integer strings.
 			# Preserve that browser behavior before falling back to decimal floats.
-			if version_text.is_valid_int():
+			if version_text.is_valid_hex_number(true):
+				# JavaScript Number("0x11") parses hexadecimal legacy versions.
+				version_number = float(version_text.hex_to_int())
+			elif version_text.is_valid_int():
 				version_number = float(version_text.to_int())
 			elif version_text.is_valid_float():
 				version_number = version_text.to_float()
