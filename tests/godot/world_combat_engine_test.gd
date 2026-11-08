@@ -611,6 +611,15 @@ func _initialize() -> void:
 	if not nova_result.ok or int(nova_enemy.hp) >= 100 or int(nova_world.hero.hp) != 100 or str(nova_fight.turn) != "player" or Combat._has_effect(nova_enemy,"stun"):
 		failures.append("frost nova must stun the enemy and prevent its response for that turn")
 
+	# A damage-over-time kill during a defensive/buff action must suppress retaliation.
+	var buff_dot_world := WorldState.create(1112)
+	buff_dot_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var buff_dot_enemy := {"name":"Догорающий враг","enemyId":"goblin","persistentId":"buff-dot-kill-test","hp":5,"maxHp":5,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":13,"effects":[{"id":"burn","duration":1}]}
+	var buff_dot_fight := Combat.begin(buff_dot_enemy)
+	var buff_dot_result: Dictionary = Combat.use_ability(buff_dot_world,buff_dot_fight,"mana-shield")
+	if not buff_dot_result.ok or buff_dot_fight.result != "victory" or int(buff_dot_world.hero.hp) != 100 or int(buff_dot_enemy.hp) != 0:
+		failures.append("an enemy killed by burn during a buff action must not retaliate")
+
 	var heal_world := WorldState.create(1103)
 	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
 	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
