@@ -357,6 +357,10 @@ func _initialize() -> void:
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var purchase: Dictionary=Npc.buy_item(economy_world,"health-potion")
 	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
+	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
+	var allied_purchase: Dictionary = Npc.buy_item(allied_trade_world,"health-potion")
+	if not allied_purchase.ok or not is_equal_approx(float(allied_purchase.get("discount",0.0)),0.15) or int(allied_trade_world.hero.gold) != 91:
+		failures.append("allied Free Traders must apply the canonical fifteen percent discount to the actual purchase")
 	var sale: Dictionary=Npc.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
