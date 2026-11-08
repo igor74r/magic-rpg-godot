@@ -15,6 +15,7 @@ const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.g
 const AchievementEngineScript = preload("res://godot/scripts/world_achievement_engine.gd")
 const ChroniclesCatalogScript = preload("res://godot/scripts/world_chronicles_catalog.gd")
 const FactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
+const WorldEventEngineScript = preload("res://godot/scripts/world_event_engine.gd")
 const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
 const RiftEngineScript = preload("res://godot/scripts/world_rift_engine.gd")
 const TowerEngineScript = preload("res://godot/scripts/world_tower_engine.gd")
@@ -37,6 +38,8 @@ var passives_container: VBoxContainer
 var achievements_container: VBoxContainer
 var chronicles_container: VBoxContainer
 var factions_container: VBoxContainer
+var world_events_container: VBoxContainer
+var _event_save_elapsed := 0.0
 var daily_quests_container: VBoxContainer
 var campaign_container: VBoxContainer
 var rift_container: VBoxContainer
@@ -117,6 +120,13 @@ func _build_exploration_ui() -> void:
 	factions_container = VBoxContainer.new()
 	factions_container.add_theme_constant_override("separation", 5)
 	_insert_before_spacer(factions_container)
+	var world_events_title := Label.new()
+	world_events_title.text = "СОБЫТИЯ МИРА"
+	world_events_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(world_events_title)
+	world_events_container = VBoxContainer.new()
+	world_events_container.add_theme_constant_override("separation", 5)
+	_insert_before_spacer(world_events_container)
 	var passives_title := Label.new()
 	passives_title.text = "ДРЕВО ПАССИВНЫХ НАВЫКОВ"
 	passives_title.add_theme_font_size_override("font_size", 16)
@@ -271,6 +281,7 @@ func _refresh_exploration() -> void:
 	_refresh_inventory()
 	_refresh_chronicles()
 	_refresh_factions()
+	_refresh_world_events()
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
@@ -1075,6 +1086,100 @@ func _refresh_factions() -> void:
 	factions_container.add_child(benefit)
 
 
+func _process(delta: float) -> void:
+	if world.is_empty() or (not combat_state.is_empty() and not bool(combat_state.get("over", false))):
+		return
+	var event_result: Dictionary = WorldEventEngineScript.advance_time(world, delta / 60.0, str(world.get("currentRegionId", "village")))
+	_event_save_elapsed += delta
+	if bool(event_result.get("changed", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			status_label.text = "Не удалось сохранить событие мира: %s" % error_string(save_error)
+		_refresh_world_events()
+	elif _event_save_elapsed >= 10.0:
+		_event_save_elapsed = 0.0
+		WorldStateRepositoryScript.save_world(world)
+
+
+func _refresh_world_events() -> void:
+	if world_events_container == null:
+		return
+	for child in world_events_container.get_children():
+		child.queue_free()
+	var region_id := str(world.get("currentRegionId", "village"))
+	var visible: Array = WorldEventEngineScript.get_visible(world, region_id)
+	if visible.is_empty():
+		var note := Label.new()
+		note.text = "В регионе пока нет активных событий. Новые поручения появляются по ходу исследования."
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		world_events_container.add_child(note)
+		return
+	for event in visible:
+		var is_claimable := str(event.get("status", "")) == "completed"
+		var progress := int(event.get("progress", 0))
+		var target := int(event.get("targetCount", 1))
+		var remaining := maxi(0, int(ceil(float(event.get("expiresAt", 0.0)) - float(world.get("clockMinutes", 0.0)))))
+		var row := Label.new()
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.text = "%s %s · %s\n%s\nПрогресс: %d/%d · осталось %d мин · награда %d золота" % [
+			"✓" if is_claimable else "✦", str(event.get("name", "Событие")),
+			"награда готова" if is_claimable else ("принято" if bool(event.get("accepted", false)) else "можно принять"),
+			str(event.get("objectiveText", "")), progress, target, remaining,
+			int(event.get("reward", {}).get("gold", 0))
+		]
+		world_events_container.add_child(row)
+		var action := Button.new()
+		if is_claimable:
+			action.text = "Забрать награду"
+			action.pressed.connect(_claim_world_event.bind(str(event.get("id", ""))))
+		elif bool(event.get("accepted", false)):
+			action.text = "Задание принято"
+			action.disabled = true
+		else:
+			action.text = "Принять событие"
+			action.pressed.connect(_accept_world_event.bind(str(event.get("id", ""))))
+		world_events_container.add_child(action)
+
+
+func _accept_world_event(event_id: String) -> void:
+	if not WorldEventEngineScript.accept_event(world, event_id):
+		status_label.text = "Событие уже принято или больше недоступно."
+		return
+	var save_error := WorldStateRepositoryScript.save_world(world)
+	if save_error != OK:
+		status_label.text = "Не удалось сохранить принятие события: %s" % error_string(save_error)
+		return
+	status_label.text = "Событие принято. Выполните указанную цель до истечения срока."
+	_refresh_world_events()
+
+
+func _claim_world_event(event_id: String) -> void:
+	var snapshot := world.duplicate(true)
+	var reward: Dictionary = WorldEventEngineScript.claim_reward(world, event_id)
+	if reward.is_empty():
+		status_label.text = "Эта награда уже получена или недоступна."
+		return
+	var hero := CombatEngineScript.ensure_hero(world)
+	hero["gold"] = mini(2147483647, int(hero.get("gold", 0)) + int(reward.get("gold", 0)))
+	world["hero"] = hero
+	var save_error := WorldStateRepositoryScript.save_world(world)
+	if save_error != OK:
+		world = snapshot
+		status_label.text = "Получение награды отменено: сохранение не удалось (%s)." % error_string(save_error)
+		return
+	status_label.text = "Получено за событие: %d золота." % int(reward.get("gold", 0))
+	_refresh_inventory()
+	_refresh_world_events()
+
+
+func _record_world_event_victory(enemy: Dictionary) -> void:
+	if bool(enemy.get("riftMode", false)) or bool(enemy.get("towerMode", false)):
+		return
+	var completed: Array = WorldEventEngineScript.record_kill(world, str(world.get("currentRegionId", "village")), enemy)
+	for event in completed:
+		status_label.text += "\nСобытие выполнено: %s. Награда доступна в разделе событий мира." % str(event.get("name", ""))
+
+
 func _refresh_passives() -> void:
 	for child in passives_container.get_children():
 		child.queue_free()
@@ -1226,6 +1331,7 @@ func _combat_attack() -> void:
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	if str(result.get("result", "")) == "victory":
 		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
+		_record_world_event_victory(defeated_enemy)
 		if bool(defeated_enemy.get("riftMode", false)):
 			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
 			if bool(rift_result.get("ok", false)):
@@ -1247,8 +1353,11 @@ func _use_combat_ability(ability_id: String) -> void:
 	if not bool(combat_state.get("over", false)):
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
-	elif str(result.get("result", "")) == "victory" and bool(combat_state.get("enemy", {}).get("towerMode", false)):
-		_complete_tower_victory(combat_state.enemy)
+	elif str(result.get("result", "")) == "victory":
+		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
+		_record_world_event_victory(defeated_enemy)
+		if bool(defeated_enemy.get("towerMode", false)):
+			_complete_tower_victory(defeated_enemy)
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
@@ -1290,9 +1399,12 @@ func _travel_to(region_id: String) -> void:
 			status_label.text = "Сначала завершите сюжетное задание: %s." % str(required_mission.get("title","предыдущее задание"))
 		return
 	var previous := str(world.get("currentRegionId", "village"))
+	var was_discovered: bool = world.get("discoveredRegions", []).has(region_id)
 	if not WorldStateScript.enter_region(world, region_id, previous):
 		status_label.text = "Не удалось пройти по этому пути."
 		return
+	if not was_discovered:
+		WorldEventEngineScript.record_discovery(world, region_id)
 	var error := WorldStateRepositoryScript.save_world(world)
 	if error != OK:
 		status_label.text = "Ошибка сохранения: %s" % error_string(error)
