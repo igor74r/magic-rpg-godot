@@ -71,6 +71,15 @@ func _initialize() -> void:
 	var forged_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"armor":5},"forgeLevel":2,"runes":[]}}}
 	if Combat.effective_stat(forged_armor_hero, "defense") != 14:
 		failures.append("effective defense must include browser armor aliases and the chest forge bonus")
+	var status_effect_hero := {"class":"warrior","str":18,"con":10,"effects":[{"id":"strength"}],"passives":["start"],"talents":[]}
+	if Combat.effective_stat(status_effect_hero, "attack") != 23:
+		failures.append("browser strength status effect must add five effective attack points")
+	status_effect_hero["effects"] = [{"id":"slow"}]
+	if not is_equal_approx(Combat._effect_multiplier(status_effect_hero, "atkMult"), 0.75):
+		failures.append("browser slow status effect must apply its 0.75 attack multiplier")
+	status_effect_hero["effects"] = [{"id":"defBuff"}]
+	if not is_equal_approx(Combat._effect_multiplier(status_effect_hero, "defMult"), 1.5):
+		failures.append("browser defense status effect must apply its 1.5 defense multiplier")
 	var crit_seed := 1
 	var found_cat_roll := false
 	for candidate_seed in range(1, 100000):
