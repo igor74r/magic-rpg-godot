@@ -145,6 +145,36 @@ func _run() -> void:
 	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.4):
 		failures.append("malformed campaign claims must not advance the act multiplier")
 
+	# End-to-end deterministic playthrough of all 25 missions: accept, reject
+	# unrelated kills, accumulate only authored objectives, claim once, and advance.
+	var playthrough_hero: Dictionary = {"level": 100}
+	Campaign.ensure_state(playthrough_hero)
+	var playthrough_world: Dictionary = {"hero": playthrough_hero}
+	for mission in Catalog.all_missions():
+		var mission_id := str(mission.get("id", ""))
+		if not Campaign.accept(playthrough_hero, mission_id):
+			failures.append("full playthrough must accept the next mission in catalog order: %s" % mission_id)
+			continue
+		Campaign.record_kill(playthrough_world, str(mission.get("locationId", "wrong-region")), "not-the-objective")
+		var before_objective: Dictionary = Campaign.progress(playthrough_hero, mission)
+		if int(before_objective.get("kills", -1)) != 0:
+			failures.append("unrelated kills must not advance campaign mission %s" % mission_id)
+		for _kill_index in range(maxi(1, int(mission.get("count", 1)))):
+			Campaign.record_kill(playthrough_world, str(mission.get("locationId", "")), str(mission.get("enemyId", "")))
+		var completed_progress: Dictionary = Campaign.progress(playthrough_hero, mission)
+		if not bool(completed_progress.get("complete", false)) or int(completed_progress.get("current", 0)) != int(mission.get("count", 1)):
+			failures.append("authored objective kills must complete mission %s at its exact required count" % mission_id)
+		Campaign.record_kill(playthrough_world, str(mission.get("locationId", "")), str(mission.get("enemyId", "")))
+		if int(Campaign.progress(playthrough_hero, mission).get("kills", -1)) != int(mission.get("count", 1)):
+			failures.append("completed mission %s must not overcount additional kills" % mission_id)
+		var claim_result: Dictionary = Campaign.claim(playthrough_hero)
+		if not bool(claim_result.get("ok", false)) or playthrough_hero.campaignClaimed.get(mission_id, false) != true:
+			failures.append("completed mission %s must be claimable exactly once" % mission_id)
+		if bool(Campaign.claim(playthrough_hero).get("ok", false)):
+			failures.append("mission %s reward must not be claimable a second time" % mission_id)
+	var full_progress: Dictionary = Campaign.campaign_progress(playthrough_hero)
+	if int(full_progress.get("completed", 0)) != 25 or int(full_progress.get("percent", 0)) != 100 or not bool(full_progress.get("complete", false)) or not Campaign.get_next(playthrough_hero).is_empty():
+		failures.append("end-to-end campaign playthrough must finish all 25 missions and expose no next mission")
 	var finale_world := {"hero":{"level":50,"campaignClaimed":{},"storyShards":{"flame":true,"ice":true,"blood":true}},"storyDragons":{"blood-crown":true}}
 	for mission in Catalog.all_missions():
 		finale_world.hero.campaignClaimed[str(mission.id)] = true
