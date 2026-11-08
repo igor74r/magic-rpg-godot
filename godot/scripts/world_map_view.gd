@@ -88,4 +88,8 @@ func _activate_npc_at(position: Vector2) -> void:
 
 
 func _cell_is_inside_map(cell: Vector2i, columns: int) -> bool:
-	return cell.x >= 0 and cell.x < columns and cell.y >= 0 and cell.y < tile_map.size()
+	if cell.x < 0 or cell.x >= columns or cell.y < 0 or cell.y >= tile_map.size():
+		return false
+	if not tile_map[cell.y] is Array:
+		return false
+	return cell.x < tile_map[cell.y].size()
