@@ -33,6 +33,13 @@ func _run() -> void:
 	var wrapped_seed_world := WorldStateScript.normalize({"seed": -1}, 77)
 	if int(wrapped_seed_world.seed) != 4294967295:
 		failures.append("world seed normalization must match JavaScript unsigned 32-bit wrapping")
+	var visit_number_parity := WorldStateScript.normalize({
+		"regionVisits": {"village": "4", "forest": true, "shadow": 3.9, "ruins": -2}
+	}, 77)
+	if int(visit_number_parity.regionVisits.get("village", -1)) != 0 or int(visit_number_parity.regionVisits.get("forest", -1)) != 0:
+		failures.append("region visit normalization must reject numeric strings and booleans like browser Number.isFinite")
+	if int(visit_number_parity.regionVisits.get("shadow", -1)) != 3 or int(visit_number_parity.regionVisits.get("ruins", -1)) != 0:
+		failures.append("region visit normalization must floor finite numbers and clamp negative counts to zero")
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
