@@ -41,6 +41,10 @@ func _initialize() -> void:
 	for enemy in first:
 		if enemy.hp <= 0 or enemy.maxHp != enemy.hp or enemy.cell.x < 0:
 			failures.append("spawned enemy has invalid stats or position")
+		if int(enemy.get("dropSeed", -1)) < 0 or str(enemy.get("persistentId", "")).is_empty():
+			failures.append("every spawned enemy must have a stable identity and deterministic loot seed")
+		if bool(enemy.get("boss", false)) and (bool(enemy.get("elite", false)) or not str(enemy.get("modifier", "")).is_empty()):
+			failures.append("bosses must not also roll ambient elite or modifier variants")
 		if Vector2(enemy.cell - Vector2i(20, 15)).length() < 5.0:
 			failures.append("enemy spawned too close to player")
 	if not failures.is_empty():
