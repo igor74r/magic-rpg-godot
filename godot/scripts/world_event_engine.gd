@@ -43,11 +43,13 @@ static func get_visible(world: Dictionary, region_id: String) -> Array:
 static func advance_time(world: Dictionary, delta_minutes: float, region_id: String) -> Dictionary:
 	if not WorldGraphScript.region_ids().has(region_id) or not is_finite(delta_minutes) or delta_minutes <= 0.0:
 		return {"changed":false,"started":[],"finished":[]}
+	# Browser updateOverworld caps each frame to 15 frames (0.25 game minutes).
+	var delta := minf(delta_minutes, 0.25)
 	var events: Dictionary = world.get("events", {})
 	if events.is_empty():
 		events = {"active":[],"cooldowns":{},"history":[],"sequence":0,"nextSpawnAt":MIN_INTERVAL}
 	world["events"] = events
-	var now := maxf(0.0, float(world.get("clockMinutes", 0.0))) + minf(delta_minutes, 1440.0)
+	var now := maxf(0.0, float(world.get("clockMinutes", 0.0))) + delta
 	world["clockMinutes"] = now
 	var finished: Array = []
 	var progressed := false
@@ -59,7 +61,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 			continue
 		if bool(event.get("accepted", false)) and event.get("objectiveType") == "defend-region" and str(event.get("regionId", "")) == region_id and now < float(event.get("expiresAt", 0.0)):
 			var previous_progress := int(event.get("progress", 0))
-			var elapsed := minf(float(event.get("targetCount", 1)), float(event.get("holdElapsedMinutes", 0.0)) + minf(delta_minutes, 15.0))
+			var elapsed := minf(float(event.get("targetCount", 1)), float(event.get("holdElapsedMinutes", 0.0)) + delta)
 			event["holdElapsedMinutes"] = elapsed
 			event["progress"] = mini(int(event.get("targetCount", 1)), int(floor(elapsed + 0.000000001)))
 			progressed = progressed or int(event.progress) > previous_progress
@@ -132,6 +134,8 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 
 static func accept_event(world: Dictionary, event_id: String) -> bool:
 	for event in world.get("events", {}).get("active", []):
+		if not event is Dictionary:
+			continue
 		if str(event.get("id", "")) == event_id and event.get("status") == "active" and not bool(event.get("accepted", false)):
 			event["accepted"] = true
 			return true
@@ -142,6 +146,8 @@ static func record_kill(world: Dictionary, region_id: String, enemy: Dictionary)
 	if enemy.is_empty() or not WorldGraphScript.region_ids().has(region_id): return []
 	var completed: Array = []
 	for event in world.get("events", {}).get("active", []).duplicate():
+		if not event is Dictionary:
+			continue
 		if event.get("status") != "active" or not bool(event.get("accepted", false)) or str(event.get("regionId", "")) != region_id: continue
 		var objective := str(event.get("objectiveType", ""))
 		if objective == "elite-kill" and not bool(enemy.get("elite", false)) and not bool(enemy.get("boss", false)): continue
@@ -166,6 +172,8 @@ static func record_discovery(world: Dictionary, region_id: String) -> Array:
 
 static func claim_reward(world: Dictionary, event_id: String) -> Dictionary:
 	for event in world.get("events", {}).get("history", []):
+		if not event is Dictionary:
+			continue
 		if str(event.get("id", "")) != event_id or event.get("status") != "completed" or bool(event.get("rewardClaimed", false)): continue
 		event["rewardClaimed"] = true
 		var reward: Dictionary = event.get("reward", {}).duplicate(true)
