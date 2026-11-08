@@ -132,9 +132,14 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
 	if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
 
-	var source_seed := int(migrated.get("worldSeed", 0))
+	var world_seed_value: Variant = migrated.get("worldSeed", null)
+	# Match Number.isSafeInteger in the browser migration: strings and
+	# fractional values must not be silently coerced into a different seed.
+	var source_seed := int(world_seed_value) if world_seed_value is int else 0
 	if source_seed < 1 or source_seed > 4294967295:
-		source_seed = _derive_legacy_world_seed(hero, str(migrated.get("location", "village")))
+		var location_value: Variant = migrated.get("location", "village")
+		var legacy_location := location_value if location_value is String else "village"
+		source_seed = _derive_legacy_world_seed(hero, legacy_location)
 	migrated["worldSeed"] = source_seed
 	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
 	migrated["worldGeneratorVersion"] = int(generator_value) if generator_value is int and int(generator_value) >= 1 else 1
