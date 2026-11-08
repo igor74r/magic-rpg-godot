@@ -90,6 +90,41 @@ func _run() -> void:
 	if legacy_quests.size() != 3 or int(legacy_quests[0].get("current",0)) != 3 or int(legacy_quest_world.dailyQuests.get("date",0)) != quest_clock:
 		failures.append("legacy native calendar-key quests must migrate without losing progress")
 
+	# Daily quest reward parity: claim updates spendable gold, lifetime earnings,
+	# experience and the claimed marker as one validated reward operation.
+	var reward_world := WorldState.create(9094)
+	reward_world["hero"] = {"level":1,"exp":0,"gold":10,"stats":{"goldEarned":5},"inventory":[],"achievements":[]}
+	reward_world["dailyQuests"] = {"date":Daily.today_key(),"list":[
+		{"id":"q-kill-any","current":10,"claimed":false},
+		{"id":"q-kill-goblin","current":0,"claimed":false},
+		{"id":"q-chest","current":0,"claimed":false}
+	]}
+	var reward_claim := Daily.claim(reward_world,"q-kill-any")
+	if not bool(reward_claim.get("ok",false)) or int(reward_world.hero.gold) != 18 or int(reward_world.hero.stats.goldEarned) != 13 or int(reward_world.hero.exp) != 50:
+		failures.append("daily quest reward must credit gold, lifetime-earned gold and experience")
+	if not bool(reward_world.dailyQuests.list[0].get("claimed",false)):
+		failures.append("successful daily quest reward must persist the claimed marker")
+	var invalid_reward_world := WorldState.create(9095)
+	invalid_reward_world["hero"] = {"level":1,"exp":0,"gold":-1,"stats":{"goldEarned":0},"inventory":[]}
+	invalid_reward_world["dailyQuests"] = {"date":Daily.today_key(),"list":[
+		{"id":"q-kill-any","current":10,"claimed":false},
+		{"id":"q-kill-goblin","current":0,"claimed":false},
+		{"id":"q-chest","current":0,"claimed":false}
+	]}
+	var invalid_reward_claim := Daily.claim(invalid_reward_world,"q-kill-any")
+	if bool(invalid_reward_claim.get("ok",true)) or bool(invalid_reward_world.dailyQuests.list[0].get("claimed",false)) or int(invalid_reward_world.hero.gold) != -1:
+		failures.append("invalid daily quest reward balance must be rejected without mutating the claim")
+	var invalid_earned_world := WorldState.create(9096)
+	invalid_earned_world["hero"] = {"level":1,"exp":0,"gold":10,"stats":{"goldEarned":-1},"inventory":[]}
+	invalid_earned_world["dailyQuests"] = {"date":Daily.today_key(),"list":[
+		{"id":"q-kill-any","current":10,"claimed":false},
+		{"id":"q-kill-goblin","current":0,"claimed":false},
+		{"id":"q-chest","current":0,"claimed":false}
+	]}
+	var invalid_earned_claim := Daily.claim(invalid_earned_world,"q-kill-any")
+	if bool(invalid_earned_claim.get("ok",true)) or bool(invalid_earned_world.dailyQuests.list[0].get("claimed",false)) or int(invalid_earned_world.hero.gold) != 10:
+		failures.append("invalid lifetime-earned gold counter must reject the reward without partial credit")
+
 	# Daily chest: rolling 24-hour cooldown, browser-millisecond timestamp parity,
 	# one-time lifetime counters, item reward and achievement unlock.
 	var chest_world := WorldState.create(8080)
