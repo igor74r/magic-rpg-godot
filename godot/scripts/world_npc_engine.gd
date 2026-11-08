@@ -146,8 +146,8 @@ const RECIPES := {
  "r-mirrorweave-cloak":{"station":"blacksmith","craftTier":4,"act":4,"qty":1,"result":"mirrorweave-cloak","rarity":"epic","ingredients":{"mirror-shard":1,"frost-essence":2}},
  "r-echo-prism-amulet":{"station":"blacksmith","craftTier":4,"act":5,"qty":1,"result":"echo-prism-amulet","rarity":"epic","ingredients":{"echo-core":1,"void-dust":3}},
  "r5-dragon-blade":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-blade","rarity":"legendary","ingredients":{"ember-core":3,"void-dust":2,"grave-salt":1}},
- "r5-dragon-plate":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-scale-armor","rarity":"legendary","act":5,"ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
- "r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","act":5,"ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
+ "r5-dragon-plate":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-scale-armor","rarity":"legendary","ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
+ "r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
 }
 static func current_act(hero: Dictionary) -> int:
  var claimed: Dictionary=hero.get("campaignClaimed",{}) if hero.get("campaignClaimed",{}) is Dictionary else {}
