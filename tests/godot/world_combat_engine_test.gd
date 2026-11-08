@@ -148,6 +148,8 @@ func _initialize() -> void:
 	var loot_result := Combat.player_attack(loot_world,loot_fight)
 	if not loot_result.ok or not loot_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion"):
 		failures.append("boss victory must guarantee its first signature drop")
+	if not loot_hero.inventory.any(func(item): return str(item.get("id","") ) in ["herb-life", "herb-moon"] and int(item.get("qty", 0)) >= 2):
+		failures.append("boss victory must award a deterministic two-herb bundle when its seeded herb roll succeeds")
 	var ability_reward_world := WorldState.create(998)
 	ability_reward_world["currentRegionId"] = "forest"
 	var ability_reward_hero := Combat.ensure_hero(ability_reward_world)
