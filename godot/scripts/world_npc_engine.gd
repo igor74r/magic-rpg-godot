@@ -27,13 +27,8 @@ static func dialogue_choices(npc_id: String, world: Dictionary) -> Array:
 				{"id":"ruins","label":"Что скрывают Руины?","text":"Там бродит нежить. Скелеты уязвимы, но тёмные рыцари опаснее обычных мертвецов."},
 				{"id":"shadow","label":"Расскажи о Пещере теней","text":"Маги теней бьют издали. Подготовь защиту от магии, прежде чем идти туда."}
 			]
-		"cat":
-			return [{"id":"pet","label":"Погладить кошку","text":"Кошка довольно мурлычет и трётся о вашу руку."}]
-		"kids":
-			return [
-				{"id":"heroes","label":"Рассказать о приключениях","text":"Дети слушают, затаив дыхание. Теперь они мечтают стать искателями приключений."},
-				{"id":"coin","label":"Подарить детям 1 золото","text":"Дети радостно благодарят вас за монетку."}
-			]
+		"cat", "kids":
+			return []
 		"herald":
 			return [
 				{"id":"elite","label":"Спросить об элитных врагах","text":"Элитные противники крепче обычных, но их добыча ценнее."},
@@ -123,6 +118,16 @@ static func take_blessing(world: Dictionary) -> Dictionary:
 	hero["effects"]=effects
 	world["hero"]=hero
 	return {"ok":true,"message":"Благословение старейшины: +20% опыта на 10 побед."}
+
+static func pet_cat(world: Dictionary) -> Dictionary:
+	var hero := hero_for(world)
+	if has_entry(hero, "catLuck"):
+		return {"ok": false, "message": "Кошка уже принесла вам удачу."}
+	var buffs: Array = hero.get("buffs", [])
+	buffs.append({"id": "catLuck", "duration": 1})
+	hero["buffs"] = buffs
+	world["hero"] = hero
+	return {"ok": true, "message": "Кошка мурчит. Удача с вами! (+5% критического шанса на 1 бой)."}
 static func campaign_action(world: Dictionary,claim_reward: bool=false) -> Dictionary:
 	var hero:=hero_for(world)
 	if not claim_reward:
