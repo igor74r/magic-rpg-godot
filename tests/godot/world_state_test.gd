@@ -19,6 +19,20 @@ func _run() -> void:
 		failures.append("story shard flags must merge valid legacy mirrors and remain canonical")
 	if clean_shard_world.storyDragons != {"ash-herald":true,"ice-grasp":false,"blood-crown":false}:
 		failures.append("story dragon flags must accept only known literal booleans")
+	var numeric_parity_world := WorldStateScript.normalize({
+		"seed": "9876",
+		"generatorVersion": 1.5,
+		"clockMinutes": "12.5"
+	}, 77)
+	if int(numeric_parity_world.seed) != 77:
+		failures.append("world seed normalization must reject numeric strings instead of coercing them")
+	if absf(float(numeric_parity_world.generatorVersion) - 1.5) > 0.000001:
+		failures.append("world generator version normalization must preserve finite fractional numbers")
+	if float(numeric_parity_world.clockMinutes) != 0.0:
+		failures.append("world clock normalization must reject numeric strings instead of coercing them")
+	var wrapped_seed_world := WorldStateScript.normalize({"seed": -1}, 77)
+	if int(wrapped_seed_world.seed) != 4294967295:
+		failures.append("world seed normalization must match JavaScript unsigned 32-bit wrapping")
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
