@@ -19,6 +19,19 @@ func _initialize() -> void:
 		failures.append("spawn persistent IDs must match browser boss occurrence and regular spawn formats")
 	if not is_equal_approx(Encounter.herb_drop_chance(), 0.30) or not is_equal_approx(Encounter.herb_drop_chance(false, true), 0.70) or not is_equal_approx(Encounter.herb_drop_chance(true, false), 0.875):
 		failures.append("herb drop chances must match regular, elite and boss browser values")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}), 0.5):
+		failures.append("loot chance without modifiers must preserve its base probability")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":100.0}), 0.75):
+		failures.append("loot luck must add up to fifty percent at one hundred Luck")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0,"reputationModifier":0.2}), 0.6):
+		failures.append("personal loot reputation must multiply drop probability")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}, {"factions":{"reputation":{"ash-nomads":70}}}), 0.55):
+		failures.append("Ash Nomad reputation must apply its browser-aligned ten percent loot bonus")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}, {"factions":{"reputation":{"ash-nomads":90}}}), 0.575):
+		failures.append("maximum Ash Nomad reputation must apply its fifteen percent loot bonus")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0,"reputationModifier":-2.0}), 0.05):
+		failures.append("negative loot reputation must clamp to the browser minimum multiplier")
+
 	if Encounter.herb_drop_quantity() != 1 or Encounter.herb_drop_quantity(false, true) != 2 or Encounter.herb_drop_quantity(true, false) != 2:
 		failures.append("elite and boss herb drops must award two herbs while regular enemies award one")
 	if Encounter.ambient_gold_reward(15) != 2 or Encounter.ambient_gold_reward(15, true) != 5 or Encounter.ambient_gold_reward(-10) != 0 or Encounter.ambient_gold_reward(15, false, 2) != 4 or Encounter.ambient_gold_reward(15, true, 2) != 7:

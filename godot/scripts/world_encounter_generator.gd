@@ -37,6 +37,26 @@ static func ambient_gold_reward(base_gold: int, is_elite: bool = false, ng_plus:
 	var ng_multiplier := 1.0 + 0.3 * float(maxi(0, ng_plus))
 	return maxi(0, int(round(float(maxi(0, base_gold)) * 0.15 * elite_multiplier * ng_multiplier)))
 
+# Browser loot modifiers: Luck, optional personal reputation and Ash Nomad standing.
+static func loot_drop_chance(base_chance: float, hero: Dictionary, world: Dictionary = {}) -> float:
+	var base := clampf(base_chance, 0.0, 1.0)
+	var level := maxi(1, int(hero.get("level", 1)))
+	var luck := clampf(float(hero.get("luck", 5.0 + float(level - 1) * 0.5)), 0.0, 100.0)
+	var reputation_modifier := float(hero.get("reputationModifier", 0.0))
+	var personal_reputation: Variant = hero.get("reputation", {})
+	if personal_reputation is Dictionary:
+		reputation_modifier = float(personal_reputation.get("lootModifier", reputation_modifier))
+	reputation_modifier = clampf(reputation_modifier, -0.9, 1.0)
+	var faction_bonus := 0.0
+	var factions: Variant = world.get("factions", {})
+	if factions is Dictionary:
+		var reputation: Variant = factions.get("reputation", {})
+		if reputation is Dictionary:
+			var ash_nomads := int(reputation.get("ash-nomads", 0))
+			faction_bonus = 0.15 if ash_nomads >= 90 else 0.10 if ash_nomads >= 70 else 0.05 if ash_nomads >= 30 else 0.0
+	return clampf(base * (1.0 + luck * 0.005) * (1.0 + reputation_modifier) * (1.0 + faction_bonus), 0.0, 1.0)
+
+
 static func herb_drop_chance(is_boss: bool = false, is_elite: bool = false) -> float:
 	if is_boss:
 		return 0.875

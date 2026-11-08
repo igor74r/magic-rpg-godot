@@ -260,14 +260,13 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
 	var difficulty := str(world.get("difficulty", "normal"))
 	var base_drop_chance := EncounterGenerator.base_drop_chance(difficulty, bool(enemy.get("elite", false)))
-	var luck := clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
-	var drop_chance := minf(1.0, base_drop_chance * (1.0 + luck * 0.005))
+	var drop_chance := EncounterGenerator.loot_drop_chance(base_drop_chance, hero, world)
 	var drop_rng := RandomScript.new(int(enemy.get("dropSeed", RandomScript.derive_seed([world.get("seed", 1), enemy.get("persistentId", "")]))))
 	var dropped_names: Array[String] = []
 	for drop_index in range(drops.size()):
 		var should_drop := bool(enemy.get("boss", false)) and drop_index == 0
 		if not should_drop:
-			should_drop = drop_rng.next_float() < drop_chance
+			should_drop = drop_rng.next_float() < EncounterGenerator.loot_drop_chance(EncounterGenerator.base_drop_chance(difficulty), hero, world)
 		if should_drop:
 			var item_id := str(drops[drop_index])
 			if add_item(hero, item_id, 1):
