@@ -437,12 +437,8 @@ func _initialize() -> void:
 	if not rumor.ok or not str(rumor.message).contains("тайникам"): failures.append("herald treasure choice must return its matching dialogue branch")
 	var invalid_choice: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"guard","not-a-choice")
 	if invalid_choice.ok: failures.append("unknown dialogue branches must be rejected")
-	var poor_kids: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	if poor_kids.ok or int(dialogue_world.hero.gold)!=2: failures.append("kids coin choice must not spend gold when unaffordable")
-	dialogue_world.hero.gold=2
-	var gift_once: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	var gift_twice: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	if not gift_once.ok or gift_twice.ok or int(dialogue_world.hero.gold)!=1: failures.append("kids gift must be charged once and reject repeated rewards")
+	if not NpcEngine.dialogue_choices("kids", dialogue_world).is_empty() or NpcEngine.choose_dialogue(dialogue_world, "kids", "coin").ok:
+		failures.append("children must remain a flavor-only NPC, matching the browser interaction")
 	if NpcCatalog.map_locations().size()!=NpcCatalog.ids().size(): failures.append("all village NPCs must have authored map coordinates")
 	if not failures.is_empty():
 		for failure in failures:
