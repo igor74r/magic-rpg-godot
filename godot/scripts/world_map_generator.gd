@@ -57,6 +57,18 @@ static func generate_map(region_id: String, cols: int, rows: int, world_seed: in
 	return grid
 
 
+static func wandering_merchant_cell(region_id: String, cols: int, rows: int, world_seed: int, generator_version: int = 1, visit_index: int = 0) -> Vector2i:
+	if cols < 7 or rows < 7 or region_id in ["village", "rift", "dragon-lair"] or region_id.begins_with("tower-floor-"):
+		return Vector2i(-1, -1)
+	if WorldRegionCatalog.is_safe(region_id):
+		return Vector2i(-1, -1)
+	var seed_value := WorldRandomScript.derive_seed([world_seed, generator_version, region_id, maxi(0, visit_index), "wandering-merchant"])
+	var rng := WorldRandomScript.new(seed_value)
+	if rng.next_float() >= 0.16:
+		return Vector2i(-1, -1)
+	return Vector2i(3 + rng.next_int(maxi(1, cols - 6)), 3 + rng.next_int(maxi(1, rows - 6)))
+
+
 static func _generate_village(grid: Array, cols: int, rows: int) -> Array:
 	var cx := floori(cols / 2.0)
 	var cy := floori(rows / 2.0)

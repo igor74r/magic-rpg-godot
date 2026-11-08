@@ -44,6 +44,7 @@ var tower_container: VBoxContainer
 var npc_container: VBoxContainer
 var combat_state: Dictionary = {}
 var merchant_stock: Array = []
+var wandering_merchant_cell := Vector2i(-1, -1)
 var browser_import_dialog: FileDialog
 var browser_export_dialog: FileDialog
 
@@ -667,9 +668,15 @@ func _claim_campaign_mission() -> void:
 func _refresh_npcs() -> void:
 	for child in npc_container.get_children(): child.queue_free()
 	if str(world.get("currentRegionId","village"))!="village":
-		var note:=Label.new()
-		note.text="В этом регионе пока нет перенесённых NPC."
-		npc_container.add_child(note)
+		if wandering_merchant_cell.x >= 0:
+			var trader_button := Button.new()
+			trader_button.text="🧳 Странствующий торговец"
+			trader_button.pressed.connect(_talk_to_npc.bind("wandering-merchant"))
+			npc_container.add_child(trader_button)
+		else:
+			var note:=Label.new()
+			note.text="В этом регионе пока нет перенесённых NPC."
+			npc_container.add_child(note)
 		return
 	for npc_id in ["elder","healer","well","bard","blacksmith","alchemist","merchant","guard","cat","kids","herald","questBoard"]:
 		var npc: Dictionary=NpcCatalogScript.get_npc(npc_id)
@@ -683,8 +690,12 @@ func _refresh_npcs() -> void:
 func _talk_to_npc(npc_id: String) -> void:
 	for child in npc_container.get_children():
 		if child is Button and child.name=="NpcAction": child.queue_free()
-	var result: Dictionary=NpcEngineScript.talk(world,npc_id)
+	var is_wandering_merchant := npc_id == "wandering-merchant"
+	var service_npc_id := "merchant" if is_wandering_merchant else npc_id
+	var result: Dictionary=NpcEngineScript.talk(world,service_npc_id)
 	status_label.text=str(result.get("message",""))
+	if is_wandering_merchant:
+		status_label.text = "Путник остановился ненадолго. В запасе — редкие находки из дальних земель.\n" + status_label.text
 	for choice in result.get("choices",[]):
 		_add_dialogue_choice(npc_id,str(choice.get("id","")),str(choice.get("label","")))
 	var hero:=CombatEngineScript.ensure_hero(world)
@@ -705,9 +716,9 @@ func _talk_to_npc(npc_id: String) -> void:
 		_add_npc_action("Испить воду · полное восстановление","well")
 	elif npc_id=="bard":
 		_add_npc_action("Заплатить 15 золота · +10% опыта","bard")
-	elif npc_id=="merchant":
-		merchant_stock = NpcEngineScript.get_merchant_stock(false)
-		_add_npc_action("Открыть ассортимент торговца","shop")
+	elif npc_id=="merchant" or is_wandering_merchant:
+		merchant_stock = NpcEngineScript.get_merchant_stock(is_wandering_merchant)
+		_add_npc_action("Открыть редкие находки и товары" if is_wandering_merchant else "Открыть ассортимент торговца","shop")
 	elif npc_id=="blacksmith":
 		_add_npc_action("Открыть кузницу и улучшения","forge")
 	elif npc_id=="alchemist":
@@ -717,15 +728,23 @@ func _talk_to_npc(npc_id: String) -> void:
 
 
 func _refresh_map_npcs(region_id: String) -> void:
-	if region_id!="village":
-		map_view.call("set_npcs",[])
-		return
-	var locations: Dictionary=NpcCatalogScript.map_locations()
+	merchant_stock.clear()
+	wandering_merchant_cell = Vector2i(-1, -1)
 	var markers: Array=[]
-	for npc_id in NpcCatalogScript.ids():
-		if not locations.has(npc_id): continue
-		var npc: Dictionary=NpcCatalogScript.get_npc(str(npc_id))
-		markers.append({"id":str(npc_id),"cell":locations[npc_id],"emoji":str(npc.get("emoji","✦")),"short":str(npc.get("name",npc_id)).split(" ")[0]})
+	if region_id=="village":
+		var locations: Dictionary=NpcCatalogScript.map_locations()
+		for npc_id in NpcCatalogScript.ids():
+			if not locations.has(npc_id): continue
+			var npc: Dictionary=NpcCatalogScript.get_npc(str(npc_id))
+			markers.append({"id":str(npc_id),"cell":locations[npc_id],"emoji":str(npc.get("emoji","✦")),"short":str(npc.get("name",npc_id)).split(" ")[0]})
+	else:
+		var visits: Dictionary=world.get("regionVisits",{})
+		wandering_merchant_cell = WorldMapGeneratorScript.wandering_merchant_cell(
+			region_id, 40, 30, int(world.get("seed",1)),
+			int(world.get("generatorVersion",1)), int(visits.get(region_id,1))
+		)
+		if wandering_merchant_cell.x >= 0:
+			markers.append({"id":"wandering-merchant","cell":wandering_merchant_cell,"emoji":"🧳","short":"Торговец"})
 	map_view.call("set_npcs",markers)
 
 

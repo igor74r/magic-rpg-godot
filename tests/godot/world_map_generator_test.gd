@@ -36,6 +36,16 @@ func _run() -> void:
 		failures.append("hazard surface may be walkable")
 	if not Generator.is_blocked([[Generator.TILE_WALL]], 0, 0, true):
 		failures.append("walls remain blocked in hazard regions")
+	var merchant_spawn := Generator.wandering_merchant_cell("forest", 40, 30, 3, 1, 1)
+	if merchant_spawn.x < 3 or merchant_spawn.x > 36 or merchant_spawn.y < 3 or merchant_spawn.y > 26:
+		failures.append("deterministic forest seed with a merchant encounter must spawn inside the map bounds")
+	if Generator.wandering_merchant_cell("forest", 40, 30, 3, 1, 1) != merchant_spawn:
+		failures.append("wandering merchant placement must be deterministic for the same save and visit")
+	if Generator.wandering_merchant_cell("forest", 40, 30, 1, 1, 1) != Vector2i(-1, -1):
+		failures.append("regions without a successful 16 percent encounter roll must not spawn a merchant")
+	for excluded_region in ["village", "rift", "dragon-lair", "tower-floor-1"]:
+		if Generator.wandering_merchant_cell(excluded_region, 40, 30, 3, 1, 1) != Vector2i(-1, -1):
+			failures.append("wandering merchant must not spawn in excluded safe or boss region: %s" % excluded_region)
 	if not Generator.generate_map("forest", 4, 30, 1).is_empty():
 		failures.append("invalid dimensions must be rejected")
 	if not failures.is_empty():
