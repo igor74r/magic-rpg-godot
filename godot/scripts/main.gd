@@ -326,9 +326,11 @@ func _refresh_encounters(region_id: String, map_grid: Array, world_seed: int, vi
 		return
 	var record := WorldStateScript.get_region_record(world, region_id)
 	var threat := int(record.get("securityThreat", 0))
+	var hero := CombatEngineScript.ensure_hero(world)
 	var enemies := EncounterGeneratorScript.generate(
 		region_id, map_grid, world_seed, int(world.get("generatorVersion", 1)),
-		visit_index, Vector2i(20, 15), threat, str(world.get("difficulty", "normal")), int(CombatEngineScript.ensure_hero(world).get("ngPlus", 0))
+		visit_index, Vector2i(20, 15), threat, str(world.get("difficulty", "normal")),
+		int(hero.get("ngPlus", 0)), str(hero.get("activeCampaignMission", "")), int(hero.get("level", 1))
 	)
 	WorldStateScript.apply_region_persistence(world, region_id, enemies, [])
 	var alive_count := 0
