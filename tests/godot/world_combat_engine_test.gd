@@ -541,7 +541,7 @@ func _initialize() -> void:
 
 	# Buff abilities consume a real combat turn; only the dodge effect prevents damage.
 	var buff_world := WorldState.create(1101)
-	buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":[]}
+	buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
 	var buff_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 	var buff_fight := Combat.begin(buff_enemy)
 	var buff_result: Dictionary = Combat.use_ability(buff_world,buff_fight,"mana-shield")
