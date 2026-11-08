@@ -187,6 +187,7 @@ func _run() -> void:
 	var migrated_browser_export: Variant = JSON.parse_string(SaveRepo.export_browser_save(TEST_SLOT))
 	if not migrated_browser_export is Dictionary or migrated_browser_export.get("extensionData", {}).get("legacyQuestFlag", false) != true:
 		failures.append("migrated legacy browser save must remain exportable without losing extension data")
+	var backup_path := TEST_PATH + ".bak"
 	# A backup can be the only surviving copy after a crash. The next save
 	# must restore it before rotating files for another atomic replacement.
 	var orphaned_backup := browser_payload.duplicate(true)
@@ -205,7 +206,6 @@ func _run() -> void:
 
 	var interrupted_save := browser_payload.duplicate(true)
 	interrupted_save.player.name = "Recovered browser hero"
-	var backup_path := TEST_PATH + ".bak"
 	var primary_file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
 	if primary_file != null:
 		primary_file.store_string("{corrupt")
