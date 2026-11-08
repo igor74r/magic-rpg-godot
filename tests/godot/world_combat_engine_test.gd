@@ -67,7 +67,7 @@ func _initialize() -> void:
 	var phase_messages := Combat._update_boss_phase(phase_enemy)
 	if int(phase_enemy.get("phase",0)) != 1 or float(phase_enemy.get("phaseAttackMult",1.0)) != 1.4 or int(phase_enemy.get("phaseSpecialEvery",0)) != 1 or phase_messages.is_empty():
 		failures.append("boss phase transition must update attack and special cadence")
-		var modifier_world := WorldState.create(9901)
+	var modifier_world := WorldState.create(9901)
 	var vamp_enemy := {"name":"Вампир","persistentId":"enemy-vamp","hp":40,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"vampiric"}
 	var vamp_fight := Combat.begin(vamp_enemy)
 	var vamp_before := int(vamp_enemy.hp)
@@ -85,7 +85,7 @@ func _initialize() -> void:
 	Combat.player_attack(modifier_world, poison_fight)
 	if not modifier_world.hero.effects.any(func(effect): return str(effect.get("id","")) == "poison"):
 		failures.append("poisonous modifier must apply a poison status")
-		var special_enemy := {"name":"Шаман","persistentId":"enemy-shaman","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"special":{"type":"snipe","every":1,"mult":2.0,"name":"Ядовитые споры","effect":"poison"}}
+	var special_enemy := {"name":"Шаман","persistentId":"enemy-shaman","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"special":{"type":"snipe","every":1,"mult":2.0,"name":"Ядовитые споры","effect":"poison"}}
 	var special_fight := Combat.begin(special_enemy)
 	var special_result := Combat.player_attack(world, special_fight)
 	if not special_result.ok or not str(special_result.message).contains("Особый приём") or world.hero.effects.is_empty():
