@@ -25,6 +25,9 @@ jobs:
       - name: Import and validate project resources
         run: godot --headless --path . --editor --quit
 
+      - name: Test native achievement rules and rewards
+        run: godot --headless --path . --script res://tests/godot/world_achievement_engine_test.gd
+
       - name: Test save repository contract
         run: godot --headless --path . --script res://tests/godot/save_repository_test.gd
 
