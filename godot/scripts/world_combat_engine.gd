@@ -477,10 +477,14 @@ static func _calculate_incoming_damage(world: Dictionary, hero: Dictionary, enem
 	var damage_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-incoming", enemy.get("persistentId", ""), turn_count])
 	var damage_rng := RandomScript.new(damage_seed)
 	attack += float(damage_rng.next_int(5))
-	var defense := float(effective_stat(hero, "defense")) * _effect_multiplier(hero, "defMult")
+	var defense := float(effective_stat(hero, "defense"))
 	var base_damage := mitigate_incoming_damage(attack, defense)
 	var difficulty := 0.7 if str(world.get("difficulty", "normal")) == "easy" else (1.4 if str(world.get("difficulty", "normal")) == "hard" else 1.0)
-	return maxi(1, int(floor(float(base_damage) * difficulty)))
+	base_damage = maxi(1, int(floor(float(base_damage) * difficulty)))
+	var defense_multiplier := _effect_multiplier(hero, "defMult")
+	if defense_multiplier > 1.0:
+		base_damage = maxi(1, int(floor(float(base_damage) / defense_multiplier)))
+	return base_damage
 
 
 static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
