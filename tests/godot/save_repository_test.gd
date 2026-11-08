@@ -186,6 +186,18 @@ func _run() -> void:
 	}
 	if not SaveRepo.is_browser_v18_payload(browser_payload):
 		failures.append("complete browser v18 contract fixture must be accepted")
+	var browser_float_integers := browser_payload.duplicate(true)
+	browser_float_integers.worldSeed = 123456.0
+	browser_float_integers.player.exp = 120.0
+	browser_float_integers.player.inventory = [{"id": "health-potion", "qty": 2.0}]
+	browser_float_integers.world.seed = 123456.0
+	browser_float_integers.world.generatorVersion = 2.0
+	if not SaveRepo.is_browser_v18_payload(browser_float_integers):
+		failures.append("browser v18 contract must accept finite integral JSON numbers represented as floats")
+	var nullable_browser_quantity := browser_payload.duplicate(true)
+	nullable_browser_quantity.player.inventory = [{"id": "health-potion", "qty": null}]
+	if not SaveRepo.is_browser_v18_payload(nullable_browser_quantity):
+		failures.append("browser v18 contract must accept null inventory quantities as the browser does")
 	var incomplete_browser_payload := browser_payload.duplicate(true)
 	incomplete_browser_payload.world.erase("unlockedRoutes")
 	if SaveRepo.is_browser_v18_payload(incomplete_browser_payload):
