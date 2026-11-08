@@ -7,6 +7,7 @@ const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
 const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
 const EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const RandomScript = preload("res://godot/scripts/world_random.gd")
+const EncounterGenerator = preload("res://godot/scripts/world_encounter_generator.gd")
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -256,7 +257,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
 	var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
 	var difficulty := str(world.get("difficulty", "normal"))
-	var base_drop_chance := 0.85 if bool(enemy.get("elite", false)) else 0.7 if difficulty == "easy" else 0.3 if difficulty == "hard" else 0.5
+	var base_drop_chance := EncounterGenerator.base_drop_chance(difficulty, bool(enemy.get("elite", false)))
 	var luck := clampf(float(hero.get("luck", 5.0 + (int(hero.level) - 1) * 0.5)), 0.0, 100.0)
 	var drop_chance := minf(1.0, base_drop_chance * (1.0 + luck * 0.005))
 	var drop_rng := RandomScript.new(int(enemy.get("dropSeed", RandomScript.derive_seed([world.get("seed", 1), enemy.get("persistentId", "")]))))
