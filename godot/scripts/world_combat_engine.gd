@@ -967,7 +967,7 @@ static func _remove_effect(target: Dictionary, effect_id: String) -> void:
 
 
 static func select_class(world: Dictionary, class_id: String) -> Dictionary:
-	if not ClassCatalog.CLASSES.has(class_id):
+	if not ClassCatalog.CLASSES.has(class_id) or class_id == "priest":
 		return {"ok":false,"message":"Неизвестный класс."}
 	var current: Dictionary = world.get("hero", {})
 	if bool(current.get("classChosen", false)):

@@ -1310,6 +1310,8 @@ func _refresh_combat_ui() -> void:
 		combat_container.add_child(block_button)
 		var class_data: Dictionary = ClassCatalogScript.get_class(str(hero.get("class", "warrior")))
 		for ability in class_data.get("abilities", []):
+			if bool(ability.get("passive", false)):
+				continue
 			var ability_button := Button.new()
 			ability_button.text = "%s (%d)" % [str(ability.name), int(ability.cost)]
 			ability_button.pressed.connect(_use_combat_ability.bind(str(ability.id)))

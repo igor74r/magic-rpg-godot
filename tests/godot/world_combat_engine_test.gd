@@ -2,6 +2,7 @@ extends SceneTree
 
 const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
+const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -642,10 +643,16 @@ func _initialize() -> void:
 	if str(priest_hero.get("class","")) != "priest" or int(priest_hero.get("maxHp",0)) != 115 or not priest_hero.get("spells",[]).has("holy-light") or ClassCatalog.class_ids().has("priest"):
 		failures.append("legacy Priest save must preserve class stats while remaining hidden from new character selection")
 	var prayer_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-prayer-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":15}
+	priest_world.hero.effects = [{"id":"poison","duration":2},{"id":"atkBuff","duration":2}]
 	var prayer_fight := Combat.begin(prayer_enemy)
 	var prayer_result: Dictionary = Combat.use_ability(priest_world,prayer_fight,"prayer")
-	if not prayer_result.ok or int(priest_world.hero.hp) <= 40 or prayer_fight.turn != "player":
-		failures.append("Priest prayer must heal, clear debuffs and resolve the enemy turn")
+	if not prayer_result.ok or int(priest_world.hero.hp) <= 40 or prayer_fight.turn != "player" or Combat._has_effect(priest_world.hero,"poison") or not Combat._has_effect(priest_world.hero,"atkBuff"):
+		failures.append("Priest prayer must heal, clear debuffs without removing buffs and resolve the enemy turn")
+	var sanctify_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-sanctify-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":18}
+	var sanctify_fight := Combat.begin(sanctify_enemy)
+	var sanctify_result: Dictionary = Combat.use_ability(priest_world,sanctify_fight,"sanctify")
+	if not sanctify_result.ok or int(sanctify_enemy.hp) >= 100 or not Combat._has_effect(sanctify_enemy,"burn"):
+		failures.append("Priest sanctify must deal magic damage and apply burn")
 	var revive_world := WorldState.create(1116)
 	revive_world["hero"] = priest_world.hero.duplicate(true)
 	revive_world["hero"]["hp"] = 1
