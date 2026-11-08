@@ -101,7 +101,9 @@ func _initialize() -> void:
 		cat_combat_world["hero"] = crit_hero.duplicate(true)
 		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":30,"maxHp":30,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 		var cat_fight := Combat.begin(cat_enemy)
-		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack")
+		var cat_damage_seed := preload("res://godot/scripts/world_random.gd").derive_seed([crit_seed, "combat-damage", "cat-crit-test", 0])
+		var cat_damage_rng := preload("res://godot/scripts/world_random.gd").new(cat_damage_seed)
+		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack") + cat_damage_rng.next_int(5)
 		Combat.player_attack(cat_combat_world, cat_fight)
 		if int(cat_enemy.hp) != 30 - int(floor(float(cat_base_damage) * 1.5)):
 			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
