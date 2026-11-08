@@ -59,6 +59,22 @@ func _initialize() -> void:
 		failures.append("story dragons must not spawn outside their authored finale region")
 	if Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "a3-m5", 50, true, false).has("flame-lord") or Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "a3-m5", 50, false, true).has("flame-lord"):
 		failures.append("story dragons must stay out of Rift and Tower encounter modes")
+	var story_dragon_gates := {
+		"flame-lord": ["obsidian-fields", "a3-m5"],
+		"ice-queen": ["frost-citadel", "a4-m5"],
+		"ancient-dragon": ["dragon-lair", "a5-m5"]
+	}
+	for dragon_id in story_dragon_gates:
+		var dragon_gate: Array = story_dragon_gates[dragon_id]
+		var dragon_region := str(dragon_gate[0])
+		var dragon_mission := str(dragon_gate[1])
+		var dragon_roster: Array = Catalog.enemy_roster(dragon_region)
+		if not dragon_roster.has(dragon_id):
+			failures.append("story dragon %s must exist in its authored region roster" % dragon_id)
+		if Encounter.eligible_enemy_ids(dragon_roster, dragon_region, "", 100).has(dragon_id):
+			failures.append("story dragon %s must remain hidden without its finale mission" % dragon_id)
+		if not Encounter.eligible_enemy_ids(dragon_roster, dragon_region, dragon_mission, 100).has(dragon_id):
+			failures.append("story dragon %s must appear for its exact finale mission" % dragon_id)
 	var mini_boss_levels := {
 		"root-court-executioner": [8, "briar-hollow"],
 		"drowned-queen": [18, "sunken-necropolis"],
