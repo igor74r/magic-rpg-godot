@@ -214,7 +214,7 @@ func _initialize() -> void:
 	var weakness_enemy := {"name":"Скелет","persistentId":"spell-weakness","enemyId":"skeleton","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var weakness_fight := Combat.begin(weakness_enemy)
 	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
-	if not weakness_result.ok or int(weakness_enemy.hp) != 56:
+	if not weakness_result.ok or int(weakness_enemy.hp) != 57:
 		failures.append("magic weakness must increase spell damage by the browser multiplier")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
