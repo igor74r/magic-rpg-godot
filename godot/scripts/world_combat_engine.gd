@@ -264,9 +264,12 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var drop_rng := RandomScript.new(int(enemy.get("dropSeed", RandomScript.derive_seed([world.get("seed", 1), enemy.get("persistentId", "")]))))
 	var dropped_names: Array[String] = []
 	for drop_index in range(drops.size()):
+		# Match the browser: bosses guarantee their first signature drop and
+		# roll any additional drops at normal difficulty odds; elites use 85%.
 		var should_drop := bool(enemy.get("boss", false)) and drop_index == 0
 		if not should_drop:
-			should_drop = drop_rng.next_float() < EncounterGenerator.loot_drop_chance(EncounterGenerator.base_drop_chance(difficulty), hero, world)
+			var roll_chance := EncounterGenerator.loot_drop_chance(EncounterGenerator.base_drop_chance(difficulty), hero, world) if bool(enemy.get("boss", false)) else drop_chance
+			should_drop = drop_rng.next_float() < roll_chance
 		if should_drop:
 			var item_id := str(drops[drop_index])
 			if add_item(hero, item_id, 1):

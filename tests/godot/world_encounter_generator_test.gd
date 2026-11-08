@@ -21,6 +21,8 @@ func _initialize() -> void:
 		failures.append("herb drop chances must match regular, elite and boss browser values")
 	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}), 0.5):
 		failures.append("loot chance without modifiers must preserve its base probability")
+	if not is_equal_approx(Encounter.loot_drop_chance(Encounter.base_drop_chance("normal", true), {"luck":0.0}), 0.85):
+		failures.append("elite item drops must retain the browser's eighty-five percent base chance")
 	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":100.0}), 0.75):
 		failures.append("loot luck must add up to fifty percent at one hundred Luck")
 	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0,"reputationModifier":0.2}), 0.6):
