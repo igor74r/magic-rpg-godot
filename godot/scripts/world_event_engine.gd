@@ -24,7 +24,7 @@ const TEMPLATES := [
 	{"id":"ash-warband-champion","name":"II. Вызов предводителю","regions":["wasteland","volcano","obsidian-fields"],"factionId":"ash-nomads","campaignId":"ash-nomad-warband","campaignStage":2,"goldMin":100,"goldMax":140,"reputationReward":12,"failureReputationDelta":-8,"objectiveType":"boss-kill","targetCount":1,"objectiveText":"Найдите и победите предводителя пепельного отряда."},
 	{"id":"regional-boss-bounty","name":"Охота на регионального босса","regions":["shadow","sunken-necropolis","volcano","obsidian-fields","void-crater"],"factionId":"rift-cult","minFactionReputation":30,"goldMin":90,"goldMax":130,"reputationReward":-12,"failureReputationDelta":6,"objectiveType":"boss-kill","targetCount":1,"objectiveText":"Найдите и победите регионального босса."},
 	{"id":"frontier-survey","name":"Разведка неизведанной границы","regions":["forest","briar-hollow","ruins","shadow","swamp","graveyard","library","sunken-necropolis","wasteland","volcano","obsidian-fields","ice-peaks","frost-citadel","dragon-lair","void-crater"],"factionId":"free-traders","goldMin":55,"goldMax":80,"reputationReward":10,"failureReputationDelta":-4,"objectiveType":"region-discovery","targetCount":1,"objectiveText":"Откройте соседний неизведанный регион."},
-	{"id":"elite-hunt","name":"Охота на элиту","regions":WorldGraphScript.region_ids().filter(func(id): return id != "village"),"factionId":"","goldMin":25,"goldMax":45,"reputationReward":0,"failureReputationDelta":0,"objectiveType":"elite-kill","targetCount":1,"objectiveText":"Победите элитного противника."}
+	{"id":"elite-hunt","name":"Охота на элиту","regions":["forest","briar-hollow","ruins","shadow","swamp","graveyard","library","sunken-necropolis","wasteland","volcano","obsidian-fields","ice-peaks","frost-citadel","dragon-lair","void-crater"],"factionId":"","goldMin":25,"goldMax":45,"reputationReward":0,"failureReputationDelta":0,"objectiveType":"elite-kill","targetCount":1,"objectiveText":"Победите элитного противника."}
 ]
 
 
@@ -141,7 +141,7 @@ static func accept_event(world: Dictionary, event_id: String) -> bool:
 static func record_kill(world: Dictionary, region_id: String, enemy: Dictionary) -> Array:
 	if enemy.is_empty() or not WorldGraphScript.region_ids().has(region_id): return []
 	var completed: Array = []
-	for event in world.get("events", {}).get("active", []).duplicate(true):
+	for event in world.get("events", {}).get("active", []).duplicate():
 		if event.get("status") != "active" or not bool(event.get("accepted", false)) or str(event.get("regionId", "")) != region_id: continue
 		var objective := str(event.get("objectiveType", ""))
 		if objective == "elite-kill" and not bool(enemy.get("elite", false)) and not bool(enemy.get("boss", false)): continue
