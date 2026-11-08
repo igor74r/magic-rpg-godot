@@ -52,12 +52,6 @@ static func choose_dialogue(world: Dictionary, npc_id: String, choice_id: String
 	if selected.is_empty(): return {"ok":false,"message":"Такого варианта диалога нет."}
 	var flags: Dictionary=world.get("npcDialogueFlags",{}) if world.get("npcDialogueFlags",{}) is Dictionary else {}
 	var flag_key: String="%s:%s" % [npc_id,choice_id]
-	if npc_id=="kids" and choice_id=="coin":
-		if bool(flags.get(flag_key,false)): return {"ok":false,"message":"Вы уже подарили детям монетку."}
-		var hero:=hero_for(world)
-		if int(hero.get("gold",0))<1: return {"ok":false,"message":"У вас нет даже одной золотой монеты."}
-		hero["gold"]=int(hero.gold)-1
-		world["hero"]=hero
 	flags[flag_key]=true
 	world["npcDialogueFlags"]=flags
 	return {"ok":true,"message":str(selected.get("text",""))}
