@@ -94,6 +94,24 @@ func _run() -> void:
 		failures.append("browser export must produce a valid v18 payload")
 	elif exported_browser.get("extensionData", {}).get("customQuestFlag", false) != true:
 		failures.append("browser export must preserve extension data")
+	if exported_browser is Dictionary and exported_browser != browser_payload:
+		failures.append("browser import/export must preserve the complete payload, including nested and unknown fields")
+	var interrupted_save := browser_payload.duplicate(true)
+	interrupted_save.player.name = "Recovered browser hero"
+	var backup_path := TEST_PATH + ".bak"
+	var primary_file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
+	if primary_file != null:
+		primary_file.store_string("{corrupt")
+		primary_file.close()
+	var backup_file := FileAccess.open(backup_path, FileAccess.WRITE)
+	if backup_file != null:
+		backup_file.store_string(JSON.stringify(interrupted_save))
+		backup_file.close()
+	var recovered := SaveRepo.load_slot(TEST_SLOT)
+	if str(recovered.get("player", {}).get("name", "")) != "Recovered browser hero":
+		failures.append("save slot must recover the last valid backup after an interrupted replacement")
+	if FileAccess.file_exists(TEST_PATH) and FileAccess.file_exists(backup_path):
+		failures.append("successful save recovery must restore the primary and consume the backup")
 	var invalid_import := browser_payload.duplicate(true)
 	invalid_import.world.erase("unlockedRoutes")
 	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(invalid_import)) != ERR_INVALID_DATA:

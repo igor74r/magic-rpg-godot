@@ -60,14 +60,36 @@ static func load_slot(slot: int) -> Dictionary:
 	if slot < 1 or slot > 3:
 		return {}
 	var path := SLOT_PATH_TEMPLATE % slot
+	var backup_path := path + ".bak"
+	var primary := _read_slot_payload(path)
+	if not primary.is_empty():
+		return primary
+
+	# Recover the last complete save after a crash between the backup and
+	# replacement renames. Never replace a valid primary with a backup.
+	var backup := _read_slot_payload(backup_path)
+	if backup.is_empty():
+		return {}
+	var absolute_path := ProjectSettings.globalize_path(path)
+	var absolute_backup := ProjectSettings.globalize_path(backup_path)
+	if FileAccess.file_exists(path):
+		var remove_error := DirAccess.remove_absolute(absolute_path)
+		if remove_error != OK:
+			return {}
+	var restore_error := DirAccess.rename_absolute(absolute_backup, absolute_path)
+	if restore_error != OK:
+		return {}
+	return backup
+
+
+static func _read_slot_payload(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
 	if not parsed is Dictionary:
 		return {}
 	return migrate_payload(parsed)
