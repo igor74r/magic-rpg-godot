@@ -488,6 +488,44 @@ static func _calculate_incoming_damage(world: Dictionary, hero: Dictionary, enem
 	return base_damage
 
 
+static func _combat_defense_stats(hero: Dictionary) -> Dictionary:
+	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var combat_data: Dictionary = class_data.get("combat", {})
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var dodge := float(combat_data.get("dodgeChance", 0.0))
+	var block := float(combat_data.get("blockChance", 0.0))
+	var block_power := float(combat_data.get("blockPower", 0.4))
+	var equipped: Dictionary = hero.get("equipped", {})
+	for slot in equipped:
+		var instance: Variant = equipped[slot]
+		if instance == null:
+			continue
+		var item_id := str(instance if instance is String else instance.get("id", ""))
+		var item: Dictionary = ItemCatalog.get_item(item_id)
+		if item.is_empty():
+			continue
+		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
+		if instance is Dictionary:
+			var instance_bonus: Variant = instance.get("bonus", {})
+			if instance_bonus is Dictionary:
+				for key in instance_bonus:
+					bonus[key] = instance_bonus[key]
+			var runes: Variant = instance.get("runes", [])
+			if runes is Array:
+				for rune_id in runes:
+					var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+					var rune_bonus: Dictionary = rune.get("runeBonus", {})
+					for key in rune_bonus:
+						bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
+		dodge += float(bonus.get("dodgeChance", 0.0))
+		block += float(bonus.get("blockChance", 0.0))
+		block_power += float(bonus.get("blockPower", 0.0))
+	dodge = clampf(dodge + float(effective_stat(hero, "dex")) * 0.002 + float(passive_bonus.get("dodgeChance", 0.0)), 0.0, 0.65)
+	block = clampf(block + float(passive_bonus.get("blockChance", 0.0)), 0.0, 0.6)
+	block_power = clampf(block_power + float(passive_bonus.get("blockPower", 0.0)), 0.3, 0.9)
+	return {"dodgeChance": dodge, "blockChance": block, "blockPower": block_power}
+
+
 static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
 	if _has_effect(enemy, "stun"):
 		_remove_effect(enemy, "stun")
@@ -533,10 +571,19 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 	var special_ready := not special.is_empty() and turn_count % every == 0
 	var special_type := str(special.get("type", ""))
 	var dodge_ready := _consume_combat_effect(hero, "dodge", "buffs")
-	if dodge_ready:
+	var defense_stats := _combat_defense_stats(hero)
+	var defense_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-defense", enemy.get("persistentId", ""), turn_count])
+	var defense_rng := RandomScript.new(defense_seed)
+	var automatic_dodge := defense_rng.next_float() < float(defense_stats.dodgeChance)
+	if dodge_ready or automatic_dodge:
 		lines.append("Вы уклонились от атаки — урон полностью предотвращён.")
 	else:
 		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
+		var automatic_block := defense_rng.next_float() < float(defense_stats.blockChance)
+		if automatic_block:
+			var reduction := maxf(0.35, float(defense_stats.blockPower))
+			incoming = maxi(1, int(floor(float(incoming) * (1.0 - minf(0.9, reduction)))))
+			lines.append("Сработал автоматический блок — урон снижен.")
 		if special_ready and special_type == "snipe":
 			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
 		elif special_ready and special_type == "double":
