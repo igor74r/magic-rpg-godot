@@ -38,6 +38,15 @@ func _initialize() -> void:
 		failures.append("victory must award experience and gold")
 	if not WorldState.is_enemy_defeated(world, "forest", "enemy-0", 0.0):
 		failures.append("regular enemy defeat must be persisted with respawn deadline")
+	var hard_respawn_world := WorldState.create(9911)
+	hard_respawn_world["difficulty"] = "hard"
+	hard_respawn_world["currentRegionId"] = "forest"
+	var hard_respawn_enemy := {"name":"Враг","enemyId":"goblin","persistentId":"enemy-hard-respawn","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":11}
+	var hard_respawn_fight := Combat.begin(hard_respawn_enemy)
+	Combat.player_attack(hard_respawn_world, hard_respawn_fight)
+	var hard_respawn_record: Dictionary = WorldState.get_region_record(hard_respawn_world, "forest")
+	if not is_equal_approx(float(hard_respawn_record.get("defeatedEnemies", {}).get("enemy-hard-respawn", -1.0)), 1.0):
+		failures.append("hard difficulty must persist a sixty-second respawn deadline in world-clock minutes")
 	var boss := {"name": "Босс", "persistentId": "boss-test", "hp": 10, "maxHp": 10, "attack": 1, "defense": 0, "exp": 100, "gold": 50, "boss": true, "dead": false}
 	var boss_fight := Combat.begin(boss)
 	Combat.player_attack(world, boss_fight)
