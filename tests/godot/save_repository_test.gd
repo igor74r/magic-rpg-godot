@@ -208,6 +208,10 @@ func _run() -> void:
 	browser_float_integers.world.generatorVersion = 2.0
 	if not SaveRepo.is_browser_v18_payload(browser_float_integers):
 		failures.append("browser v18 contract must accept finite integral JSON numbers represented as floats")
+	var integral_float_browser_version := browser_payload.duplicate(true)
+	integral_float_browser_version.version = 18.0
+	if not SaveRepo.is_browser_v18_payload(integral_float_browser_version):
+		failures.append("browser v18 contract must accept integral float schema versions like JavaScript Number.isSafeInteger")
 	var nullable_browser_quantity := browser_payload.duplicate(true)
 	nullable_browser_quantity.player.inventory = [{"id": "health-potion", "qty": null}]
 	if not SaveRepo.is_browser_v18_payload(nullable_browser_quantity):
