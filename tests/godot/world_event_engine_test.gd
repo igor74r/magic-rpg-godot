@@ -3,6 +3,7 @@ extends SceneTree
 const WorldState = preload("res://godot/scripts/world_state.gd")
 const EventEngine = preload("res://godot/scripts/world_event_engine.gd")
 const Factions = preload("res://godot/scripts/world_faction_engine.gd")
+const WorldGraph = preload("res://godot/scripts/world_graph.gd")
 
 
 func _initialize() -> void:
