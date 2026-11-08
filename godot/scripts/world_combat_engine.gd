@@ -33,10 +33,64 @@ static func enemy_damage_multiplier(enemy: Dictionary, style: String) -> float:
 	return 1.25 if weak else (0.8 if resistant else 1.0)
 
 
-static func enemy_defense_for_style(enemy: Dictionary, armor_pen: float = 0.0) -> int:
+static func enemy_defense_for_style(enemy: Dictionary, armor_pen: float = 0.0, style: String = "melee") -> int:
 	var safe_armor_pen := maxf(0.0, armor_pen)
 	var penetration := clampf(safe_armor_pen * 0.025, 0.0, 0.75)
-	return maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - safe_armor_pen * 0.5)))
+	var base := maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - safe_armor_pen * 0.5)))
+	var counter: Variant = enemy.get("adaptiveCounter", null)
+	if not counter is Dictionary or str(counter.get("style", "")) != style or int(counter.get("remaining", 0)) <= 0:
+		return base
+	var reduction := 0.12 if bool(enemy.get("boss", false)) else 0.20
+	return base + int(floor(float(maxi(1, base)) * reduction))
+
+
+static func record_player_style(combat: Dictionary, style: String) -> void:
+	if not ["melee", "ranged", "magic"].has(style):
+		return
+	var history: Array = combat.get("playerStyleHistory", []) if combat.get("playerStyleHistory", []) is Array else []
+	history.append(style)
+	if history.size() > 4:
+		history.pop_front()
+	combat["playerStyleHistory"] = history
+
+
+static func consume_enemy_adaptation(enemy: Dictionary, style: String) -> bool:
+	var counter: Variant = enemy.get("adaptiveCounter", null)
+	if not counter is Dictionary or str(counter.get("style", "")) != style or int(counter.get("remaining", 0)) <= 0:
+		return false
+	counter["remaining"] = int(counter.get("remaining", 0)) - 1
+	if int(counter.remaining) <= 0:
+		enemy["adaptiveCounter"] = null
+	else:
+		enemy["adaptiveCounter"] = counter
+	return true
+
+
+static func prepare_enemy_adaptation(combat: Dictionary, enemy: Dictionary) -> String:
+	var history: Variant = combat.get("playerStyleHistory", [])
+	if not history is Array or history.size() < 3:
+		return ""
+	var recent: Array = history.slice(maxi(0, history.size() - 3))
+	var selected_style := ""
+	for candidate in ["melee", "ranged", "magic"]:
+		var count := 0
+		for recorded_style in recent:
+			if recorded_style == candidate:
+				count += 1
+		if count >= 2:
+			selected_style = candidate
+			break
+	if selected_style.is_empty():
+		return ""
+	var existing: Variant = enemy.get("adaptiveCounter", null)
+	if existing is Dictionary and int(existing.get("remaining", 0)) > 0:
+		return ""
+	enemy["adaptiveCounter"] = {"style": selected_style, "remaining": 2 if bool(enemy.get("boss", false)) else 1}
+	var label := "ближнему бою" if selected_style == "melee" else ("дальним атакам" if selected_style == "ranged" else "магии")
+	var message := "🧠 Противник приспособился к вашему стилю (%s)!" % label
+	if bool(enemy.get("boss", false)):
+		message += " Босс изучает ваши действия, но его защита слабее."
+	return message
 
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
@@ -161,8 +215,11 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)))
-	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, "melee"))))
+	var attack_style := "ranged" if str(hero.get("class", "")) == "archer" else "melee"
+	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), attack_style)
+	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style))))
+	consume_enemy_adaptation(enemy, attack_style)
+	record_player_style(combat, attack_style)
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
 	var crit_chance := critical_chance(hero, cat_luck_bonus)
 	var attack_index := int(combat.get("playerAttackCount", 0))
@@ -185,6 +242,9 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		combat["turn"] = "over"
 	else:
 		combat["turn"] = "enemy"
+		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+		if not adaptation_message.is_empty():
+			lines.append(adaptation_message)
 		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense") * _effect_multiplier(hero, "defMult")) / 2.0)))
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
@@ -495,10 +555,12 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 				apply_effect(enemy, "poison")
 			elif kind == "stun":
 				apply_effect(enemy, "stun")
-		var ability_style := "magic" if kind == "meteor" else "melee"
-		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)))
+		var ability_style := "magic" if kind == "meteor" else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
+		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
 		var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
 		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
+		consume_enemy_adaptation(enemy, ability_style)
+		record_player_style(combat, ability_style)
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 		var lines := ["%s: %d урона." % [str(ability.name), damage]]
 		lines.append_array(_update_boss_phase(enemy))
@@ -518,6 +580,9 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			enemy["state"] = "dead"
 			combat["log"] += "\n" + _award_victory(world, enemy)
 		else:
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				combat["log"] += "\n" + adaptation_message
 			var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(hero.defense) / 2.0)))
 			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
@@ -560,10 +625,12 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 		var armor_pen := float(passive_bonus.get("armorPen", 0))
-		var enemy_armor := enemy_defense_for_style(enemy, armor_pen)
+		var enemy_armor := enemy_defense_for_style(enemy, armor_pen, "magic")
 		var matchup_multiplier := enemy_damage_multiplier(enemy, "magic")
 		var raw_damage := int(spell.get("damage", 0)) + int(floor(float(effective_stat(hero, "magic")) / 2.0)) - int(floor(float(enemy_armor) / 2.0))
 		var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)) * matchup_multiplier)))
+		consume_enemy_adaptation(enemy, "magic")
+		record_player_style(combat, "magic")
 		var element := str(spell.get("element", ""))
 		if element == "lightning" and _has_effect(enemy, "slow"):
 			damage = int(floor(float(damage) * 1.2))
@@ -596,6 +663,9 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			combat["result"] = "victory"
 			lines.append(_award_victory(world, enemy))
 		else:
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				lines.append(adaptation_message)
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
 			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
