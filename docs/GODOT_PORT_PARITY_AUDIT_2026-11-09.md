@@ -85,7 +85,7 @@ Visual parity remains explicitly listed as incomplete in `GODOT_MIGRATION_STATUS
 
 Native modules and tests exist for many systems, but a matching filename/catalog is not proof of equivalent gameplay. The repository's own migration status and this source review identify remaining work in:
 - complete legacy-save compatibility and lossless round-trip;
-- chronicles parity: the native runtime now exposes expandable chapter, lore-faction, and side-story sections and validates all 12 entries, three lore factions, and five side stories; browser-style article/card visuals, responsive presentation, and end-to-end interaction parity still need comparison;
+- Chronicles presentation progress: the native archive now uses styled expandable panels, separate narrative entry cards, faction/side-story cards, wrapped text, and explicit expanded/collapsed control state. Catalog and main-scene source-level regression checks cover the data and view wiring. Browser responsive grid parity and runtime visual comparison remain pending.
 - visual/UI parity;
 - paired scenario coverage for NPC dialogue/services, map navigation, encounter lifecycle, and campaign/content progression.
 
