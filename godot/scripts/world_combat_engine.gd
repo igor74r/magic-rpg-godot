@@ -256,6 +256,18 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var dragon_reward_message := "" if bool(enemy.get("riftMode", false)) or tower_mode else _claim_story_dragon_reward(world, hero, str(enemy.get("enemyId","")), str(world.get("currentRegionId","")) )
 	var level_ups := _grant_experience(hero, reward_exp)
 	hero["gold"] = mini(2147483647, int(hero.gold) + reward_gold)
+	# Persist lifetime counters before evaluating achievements, matching browser checks.
+	var lifetime_stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	var lifetime_kills: Dictionary = lifetime_stats.get("kills", {}) if lifetime_stats.get("kills", {}) is Dictionary else {}
+	var enemy_id_for_stats := str(enemy.get("enemyId", ""))
+	lifetime_kills[enemy_id_for_stats] = mini(2147483647, maxi(0, int(lifetime_kills.get(enemy_id_for_stats, 0))) + 1)
+	lifetime_stats["kills"] = lifetime_kills
+	lifetime_stats["goldEarned"] = mini(2147483647, maxi(0, int(lifetime_stats.get("goldEarned", 0))) + reward_gold)
+	if bool(enemy.get("elite", false)):
+		lifetime_stats["eliteKills"] = mini(2147483647, maxi(0, int(lifetime_stats.get("eliteKills", 0))) + 1)
+	if bool(enemy.get("boss", false)):
+		lifetime_stats["bossKills"] = mini(2147483647, maxi(0, int(lifetime_stats.get("bossKills", 0))) + 1)
+	hero["stats"] = lifetime_stats
 	var enemy_definition: Dictionary = EnemyCatalog.get_enemy(str(enemy.get("enemyId", "")))
 	var drops: Array = enemy.get("drops", enemy_definition.get("drops", []))
 	var difficulty := str(world.get("difficulty", "normal"))
@@ -294,7 +306,11 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 		else:
 			WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + EncounterGenerator.respawn_minutes(str(world.get("difficulty", "normal"))))
 	world["hero"] = hero
+	var achievement_unlocks: Array = preload("res://godot/scripts/world_achievement_engine.gd").evaluate(world)
+	hero = world.get("hero", hero)
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
+	for achievement in achievement_unlocks:
+		message += "\\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
 	if not campaign_message.is_empty(): message += "\n" + campaign_message
 	if not dragon_reward_message.is_empty(): message += "\n" + dragon_reward_message
 	if level_ups > 0:
