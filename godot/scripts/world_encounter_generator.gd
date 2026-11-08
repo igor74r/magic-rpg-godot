@@ -32,6 +32,14 @@ static func base_drop_chance(difficulty: String, elite: bool = false) -> float:
 		return 0.85
 	return 0.70 if difficulty == "easy" else 0.30 if difficulty == "hard" else 0.50
 
+static func herb_drop_chance(is_boss: bool = false, is_elite: bool = false) -> float:
+	if is_boss:
+		return 0.875
+	return 0.70 if is_elite else 0.30
+
+static func herb_drop_quantity(is_boss: bool = false, is_elite: bool = false) -> int:
+	return 2 if is_boss or is_elite else 1
+
 static func build_persistent_id(enemy_id: String, is_boss: bool, occurrence: int = 1, spawn_index: int = 0) -> String:
 	if is_boss:
 		var safe_occurrence := maxi(1, occurrence)
