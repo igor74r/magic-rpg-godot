@@ -212,6 +212,32 @@ func _run() -> void:
 		failures.append("v18 migration must map the legacy active mission to its campaign branch")
 	if not SaveRepo.migrate_payload({"version":18,"player":null}).is_empty():
 		failures.append("v18 payload without a valid player record must be rejected")
+
+	# Exercise every remaining legacy schema entry point independently. The
+	# browser migration suite covers v1-v17; native migration must also accept
+	# each starting version and preserve opaque extension data.
+	for legacy_version in range(2, 17):
+		var legacy_matrix_payload := {
+			"version": legacy_version,
+			"legacyExtension": {"versionMarker": legacy_version},
+			"player": {
+				"name": "Version %d hero" % legacy_version,
+				"class": "mage",
+				"level": 8,
+				"gold": 321,
+				"playerExtension": {"opaque": "retain"}
+			}
+		}
+		var migrated_matrix_payload := SaveRepo.migrate_payload(legacy_matrix_payload)
+		var migrated_matrix_player: Dictionary = migrated_matrix_payload.get("player", {})
+		if int(migrated_matrix_payload.get("version", -1)) != 18:
+			failures.append("legacy v%d payload must migrate sequentially to v18" % legacy_version)
+		if str(migrated_matrix_player.get("name", "")) != "Version %d hero" % legacy_version:
+			failures.append("legacy v%d migration must preserve the player identity" % legacy_version)
+		if migrated_matrix_payload.get("legacyExtension", {}).get("versionMarker", -1) != legacy_version:
+			failures.append("legacy v%d migration must preserve unknown root extensions" % legacy_version)
+		if migrated_matrix_player.get("playerExtension", {}).get("opaque", "") != "retain":
+			failures.append("legacy v%d migration must preserve unknown player extensions" % legacy_version)
 	var hero_alias := SaveRepo.migrate_payload({"version":17,"hero":{"name":"Legacy alias","level":9}})
 	if int(hero_alias.get("version",-1)) != 18 or hero_alias.get("hero",{}).get("name","") != "Legacy alias":
 		failures.append("v17 hero alias must migrate without renaming or losing its data")
