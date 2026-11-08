@@ -264,8 +264,12 @@ static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int
 		location if not location.is_empty() else "village"
 	]
 	var hash_value: int = 2166136261
-	for index in range(source.length()):
-		hash_value = int((hash_value ^ source.unicode_at(index)) * 16777619) & 0xffffffff
+	# Browser save.js hashes JavaScript UTF-16 code units (charCodeAt), not
+	# Unicode scalar values. Iterate the same 16-bit units so names containing
+	# supplementary characters produce exactly the same world seed in Godot.
+	var utf16 := source.to_utf16_buffer()
+	for byte_offset in range(0, utf16.size(), 2):
+		hash_value = int((hash_value ^ utf16.decode_u16(byte_offset)) * 16777619) & 0xffffffff
 	return hash_value if hash_value != 0 else 1
 
 
