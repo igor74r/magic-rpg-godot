@@ -639,6 +639,8 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 			total = int(hero.get("int", hero.get("magic", total))) + int(passive_bonus.get("magFlat", 0))
 		"defense":
 			total = int(floor(float(hero.get("con", total * 2)) / 2.0)) + int(passive_bonus.get("defFlat", 0))
+		"dex":
+			total = int(hero.get("dex", total)) + int(passive_bonus.get("dexFlat", 0))
 	var equipped: Dictionary = hero.get("equipped", {})
 	for instance in equipped.values():
 		if instance == null:
@@ -647,8 +649,19 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 		var item: Dictionary = ItemCatalog.get_item(item_id)
 		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
 		if instance is Dictionary:
-			for key in instance.get("bonus", {}):
-				bonus[key] = int(bonus.get(key, 0)) + int(instance.bonus[key])
+			# Match browser getEffStats: instance values override catalog defaults.
+			var instance_bonus: Variant = instance.get("bonus", {})
+			if instance_bonus is Dictionary:
+				for key in instance_bonus:
+					bonus[key] = instance_bonus[key]
+			var rune_ids: Variant = instance.get("runes", [])
+			if rune_ids is Array:
+				for rune_id in rune_ids:
+					var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+					var rune_bonus: Variant = rune.get("runeBonus", {})
+					if rune_bonus is Dictionary:
+						for key in rune_bonus:
+							bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
 		for key in bonus:
 			if str(key) == stat:
 				total += int(bonus[key])
