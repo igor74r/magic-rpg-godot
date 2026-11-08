@@ -17,6 +17,13 @@ static func from_browser_payload(payload: Dictionary) -> Dictionary:
 	var browser_world_value: Variant = payload.get("world", {})
 	var browser_world: Dictionary = browser_world_value.duplicate(true) if browser_world_value is Dictionary else {}
 	browser_world["location"] = str(payload.get("location", browser_world.get("location", "village")))
+	# Browser ensureWorldState falls back to the top-level game location when
+	# the nested world snapshot has no valid currentRegionId. Preserve that
+	# behavior for imports instead of silently resetting exploration to village.
+	var saved_region: Variant = browser_world.get("currentRegionId", null)
+	var location_region: Variant = payload.get("location", null)
+	if not WorldGraph.region_ids().has(saved_region) and location_region is String and WorldGraph.region_ids().has(location_region):
+		browser_world["currentRegionId"] = location_region
 	var player: Dictionary = payload.player.duplicate(true)
 	var source_seed := int(browser_world.get("seed", payload.get("worldSeed", 1)))
 	var source_generator := int(browser_world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))
