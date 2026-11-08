@@ -216,6 +216,28 @@ func _initialize() -> void:
 	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
 	if not weakness_result.ok or int(weakness_enemy.hp) != 57:
 		failures.append("magic weakness must increase spell damage by the browser multiplier")
+	# Physical matchup parity: ghost-family enemies are weak to physical damage,
+	# while armored magma/dark/royal enemies resist it.
+	var physical_base_world := WorldState.create(9924)
+	Combat.select_class(physical_base_world, "warrior")
+	var physical_base_enemy := {"name":"Учебная цель","persistentId":"physical-matchup","enemyId":"goblin","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_base_fight := Combat.begin(physical_base_enemy)
+	var physical_base_result := Combat.player_attack(physical_base_world, physical_base_fight)
+	var physical_base_damage := 1000 - int(physical_base_enemy.hp)
+	var physical_weak_world := WorldState.create(9924)
+	Combat.select_class(physical_weak_world, "warrior")
+	var physical_weak_enemy := {"name":"Призрак","persistentId":"physical-matchup","enemyId":"ghost","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_weak_fight := Combat.begin(physical_weak_enemy)
+	var physical_weak_result := Combat.player_attack(physical_weak_world, physical_weak_fight)
+	if not physical_base_result.ok or not physical_weak_result.ok or 1000 - int(physical_weak_enemy.hp) != int(floor(float(physical_base_damage) * 1.25)):
+		failures.append("physical weakness must increase melee damage by the browser multiplier")
+	var physical_resist_world := WorldState.create(9924)
+	Combat.select_class(physical_resist_world, "warrior")
+	var physical_resist_enemy := {"name":"Магмовый голем","persistentId":"physical-matchup","enemyId":"magma-golem","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_resist_fight := Combat.begin(physical_resist_enemy)
+	var physical_resist_result := Combat.player_attack(physical_resist_world, physical_resist_fight)
+	if not physical_resist_result.ok or 1000 - int(physical_resist_enemy.hp) != int(floor(float(physical_base_damage) * 0.8)):
+		failures.append("physical resistance must reduce melee damage by the browser multiplier")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
