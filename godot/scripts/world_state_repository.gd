@@ -74,6 +74,12 @@ static func to_browser_payload(world: Dictionary) -> Dictionary:
 	var browser_world: Dictionary = world.duplicate(true)
 	for runtime_key in ["hero", "factions", "storyShards", "storyDragons", "_browserSourcePayload", "location"]:
 		browser_world.erase(runtime_key)
+	# Runtime normalization intentionally keeps only fields understood by
+	# Godot. Merge the authoritative normalized state over the original browser
+	# world document so opaque extension fields at every dictionary depth survive.
+	var source_world_value: Variant = payload.get("world", {})
+	if source_world_value is Dictionary:
+		browser_world = _merge_preserving_unknown(source_world_value, browser_world)
 	payload["version"] = SaveRepositoryScript.SAVE_VERSION
 	payload["player"] = player
 	payload["location"] = str(world.get("location", payload.get("location", "village")))
@@ -91,6 +97,21 @@ static func to_browser_payload(world: Dictionary) -> Dictionary:
 	var dragons_value: Variant = world.get("storyDragons", payload.get("storyDragons", {}))
 	payload["storyDragons"] = dragons_value.duplicate(true) if dragons_value is Dictionary else {}
 	return payload if SaveRepositoryScript.is_browser_v18_payload(payload) else {}
+
+
+# Recursively preserve source-only dictionary keys while runtime values win.
+# Arrays are replaced by the authoritative runtime array to avoid resurrecting
+# stale gameplay entries that were intentionally removed during normalization.
+static func _merge_preserving_unknown(source: Dictionary, authoritative: Dictionary) -> Dictionary:
+	var merged: Dictionary = source.duplicate(true)
+	for key in authoritative:
+		var source_value: Variant = merged.get(key, null)
+		var runtime_value: Variant = authoritative[key]
+		if source_value is Dictionary and runtime_value is Dictionary:
+			merged[key] = _merge_preserving_unknown(source_value, runtime_value)
+		else:
+			merged[key] = runtime_value.duplicate(true) if runtime_value is Dictionary or runtime_value is Array else runtime_value
+	return merged
 
 
 # Export through the same crash-safe writer used by native world saves.
