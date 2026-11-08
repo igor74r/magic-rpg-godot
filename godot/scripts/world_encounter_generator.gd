@@ -70,11 +70,40 @@ static func build_persistent_id(enemy_id: String, is_boss: bool, occurrence: int
 static func persistent_id_for_spawn(enemy_id: String, is_boss: bool, occurrence: int, spawn_index: int) -> String:
 	return build_persistent_id(enemy_id, is_boss, occurrence, spawn_index)
 
-static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal", ng_plus: int = 0) -> Array:
+const STORY_DRAGONS := {
+	"flame-lord": {"locationId": "obsidian-fields", "missionId": "a3-m5"},
+	"ice-queen": {"locationId": "frost-citadel", "missionId": "a4-m5"},
+	"ancient-dragon": {"locationId": "dragon-lair", "missionId": "a5-m5"}
+}
+const STORY_MINI_BOSS_LEVELS := {
+	"root-court-executioner": 8,
+	"drowned-queen": 18,
+	"oath-forge-warden": 28,
+	"mirror-icekeeper": 38,
+	"echo-devourer": 48
+}
+
+static func eligible_enemy_ids(enemy_ids: Array, region_id: String, active_campaign_mission: String = "", player_level: int = 1, rift_mode: bool = false, tower_mode: bool = false) -> Array:
+	var eligible: Array = []
+	var safe_level := maxi(1, player_level)
+	for raw_id in enemy_ids:
+		var enemy_id := str(raw_id)
+		if enemy_id.is_empty() or not Enemies.ENEMIES.has(enemy_id):
+			continue
+		if STORY_MINI_BOSS_LEVELS.has(enemy_id) and safe_level < int(STORY_MINI_BOSS_LEVELS[enemy_id]):
+			continue
+		if STORY_DRAGONS.has(enemy_id):
+			var dragon: Dictionary = STORY_DRAGONS[enemy_id]
+			if rift_mode or tower_mode or str(dragon.locationId) != region_id or str(dragon.missionId) != active_campaign_mission:
+				continue
+		eligible.append(enemy_id)
+	return eligible
+
+static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal", ng_plus: int = 0, active_campaign_mission: String = "", player_level: int = 1, rift_mode: bool = false, tower_mode: bool = false) -> Array:
 	if Catalog.is_safe(region_id) or grid.is_empty():
 		return []
 	var region_rng := RandomScript.for_region(world_seed, generator_version, region_id, visit_index)
-	var roster: Array = Catalog.enemy_roster(region_id).filter(func(id): return Enemies.ENEMIES.has(id))
+	var roster: Array = eligible_enemy_ids(Catalog.enemy_roster(region_id), region_id, active_campaign_mission, player_level, rift_mode, tower_mode)
 	if roster.is_empty():
 		return []
 	var count := mini(maxi(roster.size(), 4), 7)
