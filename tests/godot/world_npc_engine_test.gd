@@ -64,11 +64,11 @@ func _initialize() -> void:
 	if not bool(confirmed_sale.get("ok", false)) or confirmation_world.hero.buyback.size() != 1:
 		failures.append("confirmed sale must create a same-day buyback record")
 	var buyback_price := int(confirmation_world.hero.buyback[0].price)
+	if Npc.get_buyback_items(confirmation_world, "1900-01-01").size() != 0:
+		failures.append("buyback records from another calendar day must not be available")
 	var buyback := Npc.buyback_item(confirmation_world, 0)
 	if not bool(buyback.get("ok", false)) or confirmation_world.hero.inventory.size() != 1 or int(confirmation_world.hero.gold) != 100 + int(confirmed_sale.price) - buyback_price:
 		failures.append("same-day buyback must restore the item and charge the 20 percent markup")
-	if not Npc.get_buyback_items(confirmation_world, "1900-01-01").is_empty():
-		failures.append("buyback records from another calendar day must not be available")
 	var full_bag_world := WorldState.create(20261116)
 	var full_inventory: Array = []
 	for slot in range(30): full_inventory.append({"id":"iron-sword","qty":1})

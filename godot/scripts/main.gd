@@ -814,14 +814,20 @@ func _show_npc_shop() -> void:
 
 
 func _buy_from_npc(item_id: String) -> void:
-	var result: Dictionary=NpcEngineScript.buy_item(world,item_id)
-	status_label.text=str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var previous_world := world.duplicate(true)
+	var result: Dictionary = NpcEngineScript.buy_item(world, item_id)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			world = previous_world
+			status_label.text = "Покупка отменена: не удалось сохранить изменения (%s)." % error_string(save_error)
 	_refresh_inventory()
 	_show_npc_shop()
 
 
 func _sell_to_npc(index: int, confirmed: bool = false) -> void:
+	var previous_world := world.duplicate(true)
 	var result: Dictionary = NpcEngineScript.sell_item(world, index, confirmed)
 	status_label.text = str(result.get("message", ""))
 	if bool(result.get("requiresConfirmation", false)):
@@ -834,18 +840,21 @@ func _sell_to_npc(index: int, confirmed: bool = false) -> void:
 	if bool(result.get("ok", false)):
 		var save_error := WorldStateRepositoryScript.save_world(world)
 		if save_error != OK:
-			status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
+			world = previous_world
+			status_label.text = "Продажа отменена: не удалось сохранить изменения (%s)." % error_string(save_error)
 	_refresh_inventory()
 	_show_npc_shop()
 
 
 func _buyback_from_npc(index: int) -> void:
+	var previous_world := world.duplicate(true)
 	var result: Dictionary = NpcEngineScript.buyback_item(world, index)
 	status_label.text = str(result.get("message", ""))
 	if bool(result.get("ok", false)):
 		var save_error := WorldStateRepositoryScript.save_world(world)
 		if save_error != OK:
-			status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
+			world = previous_world
+			status_label.text = "Обратный выкуп отменён: не удалось сохранить изменения (%s)." % error_string(save_error)
 	_refresh_inventory()
 	_show_npc_shop()
 

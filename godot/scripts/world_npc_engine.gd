@@ -306,7 +306,7 @@ static func sell_item(world: Dictionary, index: int, confirmed: bool = false) ->
  var buyback_price := int(ceil(float(price) * 1.2))
  var buyback: Array = previous_buyback.filter(func(record): return record is Dictionary and str(record.get("soldAt", "")) == today)
  if buyback_price > 0:
-  buyback.append({"id":"buyback-%d-%d" % [int(Time.get_unix_time_from_system()), index], "item":instance.duplicate(true), "soldAt":today, "price":buyback_price})
+  buyback.append({"id":"buyback-%d-%d" % [int(Time.get_unix_time_from_system() * 1000000.0), index], "item":instance.duplicate(true), "soldAt":today, "price":buyback_price})
  inventory.remove_at(index)
  hero["inventory"] = inventory
  hero["gold"] = balance + price
