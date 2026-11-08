@@ -58,6 +58,12 @@ const EFFECTS := {
 	"poison": {"damage": 5, "duration": 3, "name": "Отравление"},
 	"burn": {"damage": 8, "duration": 2, "name": "Ожог"},
 	"bleed": {"damage": 6, "duration": 3, "name": "Кровотечение"},
+	"slow": {"atkMult": 0.75, "duration": 2, "name": "Замедление"},
+	"atkBuff": {"atkMult": 1.3, "duration": 2, "name": "Боевой клич"},
+	"defBuff": {"defMult": 1.5, "duration": 2, "name": "Щит маны"},
+	"lifesteal": {"lifestealPct": 0.5, "duration": 2, "name": "Кровожадность"},
+	"strength": {"atkFlat": 5, "duration": 3, "name": "Эликсир силы"},
+	"manaShield": {"duration": 2, "name": "Эликсир маны"},
 	"stun": {"skipTurn": true, "duration": 1, "name": "Оглушение"}
 }
 
@@ -129,7 +135,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var enemy: Dictionary = combat.get("enemy", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-	var damage := maxi(1, int(round(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0))))
+	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult"))))
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
 	var crit_chance := critical_chance(hero, cat_luck_bonus)
 	var attack_index := int(combat.get("playerAttackCount", 0))
@@ -152,7 +158,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		combat["turn"] = "over"
 	else:
 		combat["turn"] = "enemy"
-		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
+		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense") * _effect_multiplier(hero, "defMult")) / 2.0)))
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
 		var special: Dictionary = enemy.get("special", {})
@@ -683,9 +689,27 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 				total += forge_bonus
 			elif str(slot) == "chest" and stat == "defense":
 				total += forge_bonus
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary:
+			continue
+		var effect_data: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
+		total += int(effect_data.get("atkFlat", 0)) if stat == "attack" else 0
+		total += int(effect_data.get("magFlat", 0)) if stat == "magic" else 0
+		total += int(effect_data.get("defFlat", 0)) if stat == "defense" else 0
 	if stat == "defense":
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
+
+
+static func _effect_multiplier(hero: Dictionary, key: String) -> float:
+	var multiplier := 1.0
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary:
+			continue
+		var effect_data: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
+		if effect_data.has(key):
+			multiplier *= float(effect_data[key])
+	return multiplier
 
 
 static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> bool:
