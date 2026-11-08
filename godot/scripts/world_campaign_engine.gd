@@ -47,8 +47,17 @@ static func ensure_state(hero: Dictionary) -> void:
 	for mission in Catalog.all_missions():
 		var id:=str(mission.id)
 		var raw_kills: Variant = kills.get(id, 0)
-		kills[id] = raw_kills if raw_kills is int and raw_kills >= 0 else 0
+		kills[id] = int(raw_kills) if _is_safe_integer(raw_kills) and int(raw_kills) >= 0 else 0
 		claimed[id] = claimed.get(id, false) == true
+
+
+static func _is_safe_integer(value: Variant) -> bool:
+	if value is int:
+		return int(value) >= 0 and int(value) <= 9007199254740991
+	if value is float:
+		var number := float(value)
+		return is_finite(number) and number >= 0.0 and number <= 9007199254740991.0 and floor(number) == number
+	return false
 	hero["campaignKills"]=kills
 	hero["campaignClaimed"]=claimed
 	if not hero.get("activeCampaignMission",null) is String: hero["activeCampaignMission"]=""
