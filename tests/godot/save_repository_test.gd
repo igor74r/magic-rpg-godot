@@ -44,8 +44,8 @@ func _run() -> void:
 	var migrated_log: Array = migrated_factions.get("changeLog", [])
 	if migrated_reputation.get("hub-guardians", 0) != 13 or migrated_reputation.get("rift-cult", 0) != -1 or migrated_reputation.get("free-traders", 0) != 42 or migrated_reputation.get("ash-nomads", 1) != 0:
 		failures.append("v17 faction migration must match runtime Number/Math.round normalization for numeric, string, and invalid values")
-	if migrated_reputation.has("unknown") or migrated_log.size() != 1 or migrated_log[0].get("factionId", "") != "rift-cult":
-		failures.append("v17 faction migration must discard unknown reputation keys and invalid change-log entries")
+	if migrated_reputation.has("unknown") or migrated_log.size() != 3 or migrated_log[0].get("factionId", "") != "rift-cult" or migrated_log[1] != "invalid" or migrated_log[2].get("factionId", "") != "unknown":
+		failures.append("v17 faction migration must discard unknown reputation keys while preserving every legacy change-log entry")
 	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
 		failures.append("v17 migration must preserve the legacy active campaign mission in its branch")
 	if int(migrated_player.get("expNext", 0)) != 269:
