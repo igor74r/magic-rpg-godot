@@ -126,8 +126,18 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		if not version_text.is_empty():
 			# JavaScript Number() also accepts hexadecimal integer strings.
 			# Preserve that browser behavior before falling back to decimal floats.
-			if version_text.is_valid_hex_number(true):
-				# JavaScript Number("0x11") parses hexadecimal legacy versions.
+			if version_text.begins_with("0b") or version_text.begins_with("0B"):
+				var parsed_binary := _parse_radix_version(version_text.substr(2), 2)
+				if parsed_binary < 0:
+					return {}
+				version_number = float(parsed_binary)
+			elif version_text.begins_with("0o") or version_text.begins_with("0O"):
+				var parsed_octal := _parse_radix_version(version_text.substr(2), 8)
+				if parsed_octal < 0:
+					return {}
+				version_number = float(parsed_octal)
+			elif version_text.is_valid_hex_number(true):
+				# JavaScript Number() accepts hexadecimal, binary, and octal strings.
 				version_number = float(version_text.hex_to_int())
 			elif version_text.is_valid_int():
 				version_number = float(version_text.to_int())
@@ -326,6 +336,21 @@ static func export_browser_save(slot: int) -> String:
 
 static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
+
+static func _parse_radix_version(digits: String, radix: int) -> int:
+	if digits.is_empty() or radix < 2 or radix > 16:
+		return -1
+	var value := 0
+	for index in range(digits.length()):
+		var code := digits.unicode_at(index)
+		var digit := code - 48 if code >= 48 and code <= 57 else code - 87 if code >= 97 and code <= 102 else code - 55 if code >= 65 and code <= 70 else -1
+		if digit < 0 or digit >= radix:
+			return -1
+		if value > int((9007199254740991 - digit) / radix):
+			return -1
+		value = value * radix + digit
+	return value
+
 
 static func _is_safe_integer(value: Variant) -> bool:
 	if value is int:
