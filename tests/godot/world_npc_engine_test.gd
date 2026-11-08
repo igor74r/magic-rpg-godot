@@ -7,7 +7,10 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	var world := WorldState.create(20261108)
 	world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
-	var crafted := Npc.craft(world,"r-briar-court-mantle")
+	var crafted := Npc.craft(world,"r-briar-court-mantle","blacksmith")
+	var wrong_station := Npc.craft(world, "r-hp", "blacksmith")
+	if bool(wrong_station.get("ok", true)):
+		failures.append("alchemist recipes must not be craftable at the blacksmith")
 	if not bool(crafted.get("ok",false)):
 		failures.append("valid act-one recipe must craft successfully")
 	var inventory: Array = world.hero.inventory
@@ -21,10 +24,10 @@ func _initialize() -> void:
 	var poor_world := WorldState.create(20261109)
 	poor_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"root-court-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
 	var before: Array = poor_world.hero.inventory.duplicate(true)
-	var rejected := Npc.craft(poor_world,"r-briar-court-mantle")
+	var rejected := Npc.craft(poor_world,"r-briar-court-mantle","blacksmith")
 	if bool(rejected.get("ok",true)) or poor_world.hero.inventory!=before:
 		failures.append("failed craft must not consume partial ingredients")
-	var locked := Npc.craft(poor_world,"r5-dragon-blade")
+	var locked := Npc.craft(poor_world,"r5-dragon-blade","blacksmith")
 	if bool(locked.get("ok",true)):
 		failures.append("late-act legendary recipe must remain locked before act five")
 	var trader_world := WorldState.create(20261110)
@@ -49,6 +52,11 @@ func _initialize() -> void:
 		failures.append("uncommon equipment sale must use rarity price and the 35 percent act-one rate")
 	if int(sell_world.hero.get("gold",0)) != 8 or int(sell_world.hero.get("stats",{}).get("goldEarned",0)) != 8:
 		failures.append("sale must update spendable gold and lifetime-earned gold atomically")
+	var base_item: Dictionary = preload("res://godot/scripts/world_item_catalog.gd").get_item("iron-sword")
+	var legacy_price := Npc.get_sell_price(sell_world, {"id":"iron-sword","qty":1})
+	var expected_legacy_price := int(floor(float(base_item.get("price", 0)) * 0.35))
+	if legacy_price != expected_legacy_price:
+		failures.append("legacy equipment without a rarity must use its item base price, not common rarity price")
 	var sale_preview := {"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}
 	if Npc.get_sell_price(sell_world, sale_preview) != 8:
 		failures.append("sale preview must include rarity and act multipliers")
@@ -74,11 +82,11 @@ func _initialize() -> void:
 	for mission in preload("res://godot/scripts/world_campaign_catalog.gd").all_missions():
 		claimed_missions[str(mission.id)] = true
 	act_five_world["hero"] = {"level":50,"str":100,"gold":0,"inventory":[{"id":"echo-core","qty":1},{"id":"void-dust","qty":5},{"id":"ember-core","qty":3},{"id":"grave-salt","qty":1}],"campaignClaimed":claimed_missions,"equipped":{},"craftedHighTierByAct":{}}
-	var first_high_tier := Npc.craft(act_five_world, "r-echo-prism-amulet")
+	var first_high_tier := Npc.craft(act_five_world, "r-echo-prism-amulet", "blacksmith")
 	if not bool(first_high_tier.get("ok", false)) or int(act_five_world.hero.craftedHighTierByAct.get("4", 0)) != 1:
 		failures.append("the first T4+ craft in an act must succeed and consume that act's high-tier allowance")
 	var high_tier_before: Array = act_five_world.hero.inventory.duplicate(true)
-	var second_high_tier := Npc.craft(act_five_world, "r5-dragon-blade")
+	var second_high_tier := Npc.craft(act_five_world, "r5-dragon-blade", "final-forge")
 	if bool(second_high_tier.get("ok", true)) or act_five_world.hero.inventory != high_tier_before:
 		failures.append("a second T4+ craft in the same act must be rejected without consuming ingredients")
 	var full_bag_world := WorldState.create(20261116)

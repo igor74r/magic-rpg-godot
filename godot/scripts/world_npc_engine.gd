@@ -131,23 +131,23 @@ static func campaign_action(world: Dictionary,claim_reward: bool=false) -> Dicti
 
 const SHOP_STOCK := ["health-potion","mana-potion","strong-health-potion","strong-mana-potion","antidote","strength-elixir","mana-elixir","scroll-lightning","scroll-shield","restorative-potion","iron-sword","apprentice-staff","leather-armor","rootbound-hood","cinder-visor","briar-shoulders","duelist-grips","gravebinder-gloves","oath-bracers","windstep-boots","glacier-greaves","tower-shield","ranger-cloak","obsidian-mantle","amulet-first-light","pendant-last-oath","ring-wolf-eye","ring-quiet-tide","rune-root","rune-ember","rune-tide","rune-frost","rune-void"]
 const RECIPES := {
- "r-hp":{"result":"health-potion","ingredients":{"herb-life":3}},
- "r-mp":{"result":"mana-potion","ingredients":{"herb-moon":3}},
- "r-shp":{"result":"strong-health-potion","ingredients":{"herb-life":5}},
- "r-smp":{"result":"strong-mana-potion","ingredients":{"herb-moon":5}},
- "r-rune-root":{"result":"rune-root","ingredients":{"root-fiber":3,"herb-life":1}},
- "r-rune-ember":{"result":"rune-ember","ingredients":{"ember-core":2,"grave-salt":1}},
- "r-rune-tide":{"result":"rune-tide","ingredients":{"frost-essence":2,"herb-moon":1}},
- "r-rune-frost":{"result":"rune-frost","ingredients":{"frost-essence":3}},
- "r-rune-void":{"result":"rune-void","ingredients":{"void-dust":3,"ember-core":1}},
- "r-briar-court-mantle":{"result":"briar-court-mantle","rarity":"uncommon","act":1,"ingredients":{"root-court-seal":1,"root-fiber":2}},
- "r-mourner-signet":{"result":"mourner-signet","rarity":"rare","act":2,"ingredients":{"drowned-lament":1,"grave-salt":2}},
- "r-oathfire-cleaver":{"result":"oathfire-cleaver","rarity":"rare","act":3,"ingredients":{"oathforge-heart":1,"ember-core":2}},
- "r-mirrorweave-cloak":{"result":"mirrorweave-cloak","rarity":"epic","act":4,"ingredients":{"mirror-shard":1,"frost-essence":2}},
- "r-echo-prism-amulet":{"result":"echo-prism-amulet","rarity":"epic","act":5,"ingredients":{"echo-core":1,"void-dust":3}},
- "r5-dragon-blade":{"result":"dragon-blade","rarity":"legendary","act":5,"ingredients":{"ember-core":3,"void-dust":2,"grave-salt":1}},
- "r5-dragon-plate":{"result":"dragon-scale-armor","rarity":"legendary","act":5,"ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
- "r5-astral-staff":{"result":"astral-staff","rarity":"legendary","act":5,"ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
+ "r-hp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"health-potion","ingredients":{"herb-life":3}},
+ "r-mp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"mana-potion","ingredients":{"herb-moon":3}},
+ "r-shp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-health-potion","ingredients":{"herb-life":5}},
+ "r-smp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-mana-potion","ingredients":{"herb-moon":5}},
+ "r-rune-root":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-root","ingredients":{"root-fiber":3,"herb-life":1}},
+ "r-rune-ember":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-ember","ingredients":{"ember-core":2,"grave-salt":1}},
+ "r-rune-tide":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-tide","ingredients":{"frost-essence":2,"herb-moon":1}},
+ "r-rune-frost":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-frost","ingredients":{"frost-essence":3}},
+ "r-rune-void":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-void","ingredients":{"void-dust":3,"ember-core":1}},
+ "r-briar-court-mantle":{"station":"blacksmith","craftTier":2,"act":1,"qty":1,"result":"briar-court-mantle","rarity":"uncommon","act":1,"ingredients":{"root-court-seal":1,"root-fiber":2}},
+ "r-mourner-signet":{"station":"blacksmith","craftTier":3,"act":2,"qty":1,"result":"mourner-signet","rarity":"rare","act":2,"ingredients":{"drowned-lament":1,"grave-salt":2}},
+ "r-oathfire-cleaver":{"station":"blacksmith","craftTier":3,"act":3,"qty":1,"result":"oathfire-cleaver","rarity":"rare","act":3,"ingredients":{"oathforge-heart":1,"ember-core":2}},
+ "r-mirrorweave-cloak":{"station":"blacksmith","craftTier":4,"act":4,"qty":1,"result":"mirrorweave-cloak","rarity":"epic","act":4,"ingredients":{"mirror-shard":1,"frost-essence":2}},
+ "r-echo-prism-amulet":{"station":"blacksmith","craftTier":4,"act":5,"qty":1,"result":"echo-prism-amulet","rarity":"epic","act":5,"ingredients":{"echo-core":1,"void-dust":3}},
+ "r5-dragon-blade":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-blade","rarity":"legendary","act":5,"ingredients":{"ember-core":3,"void-dust":2,"grave-salt":1}},
+ "r5-dragon-plate":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-scale-armor","rarity":"legendary","act":5,"ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
+ "r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","act":5,"ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
 }
 static func current_act(hero: Dictionary) -> int:
  var claimed: Dictionary=hero.get("campaignClaimed",{}) if hero.get("campaignClaimed",{}) is Dictionary else {}
@@ -248,10 +248,11 @@ static func get_sell_price(world: Dictionary, instance: Dictionary) -> int:
  var qty := int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
  if stackable and (not raw_qty is int or qty < 1): return 0
  if not stackable: qty = 1
- var rarity := str(instance.get("rarity", "common"))
+ var rarity := str(instance.get("rarity", ""))
  var rarity_prices: Dictionary = {"common":10, "uncommon":25, "rare":60, "epic":150, "legendary":400}
  var rarity_multipliers: Dictionary = {"common":1.0, "uncommon":1.25, "rare":1.5, "epic":2.2, "legendary":3.5}
  if rarity == "mythic": return 0
+ # Legacy equipment without a rarity uses its authored item price, matching the browser economy.
  var base_price := int(rarity_prices.get(rarity, float(item.get("price", 0)) * float(rarity_multipliers.get(rarity, 1.0))))
  if base_price <= 0: return 0
  var multipliers: Array = [1.0, 1.2, 1.4, 1.6, 1.8]
@@ -356,56 +357,67 @@ static func buyback_item(world: Dictionary, index: int, today: String = "") -> D
  world["hero"] = hero
  return {"ok":true,"message":"Предмет выкуплен обратно за %d золота." % price,"price":price}
 
-static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
- var hero:=hero_for(world)
- var recipe: Dictionary=RECIPES.get(recipe_id,{})
+static func craft(world: Dictionary, recipe_id: String, station: String = "") -> Dictionary:
+ var hero := hero_for(world)
+ var recipe: Dictionary = RECIPES.get(recipe_id, {})
  if recipe.is_empty(): return {"ok":false,"message":"Рецепт не найден."}
- if int(recipe.get("act",1))>current_act(hero): return {"ok":false,"message":"Рецепт откроется в акте %d." % int(recipe.act)}
+ var expected_station := str(recipe.get("station", ""))
+ if station != expected_station:
+  return {"ok":false,"message":"Для этого рецепта нужна другая мастерская."}
+ var required_act := int(recipe.get("act", 1))
+ if required_act < 1 or required_act > 5 or required_act > current_act(hero):
+  return {"ok":false,"message":"Рецепт откроется в акте %d." % clampi(required_act, 1, 5)}
  var result_id := str(recipe.get("result", ""))
  var result_definition := CatalogItem.get_item(result_id)
- var rarity := str(recipe.get("rarity", ""))
- var rarity_tiers := {"common":1,"uncommon":2,"rare":3,"epic":4,"legendary":5,"mythic":6}
- var craft_tier := int(rarity_tiers.get(rarity, 1))
- if craft_tier >= 6:
-  return {"ok":false,"message":"Предметы T6 нельзя создавать в мастерской."}
+ var craft_tier := int(recipe.get("craftTier", 1))
+ var quantity_value: Variant = recipe.get("qty", 1)
+ var quantity := int(quantity_value) if quantity_value is int else 0
+ if craft_tier < 1 or craft_tier > 5 or quantity < 1 or quantity > 99:
+  return {"ok":false,"message":"Рецепт содержит недопустимый уровень или количество."}
+ if result_definition.is_empty() or str(result_definition.get("type", "")) == "quest" or bool(result_definition.get("storyShard", false)) or bool(result_definition.get("bossOnly", false)):
+  return {"ok":false,"message":"Этот предмет нельзя создавать по рецепту."}
+ if craft_tier == 5 and (current_act(hero) != 5 or station != "final-forge"):
+  return {"ok":false,"message":"Предметы T5 доступны только в кузнице пятого акта."}
  var act_index := current_act(hero) - 1
  var crafted_by_act: Dictionary = hero.get("craftedHighTierByAct", {}) if hero.get("craftedHighTierByAct", {}) is Dictionary else {}
  if craft_tier >= 4 and int(crafted_by_act.get(str(act_index), 0)) >= 1:
   return {"ok":false,"message":"В этом акте уже создан один предмет T4 или выше."}
- if craft_tier == 5 and (current_act(hero) != 5 or not recipe_id.begins_with("r5-")):
-  return {"ok":false,"message":"Предметы T5 доступны только в кузнице пятого акта."}
- if result_definition.is_empty() or str(result_definition.get("type", "")) == "quest" or bool(result_definition.get("storyShard", false)) or bool(result_definition.get("bossOnly", false)):
-  return {"ok":false,"message":"Этот предмет нельзя создавать по рецепту."}
  var ingredients: Variant = recipe.get("ingredients", {})
  if not ingredients is Dictionary or ingredients.is_empty(): return {"ok":false,"message":"Рецепт повреждён: нет ингредиентов."}
+ var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
  for item_id in ingredients:
   var ingredient_id := str(item_id)
   var ingredient_definition := CatalogItem.get_item(ingredient_id)
-  var needed := int(ingredients[item_id])
+  var needed_value: Variant = ingredients[item_id]
+  var needed := int(needed_value) if needed_value is int else 0
   if ingredient_definition.is_empty() or str(ingredient_definition.get("type", "")) == "quest" or bool(ingredient_definition.get("storyShard", false)) or needed < 1:
    return {"ok":false,"message":"Рецепт содержит недопустимый ингредиент."}
-  var have:=0
-  for instance in hero.inventory:
-   if str(instance.get("id",""))==ingredient_id: have+=int(instance.get("qty",1))
-  if have<needed: return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(ingredient_definition.get("name",ingredient_id)),have,needed]}
+  var have := 0
+  for instance in inventory:
+   if instance is Dictionary and str(instance.get("id", "")) == ingredient_id:
+    var raw_qty: Variant = instance.get("qty", 1)
+    var stack_qty := int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
+    have += stack_qty
+  if have < needed:
+   return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(ingredient_definition.get("name", ingredient_id)), have, needed]}
  var output_rarity := str(recipe.get("rarity", ""))
- var output_capacity := _can_add_item(hero, result_id, 1, output_rarity)
+ var output_capacity := _can_add_item(hero, result_id, quantity, output_rarity)
  if not bool(output_capacity.get("ok", false)):
   var capacity_message := "Сумка заполнена." if str(output_capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
   return {"ok":false,"message":capacity_message}
- var snapshot: Array=hero.inventory.duplicate(true)
+ var snapshot: Array = inventory.duplicate(true)
  for item_id in ingredients:
-  if not Combat.remove_item(hero,str(item_id),int(ingredients[item_id])):
-   hero["inventory"]=snapshot
+  if not Combat.remove_item(hero, str(item_id), int(ingredients[item_id])):
+   hero["inventory"] = snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
- if not Combat.add_item(hero,result_id,1,rarity):
-  hero["inventory"]=snapshot
+ if not Combat.add_item(hero, result_id, quantity, output_rarity):
+  hero["inventory"] = snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
  if craft_tier >= 4:
   crafted_by_act[str(act_index)] = int(crafted_by_act.get(str(act_index), 0)) + 1
   hero["craftedHighTierByAct"] = crafted_by_act
- world["hero"]=hero
- return {"ok":true,"message":"Создано: %s." % str(result_definition.get("name",result_id))}
+ world["hero"] = hero
+ return {"ok":true,"message":"Создано: %s ×%d." % [str(result_definition.get("name", result_id)), quantity]}
 
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
  var hero:=hero_for(world)

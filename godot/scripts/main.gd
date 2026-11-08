@@ -870,7 +870,7 @@ func _buyback_from_npc(index: int) -> void:
 
 func _show_npc_alchemy() -> void:
 	for recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
-		_add_recipe_button(recipe_id)
+		_add_recipe_button(recipe_id, "blacksmith" if not recipe_id.begins_with("r5-") else "final-forge")
 
 
 func _show_npc_forge() -> void:
@@ -889,23 +889,23 @@ func _show_npc_forge() -> void:
 		button.pressed.connect(_upgrade_npc_equipment.bind(str(slot)))
 		npc_container.add_child(button)
 	for recipe_id in ["r-briar-court-mantle","r-mourner-signet","r-oathfire-cleaver","r-mirrorweave-cloak","r-echo-prism-amulet","r5-dragon-blade","r5-dragon-plate","r5-astral-staff"]:
-		_add_recipe_button(recipe_id)
+		_add_recipe_button(recipe_id, "alchemist")
 
 
-func _add_recipe_button(recipe_id: String) -> void:
-	var recipe: Dictionary=NpcEngineScript.RECIPES.get(recipe_id,{})
+func _add_recipe_button(recipe_id: String, station: String) -> void:
+	var recipe: Dictionary = NpcEngineScript.RECIPES.get(recipe_id, {})
 	if recipe.is_empty(): return
-	var item:=WorldItemCatalogScript.get_item(str(recipe.result))
-	var button:=Button.new()
-	button.name="NpcAction"
-	button.text="Создать: %s" % str(item.get("name",recipe.result))
-	button.pressed.connect(_craft_npc_recipe.bind(recipe_id))
+	var item := WorldItemCatalogScript.get_item(str(recipe.result))
+	var button := Button.new()
+	button.name = "NpcAction"
+	button.text = "Создать: %s ×%d" % [str(item.get("name", recipe.result)), int(recipe.get("qty", 1))]
+	button.pressed.connect(_craft_npc_recipe.bind(recipe_id, station))
 	npc_container.add_child(button)
 
 
-func _craft_npc_recipe(recipe_id: String) -> void:
+func _craft_npc_recipe(recipe_id: String, station: String) -> void:
 	var previous_world := world.duplicate(true)
-	var result: Dictionary = NpcEngineScript.craft(world, recipe_id)
+	var result: Dictionary = NpcEngineScript.craft(world, recipe_id, station)
 	status_label.text = str(result.get("message", ""))
 	if bool(result.get("ok", false)):
 		var save_error := WorldStateRepositoryScript.save_world(world)
