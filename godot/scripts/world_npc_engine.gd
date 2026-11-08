@@ -636,7 +636,7 @@ static func reforge_item(world: Dictionary, index: int) -> Dictionary:
 	# Mark the selected instance while the essence is consumed. The browser
 	# removes the material first, then restores the reforged item at its shifted
 	# original index; tracking the instance preserves that exact ordering.
-	const marker := "__native_reforge_selected_7f3a__"
+	var marker := "__native_reforge_selected_7f3a__"
 	old[marker] = true
 	hero["inventory"] = inventory
 	if not Combat.remove_item(hero, str(cost.id), int(cost.qty)):
