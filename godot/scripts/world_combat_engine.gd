@@ -624,7 +624,10 @@ static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarit
 		inventory.append(stack)
 	else:
 		for index in range(quantity):
-			inventory.append({"id":item_id,"qty":1,"bonus":item.get("bonus",{}).duplicate(true),"runes":[],"sockets":int(item.get("sockets",0))})
+			var instance: Dictionary = {"id":item_id,"qty":1,"bonus":item.get("bonus",{}).duplicate(true),"runes":[],"sockets":int(item.get("sockets",0))}
+			if not rarity.is_empty():
+				instance["rarity"] = rarity
+			inventory.append(instance)
 	hero["inventory"] = inventory
 	return true
 
