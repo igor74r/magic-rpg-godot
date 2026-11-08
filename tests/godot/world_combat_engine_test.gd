@@ -53,7 +53,7 @@ func _initialize() -> void:
 	if not world.regions.forest.defeatedBosses.has("boss-test"):
 		failures.append("boss victory must be persisted permanently")
 	# Browser parity: class critical chance and catLuck affect real attack damage.
-	var crit_hero := {"class":"warrior","level":1,"exp":0,"gold":0,"hp":170,"maxHp":170,"mp":0,"maxMp":100,"str":22,"con":16,"inventory":[],"equipped":{},"buffs":[],"effects":[],"passives":["start"],"talents":[]}
+	var crit_hero := {"class":"warrior","level":1,"exp":0,"gold":0,"hp":170,"maxHp":170,"mp":0,"maxMp":100,"str":22,"con":16,"dex":6,"inventory":[],"equipped":{},"buffs":[],"effects":[],"passives":["start"],"talents":[]}
 	var base_crit := Combat.critical_chance(crit_hero)
 	crit_hero["buffs"] = [{"id":"catLuck","duration":1}]
 	var cat_crit := Combat.critical_chance(crit_hero, 0.05)
