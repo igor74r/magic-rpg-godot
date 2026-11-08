@@ -109,7 +109,13 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	var clean_visits := {}
 	for region_id in visits:
 		if valid_regions.has(region_id):
-			clean_visits[region_id] = maxi(0, int(visits[region_id]))
+			var visit_value: Variant = visits[region_id]
+			# Browser Number.isFinite rejects numeric strings and booleans before
+			# Math.floor; do not let GDScript int() coerce them into visit counts.
+			if (visit_value is int or visit_value is float) and is_finite(float(visit_value)):
+				clean_visits[region_id] = maxi(0, int(floor(float(visit_value))))
+			else:
+				clean_visits[region_id] = 0
 	world["regionVisits"] = clean_visits
 	var current := str(world.get("currentRegionId", ""))
 	if not valid_regions.has(current):
