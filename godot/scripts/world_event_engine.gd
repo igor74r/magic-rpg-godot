@@ -50,6 +50,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 	var now := maxf(0.0, float(world.get("clockMinutes", 0.0))) + minf(delta_minutes, 1440.0)
 	world["clockMinutes"] = now
 	var finished: Array = []
+	var progressed := false
 	for event_value in events.get("active", []).duplicate():
 		if not event_value is Dictionary:
 			continue
@@ -59,6 +60,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 		if bool(event.get("accepted", false)) and event.get("objectiveType") == "defend-region" and str(event.get("regionId", "")) == region_id and now < float(event.get("expiresAt", 0.0)):
 			var elapsed := minf(float(event.get("targetCount", 1)), float(event.get("holdElapsedMinutes", 0.0)) + minf(delta_minutes, 15.0))
 			event["holdElapsedMinutes"] = elapsed
+			progressed = true
 			event["progress"] = mini(int(event.get("targetCount", 1)), int(floor(elapsed + 0.000000001)))
 			event["phase"] = event.progress
 			if int(event.progress) >= int(event.targetCount):
@@ -124,7 +126,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 		else:
 			events["nextSpawnAt"] = now + 30.0
 	events["active"] = active
-	return {"changed":not started.is_empty() or not finished.is_empty(),"started":started,"finished":finished}
+	return {"changed":progressed or not started.is_empty() or not finished.is_empty(),"started":started,"finished":finished}
 
 
 static func accept_event(world: Dictionary, event_id: String) -> bool:
