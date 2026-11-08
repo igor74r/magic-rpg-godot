@@ -46,6 +46,9 @@ func _run() -> void:
 	var stable_seed_b := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	if int(stable_seed_a.get("worldSeed", 0)) != int(stable_seed_b.get("worldSeed", -1)) or int(stable_seed_a.get("worldSeed", 0)) <= 0:
 		failures.append("v17 migration must derive a stable non-zero world seed")
+	var unicode_seed := SaveRepo.migrate_payload({"version":17,"player":{"name":"Hero 😀","class":"mage","createdAt":12345,"level":1},"location":"village"})
+	if int(unicode_seed.get("worldSeed", 0)) != 2033595329:
+		failures.append("v17 migration must hash supplementary Unicode names using browser-compatible UTF-16 code units")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
 		failures.append("unsupported v16 payload must not be migrated blindly")
 	if not SaveRepo.migrate_payload({"version":18.5,"player":{"name":"Fractional version"}}).is_empty():
