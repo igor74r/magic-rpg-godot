@@ -575,6 +575,16 @@ func _initialize() -> void:
 	var stun_result: Dictionary = Combat.use_ability(stun_world,stun_fight,"shield-bash")
 	if not stun_result.ok or int(stun_enemy.hp) >= 100 or int(stun_world.hero.hp) != 100 or str(stun_fight.turn) != "player" or Combat._has_effect(stun_enemy,"stun"):
 		failures.append("shield bash must stun the enemy, consume its response, and clear the one-turn stun")
+	# A skipped enemy turn must still tick damage-over-time effects and cooldowns.
+	var stun_tick_world := WorldState.create(1110)
+	stun_tick_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[{"id":"poison","duration":2}],"cooldowns":{"shield-bash":2}}
+	var stun_tick_enemy := {"name":"Отравленный враг","enemyId":"goblin","persistentId":"stun-tick-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":10,"effects":[{"id":"stun","duration":1},{"id":"burn","duration":2}]}
+	var stun_tick_fight := Combat.begin(stun_tick_enemy)
+	stun_tick_fight["turn"] = "enemy"
+	var stun_tick_lines: Array[String] = []
+	Combat._resolve_enemy_response(stun_tick_world,stun_tick_fight,stun_tick_world.hero,stun_tick_enemy,stun_tick_lines)
+	if int(stun_tick_world.hero.hp) != 95 or int(stun_tick_world.hero.cooldowns["shield-bash"]) != 1 or int(stun_tick_enemy.hp) != 92 or int(stun_tick_enemy.effects[0].duration) != 1 or int(stun_tick_enemy.turnCount) != 1:
+		failures.append("stunned enemy turns must tick both sides' effects, reduce player cooldowns, and advance turn counters")
 	var nova_world := WorldState.create(1109)
 	nova_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["frost-nova"],"buffs":[],"effects":[],"cooldowns":{}}
 	var nova_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-spell-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":9}
