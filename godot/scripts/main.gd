@@ -869,36 +869,36 @@ func _buyback_from_npc(index: int) -> void:
 
 
 func _refresh_crafting_jobs() -> void:
- for child in npc_container.get_children():
-  if child.name == "NpcCraftingJobs":
-   child.queue_free()
- var previous_world := world.duplicate(true)
- var claimed: Array = NpcEngineScript.collect_crafting_jobs(world)
- if not claimed.is_empty():
-  var save_error := WorldStateRepositoryScript.save_world(world)
-  if save_error != OK:
-   world = previous_world
-   status_label.text = "Готовые заказы не получены: сохранение не удалось (%s)." % error_string(save_error)
-  else:
-   status_label.text = "Получено готовых заказов: %d." % claimed.size()
- var jobs := NpcEngineScript.get_crafting_jobs(world)
- if jobs.is_empty():
-  return
- var now_ms := int(Time.get_unix_time_from_system() * 1000.0)
- var pending := Label.new()
- pending.name = "NpcCraftingJobs"
- pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
- var lines: Array[String] = ["Заказы лагеря:"]
- for job in jobs:
-  if not job is Dictionary:
-   continue
-  var item := WorldItemCatalogScript.get_item(str(job.get("result", "")))
-  var remaining_ms := maxi(0, int(job.get("readyAt", 0)) - now_ms)
-  var remaining_minutes := int(ceil(float(remaining_ms) / 60000.0))
-  var time_text := "готов к получению" if remaining_ms == 0 else "осталось %d ч %d мин" % [int(remaining_minutes / 60), remaining_minutes % 60]
-  lines.append("• %s ×%d — %s" % [str(item.get("name", job.get("result", "Предмет"))), int(job.get("qty", 1)), time_text])
- pending.text = "\n".join(lines)
- npc_container.add_child(pending)
+	for child in npc_container.get_children():
+		if child.name == "NpcCraftingJobs":
+			child.queue_free()
+	var previous_world := world.duplicate(true)
+	var claimed: Array = NpcEngineScript.collect_crafting_jobs(world)
+	if not claimed.is_empty():
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			world = previous_world
+			status_label.text = "Готовые заказы не получены: сохранение не удалось (%s)." % error_string(save_error)
+		else:
+			status_label.text = "Получено готовых заказов: %d." % claimed.size()
+	var jobs := NpcEngineScript.get_crafting_jobs(world)
+	if jobs.is_empty():
+		return
+	var now_ms := int(Time.get_unix_time_from_system() * 1000.0)
+	var pending := Label.new()
+	pending.name = "NpcCraftingJobs"
+	pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var lines: Array[String] = ["Заказы лагеря:"]
+	for job in jobs:
+		if not job is Dictionary:
+			continue
+		var item := WorldItemCatalogScript.get_item(str(job.get("result", "")))
+		var remaining_ms := maxi(0, int(job.get("readyAt", 0)) - now_ms)
+		var remaining_minutes := int(ceil(float(remaining_ms) / 60000.0))
+		var time_text := "готов к получению" if remaining_ms == 0 else "осталось %d ч %d мин" % [int(remaining_minutes / 60), remaining_minutes % 60]
+		lines.append("• %s ×%d — %s" % [str(item.get("name", job.get("result", "Предмет"))), int(job.get("qty", 1)), time_text])
+	pending.text = "\n".join(lines)
+	npc_container.add_child(pending)
 
 
 func _show_npc_alchemy() -> void:

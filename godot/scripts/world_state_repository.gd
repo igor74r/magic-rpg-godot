@@ -65,7 +65,7 @@ static func to_browser_payload(world: Dictionary) -> Dictionary:
 	if not player.has("activeCampaignMission"):
 		player["activeCampaignMission"] = null
 	var browser_world: Dictionary = world.duplicate(true)
-	for runtime_key in ["hero", "factions", "storyShards", "storyDragons", "_browserSourcePayload"]:
+	for runtime_key in ["hero", "factions", "storyShards", "storyDragons", "_browserSourcePayload", "location"]:
 		browser_world.erase(runtime_key)
 	payload["version"] = SaveRepositoryScript.SAVE_VERSION
 	payload["player"] = player

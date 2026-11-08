@@ -383,10 +383,11 @@ static func collect_crafting_jobs(world: Dictionary, now_ms: int = -1) -> Array:
   var ready_value: Variant = job.get("readyAt", null)
   var quantity_value: Variant = job.get("qty", null)
   var result_id := str(job.get("result", ""))
+  var job_id := str(job.get("id", ""))
   var quantity := int(quantity_value) if quantity_value is int else 0
   if not (ready_value is int or ready_value is float) or float(ready_value) > float(current_ms):
    continue
-  if result_id.is_empty() or quantity < 1 or quantity > 99 or CatalogItem.get_item(result_id).is_empty():
+  if job_id.is_empty() or claimed_ids.has(job_id) or result_id.is_empty() or quantity < 1 or quantity > 99 or CatalogItem.get_item(result_id).is_empty():
    continue
   var rarity := str(job.get("rarity", ""))
   var capacity := _can_add_item(hero, result_id, quantity, rarity)
