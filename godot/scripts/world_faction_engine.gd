@@ -18,6 +18,24 @@ static func create_state() -> Dictionary:
 		reputation[faction_id] = 0
 	return {"schemaVersion":1,"reputation":reputation,"changeLog":[]}
 
+static func _normalize_reputation(value: Variant) -> int:
+	# Match Number(value) + Math.round() in the browser save normalizer.
+	var numeric := 0.0
+	if value is bool:
+		numeric = 1.0 if value else 0.0
+	elif value is int or value is float:
+		numeric = float(value)
+	elif value is String and str(value).is_valid_float():
+		numeric = str(value).to_float()
+	elif value == null:
+		numeric = 0.0
+	if not is_finite(numeric):
+		return 0
+	var bounded := clampf(numeric, float(MIN_REPUTATION), float(MAX_REPUTATION))
+	# JavaScript Math.round(-1.5) is -1 (ties move toward +infinity).
+	return int(floor(bounded + 0.5))
+
+
 static func ensure_state(world: Dictionary) -> Dictionary:
 	var state: Variant = world.get("factions", {})
 	if not state is Dictionary:
@@ -27,7 +45,7 @@ static func ensure_state(world: Dictionary) -> Dictionary:
 		reputation = {}
 	var clean := {}
 	for faction_id in FACTIONS:
-		clean[faction_id] = clampi(int(reputation.get(faction_id, 0)), MIN_REPUTATION, MAX_REPUTATION)
+		clean[faction_id] = _normalize_reputation(reputation.get(faction_id, 0))
 	var log: Variant = state.get("changeLog", [])
 	if not log is Array:
 		log = []
