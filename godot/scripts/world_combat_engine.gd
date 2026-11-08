@@ -273,6 +273,15 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 				if not item_definition.is_empty():
 					dropped_names.append(str(item_definition.get("name", item_id)))
 
+	var herb_chance := EncounterGenerator.herb_drop_chance(bool(enemy.get("boss", false)), bool(enemy.get("elite", false)))
+	if drop_rng.next_float() < herb_chance:
+		var herb_id := "herb-life" if drop_rng.next_float() < 0.5 else "herb-moon"
+		var herb_quantity := EncounterGenerator.herb_drop_quantity(bool(enemy.get("boss", false)), bool(enemy.get("elite", false)))
+		if add_item(hero, herb_id, herb_quantity):
+			var herb_definition := ItemCatalog.get_item(herb_id)
+			if not herb_definition.is_empty():
+				dropped_names.append("%s x%d" % [str(herb_definition.get("name", herb_id)), herb_quantity])
+
 	var region_id := str(world.get("currentRegionId", "village"))
 	var persistent_id := str(enemy.get("persistentId", ""))
 	if not tower_mode:
