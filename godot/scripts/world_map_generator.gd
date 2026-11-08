@@ -114,6 +114,32 @@ static func _generate_village(grid: Array, cols: int, rows: int) -> Array:
 	_road(grid, [Vector2i(cx + 7, cy), Vector2i(cx + 9, cy - 2), Vector2i(cx + 10, cy - 4), Vector2i(cols - 11, cy - 5)], 2)
 	_road(grid, [Vector2i(cx - 2, cy + 5), Vector2i(cx - 4, cy + 7), Vector2i(cx - 5, rows - 7), Vector2i(10, rows - 7)], 2)
 	_road(grid, [Vector2i(cx + 2, cy + 5), Vector2i(cx + 4, cy + 7), Vector2i(cx + 5, rows - 7), Vector2i(cols - 10, rows - 7)], 2)
+	# Match the browser's paved plaza and junction widening before gardens are placed.
+	for plaza in [
+		[Vector2i(cx, cy), 2], [Vector2i(cx - 7, cy), 1], [Vector2i(cx + 7, cy), 1],
+		[Vector2i(13, rows - 4), 1], [Vector2i(cols - 13, rows - 4), 1]
+	]:
+		var center: Vector2i = plaza[0]
+		var radius: int = plaza[1]
+		for oy in range(-radius, radius + 1):
+			for ox in range(-radius, radius + 1):
+				if abs(ox) + abs(oy) > radius + 1:
+					continue
+				var px := center.x + ox
+				var py := center.y + oy
+				if py >= 0 and py < rows and px >= 0 and px < cols:
+					grid[py][px] = TILE_ROAD
+	# Browser interaction cells (NPCs, entrances, services and portals) must
+	# remain free of garden props, including the one-cell safety margin.
+	var protected_cells: Array[Vector2i] = [
+		Vector2i(19,15), Vector2i(17,19), Vector2i(20,19), Vector2i(22,6), Vector2i(4,9), Vector2i(33,10), Vector2i(5,20), Vector2i(33,21),
+		Vector2i(16,14), Vector2i(19,13), Vector2i(22,13), Vector2i(15,10), Vector2i(17,10), Vector2i(20,10), Vector2i(7,10), Vector2i(31,10),
+		Vector2i(7,21), Vector2i(31,21), Vector2i(24,6), Vector2i(19,25), Vector2i(12,16), Vector2i(13,13), Vector2i(27,13), Vector2i(15,8), Vector2i(15,18),
+		Vector2i(12,9), Vector2i(27,9), Vector2i(12,20), Vector2i(27,20), Vector2i(10,14), Vector2i(29,14), Vector2i(10,18), Vector2i(29,18),
+		Vector2i(29,22), Vector2i(9,9), Vector2i(9,11), Vector2i(10,11), Vector2i(29,21), Vector2i(9,21),
+		Vector2i(25,4), Vector2i(7,8), Vector2i(31,8), Vector2i(7,20), Vector2i(31,20), Vector2i(13,25), Vector2i(25,25), Vector2i(13,4),
+		Vector2i(16,6), Vector2i(17,8), Vector2i(22,8), Vector2i(23,10)
+	]
 	# Small planted beds are placed only on untouched ground; streets always win.
 	var gardens: Array = [
 		{"x": 1, "y": 1, "rows": [[1,3],[0,4],[0,3],[1,2]]},
@@ -135,9 +161,16 @@ static func _generate_village(grid: Array, cols: int, rows: int) -> Array:
 			var span: Array = rows_data[row_index]
 			for x in range(int(patch["x"]) + int(span[0]), int(patch["x"]) + int(span[1]) + 1):
 				var y := int(patch["y"]) + row_index
-				if y >= 0 and y < rows and x >= 0 and x < cols and grid[y][x] == TILE_GROUND:
+				if y >= 0 and y < rows and x >= 0 and x < cols and grid[y][x] == TILE_GROUND and not _is_protected_cell(protected_cells, Vector2i(x, y)):
 					grid[y][x] = TILE_PROP
 	return grid
+
+
+static func _is_protected_cell(protected_cells: Array[Vector2i], candidate: Vector2i) -> bool:
+	for protected in protected_cells:
+		if absi(protected.x - candidate.x) <= 1 and absi(protected.y - candidate.y) <= 1:
+			return true
+	return false
 
 
 static func _road(grid: Array, points: Array, width: int) -> void:
