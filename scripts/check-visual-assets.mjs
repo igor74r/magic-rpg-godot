@@ -192,4 +192,15 @@ const styles = readFileSync(new URL('../css/rpg-overhaul.css', import.meta.url),
 assert.ok(styles.includes('#mobile-dpad .dpad-btn'));
 assert.ok(styles.includes('prefers-reduced-motion'));
 
-console.log('16-bit Aurora pixel-art architecture, terrain atlas and responsive UI checks passed');
+
+const tacticalCombatStyles = readFileSync(new URL('../css/ui-pixel-polish.css', import.meta.url), 'utf8');
+for (const selector of [
+  '#combat-panel-info', '#combat-panel .actions button:focus-visible',
+  '#combat-panel .actions button:disabled', 'data-combat-action="attack"',
+  'data-combat-action="block"', '@media (max-width: 700px)',
+  '@media (prefers-reduced-motion: reduce)'
+]) assert.ok(tacticalCombatStyles.includes(selector), 'tactical combat UI must define ' + selector);
+assert.ok(tacticalCombatStyles.includes('background: #101923 !important'),
+  'tactical combat panel must use the original flat Shards of the Rift palette');
+
+console.log('16-bit Aurora pixel-art architecture, responsive UI and tactical combat presentation checks passed');
