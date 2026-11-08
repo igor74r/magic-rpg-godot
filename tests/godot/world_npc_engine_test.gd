@@ -42,11 +42,6 @@ func _initialize() -> void:
 	preview_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
 	if Npc.get_buy_price(preview_world, "iron-sword") != 38:
 		failures.append("shop preview must include act scaling and allied trader discount")
-	var sale_preview := {"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}
-	if Npc.get_sell_price(sell_world, sale_preview) != 8:
-		failures.append("sale preview must include rarity and act multipliers")
-	if Npc.get_sell_price(sell_world, {"id":"old-archive-seal","qty":1}) != 0:
-		failures.append("quest items must not receive a sell preview price")
 	var sell_world := WorldState.create(20261111)
 	sell_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var sold := Npc.sell_item(sell_world,0)
@@ -54,6 +49,33 @@ func _initialize() -> void:
 		failures.append("uncommon equipment sale must use rarity price and the 35 percent act-one rate")
 	if int(sell_world.hero.get("gold",0)) != 8 or int(sell_world.hero.get("stats",{}).get("goldEarned",0)) != 8:
 		failures.append("sale must update spendable gold and lifetime-earned gold atomically")
+	var sale_preview := {"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}
+	if Npc.get_sell_price(sell_world, sale_preview) != 8:
+		failures.append("sale preview must include rarity and act multipliers")
+	if Npc.get_sell_price(sell_world, {"id":"old-archive-seal","qty":1}) != 0:
+		failures.append("quest items must not receive a sell preview price")
+	var confirmation_world := WorldState.create(20261115)
+	confirmation_world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"epic"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
+	var confirmation_before: Array = confirmation_world.hero.inventory.duplicate(true)
+	var confirmation := Npc.sell_item(confirmation_world, 0)
+	if not bool(confirmation.get("requiresConfirmation", false)) or confirmation_world.hero.inventory != confirmation_before:
+		failures.append("epic sale must require confirmation without mutating inventory")
+	var confirmed_sale := Npc.sell_item(confirmation_world, 0, true)
+	if not bool(confirmed_sale.get("ok", false)) or confirmation_world.hero.buyback.size() != 1:
+		failures.append("confirmed sale must create a same-day buyback record")
+	var buyback_price := int(confirmation_world.hero.buyback[0].price)
+	var buyback := Npc.buyback_item(confirmation_world, 0)
+	if not bool(buyback.get("ok", false)) or confirmation_world.hero.inventory.size() != 1 or int(confirmation_world.hero.gold) != 100 + int(confirmed_sale.price) - buyback_price:
+		failures.append("same-day buyback must restore the item and charge the 20 percent markup")
+	if not Npc.get_buyback_items(confirmation_world, "1900-01-01").is_empty():
+		failures.append("buyback records from another calendar day must not be available")
+	var full_bag_world := WorldState.create(20261116)
+	var full_inventory: Array = []
+	for slot in range(30): full_inventory.append({"id":"iron-sword","qty":1})
+	full_bag_world["hero"] = {"level":1,"str":1000,"gold":1000,"inventory":full_inventory,"campaignClaimed":{},"equipped":{}}
+	var full_bag_buy := Npc.buy_item(full_bag_world, "iron-sword")
+	if bool(full_bag_buy.get("ok", true)) or full_bag_world.hero.inventory.size() != 30 or int(full_bag_world.hero.gold) != 1000:
+		failures.append("merchant must reject purchases that exceed the 30-slot inventory limit")
 	var overflow_world := WorldState.create(20261112)
 	overflow_world["hero"] = {"level":1,"gold":2147483640,"inventory":[{"id":"iron-sword","qty":1}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":2147483640}}
 	var overflow_inventory: Array = overflow_world.hero.inventory.duplicate(true)

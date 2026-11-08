@@ -777,6 +777,8 @@ func _perform_npc_action(action: String) -> void:
 
 
 func _show_npc_shop() -> void:
+	for child in npc_container.get_children():
+		if child is Button and child.name == "NpcAction": child.queue_free()
 	var hero:=CombatEngineScript.ensure_hero(world)
 	for item_id in NpcEngineScript.SHOP_STOCK:
 		var item: Dictionary=WorldItemCatalogScript.get_item(str(item_id))
@@ -797,8 +799,18 @@ func _show_npc_shop() -> void:
 		var button:=Button.new()
 		button.name="NpcAction"
 		button.text="Продать: %s · %d золота" % [str(item.get("name",instance.id)),price]
-		button.pressed.connect(_sell_to_npc.bind(i))
+		button.pressed.connect(_sell_to_npc.bind(i, false))
 		npc_container.add_child(button)
+	var buyback_items: Array = NpcEngineScript.get_buyback_items(world)
+	for index in range(buyback_items.size()):
+		var record: Dictionary = buyback_items[index]
+		var old_item: Dictionary = WorldItemCatalogScript.get_item(str(record.item.get("id", "")))
+		var buyback_button := Button.new()
+		buyback_button.name = "NpcAction"
+		buyback_button.text = "Выкупить обратно: %s · %d золота" % [str(old_item.get("name", record.item.get("id", "Предмет"))), int(record.price)]
+		buyback_button.disabled = int(hero.get("gold", 0)) < int(record.price)
+		buyback_button.pressed.connect(_buyback_from_npc.bind(index))
+		npc_container.add_child(buyback_button)
 
 
 func _buy_from_npc(item_id: String) -> void:
@@ -809,10 +821,31 @@ func _buy_from_npc(item_id: String) -> void:
 	_show_npc_shop()
 
 
-func _sell_to_npc(index: int) -> void:
-	var result: Dictionary=NpcEngineScript.sell_item(world,index)
-	status_label.text=str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+func _sell_to_npc(index: int, confirmed: bool = false) -> void:
+	var result: Dictionary = NpcEngineScript.sell_item(world, index, confirmed)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("requiresConfirmation", false)):
+		var confirm_button := Button.new()
+		confirm_button.name = "NpcAction"
+		confirm_button.text = "Подтвердить продажу · %d золота" % int(result.get("price", 0))
+		confirm_button.pressed.connect(_sell_to_npc.bind(index, true))
+		npc_container.add_child(confirm_button)
+		return
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
+	_refresh_inventory()
+	_show_npc_shop()
+
+
+func _buyback_from_npc(index: int) -> void:
+	var result: Dictionary = NpcEngineScript.buyback_item(world, index)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
 	_refresh_inventory()
 	_show_npc_shop()
 

@@ -156,6 +156,76 @@ static func current_act(hero: Dictionary) -> int:
    var mission_id:=str(mission.get("id","a1-m1"))
    return clampi(int(mission_id.substr(1,1)),1,5)
  return 5
+static func _is_stackable(item_type: String) -> bool:
+	return item_type in ["consumable", "material", "rune", "scroll", "quest"]
+
+static func _item_unit_weight(item: Dictionary) -> float:
+	var item_type := str(item.get("type", ""))
+	if item.get("weight", null) is float or item.get("weight", null) is int:
+		return maxf(0.0, float(item.weight))
+	if item_type == "quest": return 0.0
+	if item_type in ["weapon", "head", "shoulders", "chest", "gloves", "legs", "boots", "shield", "ring", "amulet", "cloak", "armor"]: return 5.0
+	if item_type in ["material", "consumable"]: return 0.5
+	if item_type in ["rune", "scroll"]: return 0.2
+	return 1.0
+
+static func _can_add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> Dictionary:
+	var item := CatalogItem.get_item(item_id)
+	if item.is_empty() or quantity < 1: return {"ok":false,"reason":"invalid"}
+	var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+	var item_type := str(item.get("type", ""))
+	var stackable := _is_stackable(item_type)
+	var existing_stack := false
+	if stackable:
+		for entry in inventory:
+			if entry is Dictionary and str(entry.get("id", "")) == item_id and str(entry.get("rarity", "")) == rarity:
+				existing_stack = true
+				break
+	var slots := 0
+	var weight := 0.0
+	for entry in inventory:
+		if not entry is Dictionary: continue
+		var definition := CatalogItem.get_item(str(entry.get("id", "")))
+		if definition.is_empty(): continue
+		var entry_type := str(definition.get("type", ""))
+		if entry_type not in ["quest", "material"]: slots += 1
+		var raw_qty: Variant = entry.get("qty", 1)
+		var entry_qty := int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
+		weight += _item_unit_weight(definition) * float(entry_qty)
+	var added_slots := 0
+	if item_type not in ["quest", "material"] and not existing_stack:
+		added_slots = 1 if stackable else quantity
+	var next_slots := slots + added_slots
+	if next_slots > 30: return {"ok":false,"reason":"slots","slots":next_slots,"maxSlots":30}
+	var capacity := maxf(10.0, maxf(0.0, float(hero.get("str", 10))) * 5.0)
+	var next_weight := weight + _item_unit_weight(item) * float(quantity)
+	if next_weight > capacity + 0.000001: return {"ok":false,"reason":"weight","weight":next_weight,"capacity":capacity}
+	return {"ok":true,"slots":next_slots,"weight":next_weight,"capacity":capacity}
+
+static func _today_key() -> String:
+	return Time.get_date_string_from_system()
+
+static func _valid_buyback_records(hero: Dictionary, today: String = "") -> Array:
+	var records: Variant = hero.get("buyback", [])
+	if not records is Array: return []
+	var date_key := today if not today.is_empty() else _today_key()
+	var valid: Array = []
+	for index in range(records.size()):
+		var record: Variant = records[index]
+		if not record is Dictionary or str(record.get("soldAt", "")) != date_key: continue
+		var instance: Variant = record.get("item", {})
+		if not instance is Dictionary: continue
+		var item := CatalogItem.get_item(str(instance.get("id", "")))
+		var rarity := str(instance.get("rarity", "common"))
+		var qty_value: Variant = instance.get("qty", 1)
+		var qty := int(qty_value) if qty_value is int else 0
+		var price_value: Variant = record.get("price", 0)
+		if item.is_empty() or not price_value is int or int(price_value) <= 0 or qty < 1: continue
+		if str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(item.get("bossOnly", false)): continue
+		if rarity == "mythic" or (not _is_stackable(str(item.get("type", ""))) and qty != 1): continue
+		valid.append({"recordIndex":index,"item":instance.duplicate(true),"price":int(price_value),"soldAt":date_key})
+	return valid
+
 static func get_buy_price(world: Dictionary, item_id: String) -> int:
  if not SHOP_STOCK.has(item_id): return 0
  var item := CatalogItem.get_item(item_id)
@@ -200,32 +270,92 @@ static func buy_item(world: Dictionary, item_id: String) -> Dictionary:
  var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
  var balance := int(hero.get("gold", 0))
  if balance < 0 or balance < price: return {"ok":false,"message":"Недостаточно золота: нужно %d." % price}
+ var capacity := _can_add_item(hero, item_id, 1)
+ if not bool(capacity.get("ok", false)):
+  var reason := "Сумка заполнена." if str(capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
+  return {"ok":false,"message":reason}
  if not Combat.add_item(hero, item_id, 1): return {"ok":false,"message":"Не удалось добавить предмет."}
  hero["gold"] = balance - price
  world["hero"] = hero
  return {"ok":true,"message":"Куплено: %s за %d золота." % [str(item.name), price], "price":price, "discount":discount}
-static func sell_item(world: Dictionary,index: int) -> Dictionary:
- var hero:=hero_for(world)
- var inventory: Array=hero.get("inventory",[])
- if index<0 or index>=inventory.size(): return {"ok":false,"message":"Предмет не найден."}
- var instance: Dictionary=inventory[index]
- var item:=CatalogItem.get_item(str(instance.get("id","")))
- if item.is_empty() or str(item.get("type",""))=="quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return {"ok":false,"message":"Этот предмет нельзя продать."}
+static func sell_item(world: Dictionary, index: int, confirmed: bool = false) -> Dictionary:
+ var hero := hero_for(world)
+ var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+ if index < 0 or index >= inventory.size(): return {"ok":false,"message":"Предмет не найден."}
+ var instance_value: Variant = inventory[index]
+ if not instance_value is Dictionary: return {"ok":false,"message":"Формат предмета повреждён."}
+ var instance: Dictionary = instance_value
+ var item := CatalogItem.get_item(str(instance.get("id", "")))
+ if item.is_empty() or str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(instance.get("storyShard", false)) or bool(item.get("bossOnly", false)):
+  return {"ok":false,"message":"Этот предмет нельзя продать."}
  var price := get_sell_price(world, instance)
  if price <= 0: return {"ok":false,"message":"Этот предмет нельзя продать или его цена некорректна."}
- var balance:=int(hero.get("gold",0))
- var stats: Dictionary=hero.get("stats",{}) if hero.get("stats",{}) is Dictionary else {}
- var earned:=int(stats.get("goldEarned",0))
- if balance<0 or earned<0 or balance>2147483647-price or earned>2147483647-price:
+ var rarity := str(instance.get("rarity", "common"))
+ if (rarity in ["epic", "legendary", "mythic"] or price > 500) and not confirmed:
+  return {"ok":false,"requiresConfirmation":true,"message":"Подтвердите продажу ценного предмета за %d золота." % price,"price":price}
+ var balance_value: Variant = hero.get("gold", 0)
+ var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+ var earned_value: Variant = stats.get("goldEarned", 0)
+ if not balance_value is int or not earned_value is int: return {"ok":false,"message":"Некорректный баланс золота."}
+ var balance := int(balance_value)
+ var earned := int(earned_value)
+ if balance < 0 or earned < 0 or balance > 2147483647 - price or earned > 2147483647 - price:
   return {"ok":false,"message":"Операция продажи превысит допустимый баланс золота."}
- var item_name:=str(item.name)
+ var today := _today_key()
+ var previous_buyback: Array = hero.get("buyback", []).duplicate(true) if hero.get("buyback", []) is Array else []
+ var buyback_price := int(ceil(float(price) * 1.2))
+ var buyback: Array = previous_buyback.filter(func(record): return record is Dictionary and str(record.get("soldAt", "")) == today)
+ if buyback_price > 0:
+  buyback.append({"id":"buyback-%d-%d" % [int(Time.get_unix_time_from_system()), index], "item":instance.duplicate(true), "soldAt":today, "price":buyback_price})
  inventory.remove_at(index)
- hero["inventory"]=inventory
- hero["gold"]=balance+price
- stats["goldEarned"]=earned+price
- hero["stats"]=stats
- world["hero"]=hero
- return {"ok":true,"message":"Продано: %s · +%d золота." % [item_name,price],"price":price}
+ hero["inventory"] = inventory
+ hero["gold"] = balance + price
+ stats["goldEarned"] = earned + price
+ hero["stats"] = stats
+ hero["buyback"] = buyback
+ world["hero"] = hero
+ return {"ok":true,"message":"Продано: %s · +%d золота." % [str(item.get("name", "Предмет")), price],"price":price,"buybackPrice":buyback_price}
+
+static func get_buyback_items(world: Dictionary, today: String = "") -> Array:
+ return _valid_buyback_records(hero_for(world), today)
+
+static func buyback_item(world: Dictionary, index: int, today: String = "") -> Dictionary:
+ var hero := hero_for(world)
+ var records := _valid_buyback_records(hero, today)
+ if index < 0 or index >= records.size(): return {"ok":false,"message":"Предмет больше нельзя выкупить."}
+ var entry: Dictionary = records[index]
+ var record_index := int(entry.recordIndex)
+ var instance: Dictionary = entry.item
+ var item := CatalogItem.get_item(str(instance.get("id", "")))
+ var price := int(entry.price)
+ var balance_value: Variant = hero.get("gold", 0)
+ if not balance_value is int or int(balance_value) < 0 or int(balance_value) < price:
+  return {"ok":false,"message":"Не хватает золота для обратного выкупа: нужно %d." % price}
+ var qty := int(instance.get("qty", 1))
+ var rarity := str(instance.get("rarity", ""))
+ var capacity := _can_add_item(hero, str(instance.get("id", "")), qty, rarity)
+ if not bool(capacity.get("ok", false)):
+  var reason := "Сумка заполнена." if str(capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
+  return {"ok":false,"message":reason}
+ var previous_inventory: Array = hero.get("inventory", []).duplicate(true)
+ var previous_gold := int(hero.gold)
+ var previous_buyback: Array = hero.get("buyback", []).duplicate(true) if hero.get("buyback", []) is Array else []
+ if _is_stackable(str(item.get("type", ""))):
+  if not Combat.add_item(hero, str(instance.get("id", "")), qty, rarity):
+   return {"ok":false,"message":"Не удалось вернуть предмет в сумку."}
+ else:
+  hero.inventory.append(instance.duplicate(true))
+ hero["gold"] = previous_gold - price
+ hero["buyback"] = previous_buyback
+ hero.buyback.remove_at(record_index)
+ if int(hero.gold) < 0:
+  hero["inventory"] = previous_inventory
+  hero["gold"] = previous_gold
+  hero["buyback"] = previous_buyback
+  return {"ok":false,"message":"Обратный выкуп отменён: некорректный баланс."}
+ world["hero"] = hero
+ return {"ok":true,"message":"Предмет выкуплен обратно за %d золота." % price,"price":price}
+
 static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
  var hero:=hero_for(world)
  var recipe: Dictionary=RECIPES.get(recipe_id,{})
@@ -247,12 +377,17 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
   for instance in hero.inventory:
    if str(instance.get("id",""))==ingredient_id: have+=int(instance.get("qty",1))
   if have<needed: return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(ingredient_definition.get("name",ingredient_id)),have,needed]}
+ var output_rarity := str(recipe.get("rarity", ""))
+ var output_capacity := _can_add_item(hero, result_id, 1, output_rarity)
+ if not bool(output_capacity.get("ok", false)):
+  var capacity_message := "Сумка заполнена." if str(output_capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
+  return {"ok":false,"message":capacity_message}
  var snapshot: Array=hero.inventory.duplicate(true)
  for item_id in ingredients:
   if not Combat.remove_item(hero,str(item_id),int(ingredients[item_id])):
    hero["inventory"]=snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
- var rarity := str(recipe.get("rarity", ""))
+ var rarity := output_rarity
  if not Combat.add_item(hero,result_id,1,rarity):
   hero["inventory"]=snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
