@@ -635,6 +635,37 @@ func _initialize() -> void:
 	if not is_equal_approx(float(defense_profile.dodgeChance),0.06) or not is_equal_approx(float(defense_profile.blockChance),0.16) or not is_equal_approx(float(defense_profile.blockPower),0.66):
 		failures.append("warrior automatic dodge and block profile must match browser class combat stats")
 
+	# Legacy Priest class, abilities and one-time resurrection remain available to old saves.
+	var priest_world := WorldState.create(1114)
+	priest_world["hero"] = {"class":"priest","level":1,"hp":40,"maxHp":115,"mp":100,"maxMp":160,"str":6,"int":15,"wis":18,"con":10,"dex":7,"gold":0,"inventory":[],"equipped":{},"spells":["heal","holy-light"],"buffs":[],"effects":[],"cooldowns":{},"talents":[],"passives":["start"]}
+	var priest_hero: Dictionary = Combat.ensure_hero(priest_world)
+	if str(priest_hero.get("class","")) != "priest" or int(priest_hero.get("maxHp",0)) != 115 or not priest_hero.get("spells",[]).has("holy-light"):
+		failures.append("legacy Priest save must preserve class stats and spell list")
+	var prayer_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-prayer-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":15}
+	var prayer_fight := Combat.begin(prayer_enemy)
+	var prayer_result: Dictionary = Combat.use_ability(priest_world,prayer_fight,"prayer")
+	if not prayer_result.ok or int(priest_world.hero.hp) <= 40 or prayer_fight.turn != "player":
+		failures.append("Priest prayer must heal, clear debuffs and resolve the enemy turn")
+	var revive_world := WorldState.create(1116)
+	revive_world["hero"] = priest_world.hero.duplicate(true)
+	revive_world["hero"]["hp"] = 1
+	var revive_enemy := {"name":"Сильный враг","enemyId":"goblin","persistentId":"priest-revive-test","hp":100,"maxHp":100,"attack":1000,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":17}
+	var revive_fight := Combat.begin(revive_enemy)
+	var revive_lines: Array[String] = []
+	Combat._resolve_enemy_response(revive_world,revive_fight,revive_world.hero,revive_enemy,revive_lines)
+	if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed or not str(revive_fight.log).contains("Воскрешение"):
+		if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed:
+			failures.append("Priest must resurrect once when a combat response would defeat them")
+
+	# Manual block is an explicit combat action, with the elite/boss counterattack.
+	var block_world := WorldState.create(1115)
+	block_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":[],"buffs":[],"effects":[],"cooldowns":{},"talents":[],"passives":["start"]}
+	var block_enemy := {"name":"Проверочный босс","enemyId":"goblin","persistentId":"manual-block-test","hp":100,"maxHp":100,"attack":40,"defense":0,"exp":1,"gold":0,"boss":true,"dead":false,"drops":[],"dropSeed":16}
+	var block_fight := Combat.begin(block_enemy)
+	var block_result: Dictionary = Combat.block(block_world,block_fight)
+	if not block_result.ok or int(block_world.hero.hp) >= 100 or int(block_world.hero.hp) < 80 or bool(block_fight.get("blocking",true)) or not str(block_result.message).contains("защитную стойку") or not str(block_result.message).contains("Контратака"):
+		failures.append("manual guard must mitigate boss damage, counterattack and reset its state")
+
 	var heal_world := WorldState.create(1103)
 	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
 	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}

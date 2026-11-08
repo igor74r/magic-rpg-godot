@@ -38,6 +38,17 @@ const CLASSES := {
 			{"id":"toxic-blade","name":"Ядовитый наконечник","cost":20,"cooldown":3,"kind":"poison_strike"},
 			{"id":"piercing-shot","name":"Пробивающий выстрел","cost":28,"cooldown":3,"kind":"pierce"}
 		]
+	},
+	"priest": {
+		"name": "Жрец", "emoji": "✨", "maxHp": 115, "maxMp": 160,
+		"attack": 6, "defense": 5, "str":6, "int":15, "wis":18, "con":10, "dex":7, "resourceName": "Мана",
+		"combat": {"dodgeChance":0.08,"blockChance":0.05,"blockPower":0.45,"critChance":0.08,"armorPen":0},
+		"spells": ["heal","holy-light"], "startingItems": [],
+		"abilities": [
+			{"id":"prayer","name":"Молитва","cost":25,"cooldown":3,"kind":"prayer"},
+			{"id":"sanctify","name":"Освящение","cost":20,"cooldown":3,"kind":"sanctify"},
+			{"id":"resurrection","name":"Воскрешение","cost":0,"cooldown":0,"kind":"passive","passive":true}
+		]
 	}
 }
 

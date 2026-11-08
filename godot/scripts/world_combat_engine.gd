@@ -178,7 +178,7 @@ static func tick_effects(target: Dictionary) -> Dictionary:
 static func begin(enemy: Dictionary) -> Dictionary:
 	if enemy.is_empty() or bool(enemy.get("dead", false)) or int(enemy.get("hp", 0)) <= 0:
 		return {}
-	return {"enemy": enemy, "turn": "player", "over": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
+	return {"enemy": enemy, "turn": "player", "over": false, "blocking": false, "playerResurrectionUsed": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
 
 static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float:
 	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
@@ -526,6 +526,21 @@ static func _combat_defense_stats(hero: Dictionary) -> Dictionary:
 	return {"dodgeChance": dodge, "blockChance": block, "blockPower": block_power}
 
 
+static func _try_priest_resurrection(combat: Dictionary, hero: Dictionary, lines: Array[String]) -> bool:
+	if str(hero.get("class", "")) != "priest" or bool(combat.get("playerResurrectionUsed", false)):
+		return false
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var restore := ceili(float(hero.get("maxHp", 1)) * float(passive_bonus.get("resurrectPct", 0.3)))
+	hero["hp"] = clampi(restore, 1, int(hero.get("maxHp", 1)))
+	combat["playerResurrectionUsed"] = true
+	combat["over"] = false
+	combat["result"] = ""
+	combat["turn"] = "player"
+	combat["blocking"] = false
+	lines.append("Воскрешение! Вы возвращаетесь в бой с %d HP." % int(hero.hp))
+	return true
+
+
 static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
 	if _has_effect(enemy, "stun"):
 		_remove_effect(enemy, "stun")
@@ -550,11 +565,12 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 				hero["hp"] = maxi(0, int(hero.get("hp", 0)) - int(hero_tick.damage))
 				lines.append("Эффекты наносят вам %d урона." % int(hero_tick.damage))
 			if int(hero.get("hp", 0)) <= 0:
-				hero["hp"] = 1
-				combat["over"] = true
-				combat["result"] = "defeat"
-				combat["turn"] = "over"
-				lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+				if not _try_priest_resurrection(combat, hero, lines):
+					hero["hp"] = 1
+					combat["over"] = true
+					combat["result"] = "defeat"
+					combat["turn"] = "over"
+					lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
 			else:
 				_decrease_cooldowns(hero)
 				combat["turn"] = "player"
@@ -575,15 +591,32 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 	var defense_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-defense", enemy.get("persistentId", ""), turn_count])
 	var defense_rng := RandomScript.new(defense_seed)
 	var automatic_dodge := defense_rng.next_float() < float(defense_stats.dodgeChance)
+	var manual_block := bool(combat.get("blocking", false))
 	if dodge_ready or automatic_dodge:
 		lines.append("Вы уклонились от атаки — урон полностью предотвращён.")
+		combat["blocking"] = false
 	else:
 		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
-		var automatic_block := defense_rng.next_float() < float(defense_stats.blockChance)
-		if automatic_block:
-			var reduction := maxf(0.35, float(defense_stats.blockPower))
+		var automatic_block := not manual_block and defense_rng.next_float() < float(defense_stats.blockChance)
+		if manual_block or automatic_block:
+			var reduction := maxf(0.5, float(defense_stats.blockPower)) if manual_block else maxf(0.35, float(defense_stats.blockPower))
 			incoming = maxi(1, int(floor(float(incoming) * (1.0 - minf(0.9, reduction)))))
-			lines.append("Сработал автоматический блок — урон снижен.")
+			lines.append("Вы приняли удар в защитную стойку — урон снижен." if manual_block else "Сработал автоматический блок — урон снижен.")
+			if manual_block and (bool(enemy.get("boss", false)) or bool(enemy.get("elite", false))):
+				var counter_damage := maxi(1, int(floor(float(effective_stat(hero, "attack")) * (0.28 + minf(0.25, float(defense_stats.blockPower) * 0.25)))))
+				enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - counter_damage)
+				lines.append("Контратака из блока: %d урона." % counter_damage)
+				if int(enemy.hp) <= 0:
+					enemy["dead"] = true
+					enemy["state"] = "dead"
+					lines.append(_award_victory(world, enemy))
+					combat["over"] = true
+					combat["result"] = "victory"
+					combat["turn"] = "over"
+					combat["blocking"] = false
+					combat["enemy"] = enemy
+					world["hero"] = hero
+					return
 		if special_ready and special_type == "snipe":
 			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
 		elif special_ready and special_type == "double":
@@ -609,17 +642,38 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 		hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
 		lines.append("Эффекты наносят вам %d урона." % int(effect_tick.damage))
 	if int(hero.hp) <= 0:
-		hero["hp"] = 1
-		combat["over"] = true
-		combat["result"] = "defeat"
-		combat["turn"] = "over"
-		lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+		if not _try_priest_resurrection(combat, hero, lines):
+			hero["hp"] = 1
+			combat["over"] = true
+			combat["result"] = "defeat"
+			combat["turn"] = "over"
+			lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
 	else:
 		_decrease_cooldowns(hero)
 		combat["turn"] = "player"
 		combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
+	combat["blocking"] = false
 	combat["enemy"] = enemy
 	world["hero"] = hero
+
+
+static func block(world: Dictionary, combat: Dictionary) -> Dictionary:
+	if combat.is_empty() or bool(combat.get("over", true)) or str(combat.get("turn", "")) != "player":
+		return {"ok": false, "message": "Сейчас нельзя принять защитную стойку."}
+	var hero := ensure_hero(world)
+	var enemy: Dictionary = combat.get("enemy", {})
+	combat["blocking"] = true
+	var lines: Array[String] = ["Вы принимаете защитную стойку."]
+	if not _tick_enemy_effects(world, combat, enemy, lines):
+		combat["turn"] = "enemy"
+		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+		if not adaptation_message.is_empty():
+			lines.append(adaptation_message)
+		_resolve_enemy_response(world, combat, hero, enemy, lines)
+	combat["log"] = "\\n".join(lines)
+	combat["enemy"] = enemy
+	world["hero"] = hero
+	return {"ok": true, "message": str(combat.log), "result": str(combat.get("result", ""))}
 
 
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
@@ -632,8 +686,8 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		if str(candidate.id) == ability_id:
 			ability = candidate
 			break
-	if ability.is_empty():
-		return {"ok": false, "message": "Эта способность недоступна классу."}
+	if ability.is_empty() or bool(ability.get("passive", false)):
+		return {"ok": false, "message": "Эта способность недоступна для ручного применения."}
 	var cooldowns: Dictionary = hero.get("cooldowns", {})
 	if int(cooldowns.get(ability_id, 0)) > 0:
 		return {"ok": false, "message": "Способность ещё перезаряжается."}
@@ -648,6 +702,14 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var kind := str(ability.get("kind", ""))
 	match kind:
+		"prayer":
+			var heal := int(floor((50.0 + floor(float(effective_stat(hero, "magic")) / 2.0)) * float(passive_bonus.get("prayerMult", 1.0)) * float(passive_bonus.get("healMult", 1.0))))
+			hero["hp"] = mini(int(hero.get("maxHp", 1)), int(hero.get("hp", 0)) + heal)
+			var debuffs: Array = ["burn", "poison", "bleed", "stun", "slow"]
+			var effects: Array = hero.get("effects", [])
+			hero["effects"] = effects.filter(func(effect): return not debuffs.has(str(effect.get("id", ""))))
+		"sanctify":
+			damage = int(floor((25.0 + floor(float(effective_stat(hero, "magic")) / 2.0)) * float(passive_bonus.get("spellMult", 1.0))))
 		"next_double":
 			hero["buffs"].append({"id":"double_next","duration":1})
 		"attack_buff":
@@ -670,7 +732,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 				apply_effect(enemy, "poison")
 			elif kind == "stun":
 				apply_effect(enemy, "stun")
-	if ["next_double", "attack_buff", "lifesteal", "defense_buff", "dodge"].has(kind):
+	if ["next_double", "attack_buff", "lifesteal", "defense_buff", "dodge", "prayer"].has(kind):
 		var buff_message := ""
 		match kind:
 			"next_double": buff_message = "Следующая атака будет усилена."
@@ -678,6 +740,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
 			"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
 			"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			"prayer": buff_message = "Молитва исцеляет и снимает отрицательные эффекты."
 		var buff_lines: Array[String] = [buff_message]
 		if not _tick_enemy_effects(world, combat, enemy, buff_lines):
 			combat["turn"] = "enemy"
@@ -688,10 +751,13 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		combat["log"] = "\n".join(buff_lines)
 		world["hero"] = hero
 		return {"ok":true,"message":combat.log,"result":combat.get("result","")}
-	var ability_style := "magic" if kind == "meteor" else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
-	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
-	var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
-	damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
+	var ability_style := "magic" if kind in ["meteor", "sanctify"] else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
+	if kind != "sanctify":
+		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
+		var ability_multiplier := float(passive_bonus.get("meteorMult", 1.0)) * float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
+		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
+	else:
+		apply_effect(enemy, "burn")
 	consume_enemy_adaptation(enemy, ability_style)
 	record_player_style(combat, ability_style)
 	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
@@ -703,6 +769,8 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	lines.append_array(_update_boss_phase(enemy))
 	if kind == "meteor":
 		apply_effect(enemy, "burn")
+	elif kind == "sanctify":
+		lines.append("Освящение накладывает ожог.")
 	if kind == "poison_strike":
 		lines.append("Противник отравлен.")
 	if kind == "stun":

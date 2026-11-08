@@ -1304,6 +1304,10 @@ func _refresh_combat_ui() -> void:
 		attack_button.text = "Атаковать"
 		attack_button.pressed.connect(_combat_attack)
 		combat_container.add_child(attack_button)
+		var block_button := Button.new()
+		block_button.text = "Защитная стойка"
+		block_button.pressed.connect(_combat_block)
+		combat_container.add_child(block_button)
 		var class_data: Dictionary = ClassCatalogScript.get_class(str(hero.get("class", "warrior")))
 		for ability in class_data.get("abilities", []):
 			var ability_button := Button.new()
@@ -1327,6 +1331,21 @@ func _refresh_combat_ui() -> void:
 		close_button.text = "Закрыть бой"
 		close_button.pressed.connect(_close_combat)
 		combat_container.add_child(close_button)
+
+
+func _combat_block() -> void:
+	var result := CombatEngineScript.block(world, combat_state)
+	status_label.text = str(result.get("message", ""))
+	if not bool(combat_state.get("over", false)):
+		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
+	elif str(result.get("result", "")) == "victory":
+		_record_world_event_victory(combat_state.get("enemy", {}))
+	WorldStateRepositoryScript.save_world(world)
+	_refresh_combat_ui()
+	_refresh_inventory()
+	if combat_state.get("over", false):
+		_refresh_exploration()
 
 
 func _combat_attack() -> void:
