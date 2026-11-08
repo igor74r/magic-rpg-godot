@@ -648,18 +648,6 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 			total = int(floor(float(hero.get("con", total * 2)) / 2.0)) + int(passive_bonus.get("defFlat", 0))
 		"dex":
 			total = int(hero.get("dex", total)) + int(passive_bonus.get("dexFlat", 0))
-	# Browser getEffStats applies flat bonuses from active status effects before talents.
-	for effect in hero.get("effects", []):
-		if not effect is Dictionary:
-			continue
-		var definition: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
-		match stat:
-			"attack":
-				total += int(definition.get("atkFlat", 0))
-			"magic":
-				total += int(definition.get("magFlat", 0))
-			"defense":
-				total += int(definition.get("defFlat", 0))
 	var equipped: Dictionary = hero.get("equipped", {})
 	for slot in equipped:
 		var instance: Variant = equipped[slot]
