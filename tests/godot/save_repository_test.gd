@@ -198,6 +198,18 @@ func _run() -> void:
 	invalid_browser_item.player.inventory = [{"qty": 0}]
 	if SaveRepo.is_browser_v18_payload(invalid_browser_item):
 		failures.append("browser v18 contract must reject inventory entries without valid ids")
+	var unsafe_browser_exp := browser_payload.duplicate(true)
+	unsafe_browser_exp.player.exp = 9007199254740992
+	if SaveRepo.is_browser_v18_payload(unsafe_browser_exp):
+		failures.append("browser v18 contract must reject integers outside JavaScript's safe range")
+	var unsafe_browser_quantity := browser_payload.duplicate(true)
+	unsafe_browser_quantity.player.inventory = [{"id":"health-potion","qty":9007199254740992}]
+	if SaveRepo.is_browser_v18_payload(unsafe_browser_quantity):
+		failures.append("browser v18 contract must reject inventory quantities outside JavaScript's safe integer range")
+	var unsafe_browser_world := browser_payload.duplicate(true)
+	unsafe_browser_world.world.seed = 9007199254740992
+	if SaveRepo.is_browser_v18_payload(unsafe_browser_world):
+		failures.append("browser v18 contract must reject world seeds outside JavaScript's safe integer range")
 	browser_payload["extensionData"] = {"customQuestFlag": true, "opaqueCounter": 73}
 	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(browser_payload)) != OK:
 		failures.append("valid browser v18 payload must import into a Godot slot")

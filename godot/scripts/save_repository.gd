@@ -251,7 +251,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	if float(player.luck) < 0.0 or float(player.luck) > 100.0:
 		return false
 	for key in ["exp", "statPoints", "passivePoints", "level", "ngPlus", "gold"]:
-		if not player.get(key, null) is int:
+		if not _is_safe_integer(player.get(key, null)):
 			return false
 	if int(player.exp) < 0 or int(player.statPoints) < 0 or int(player.passivePoints) < 0 or int(player.level) < 1 or int(player.level) > 100 or int(player.ngPlus) < 0 or int(player.gold) < 0:
 		return false
@@ -264,7 +264,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	for item in player.inventory:
 		if not item is Dictionary or not item.get("id", null) is String or str(item.id).strip_edges().is_empty():
 			return false
-		if item.has("qty") and (not item.qty is int or int(item.qty) <= 0):
+		if item.has("qty") and (not _is_safe_integer(item.qty) or int(item.qty) <= 0):
 			return false
 	for spell_id in player.spells:
 		if not spell_id is String:
@@ -282,9 +282,9 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 		return false
 	if payload.get("worldGeneratorVersion", null) != 1:
 		return false
-	if not world.get("seed", null) is int or int(world.seed) <= 0:
+	if not _is_safe_integer(world.get("seed", null)) or int(world.seed) <= 0:
 		return false
-	if not world.get("generatorVersion", null) is int or int(world.generatorVersion) < 0:
+	if not _is_safe_integer(world.get("generatorVersion", null)) or int(world.generatorVersion) < 0:
 		return false
 	if not world.get("discoveredRegions", null) is Array or not world.get("unlockedRoutes", null) is Array:
 		return false
@@ -319,6 +319,10 @@ static func export_browser_save(slot: int) -> String:
 
 static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
+
+static func _is_safe_integer(value: Variant) -> bool:
+	return value is int and abs(int(value)) <= 9007199254740991
+
 
 static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
 	var source := "%d|%s|%s|%s" % [
