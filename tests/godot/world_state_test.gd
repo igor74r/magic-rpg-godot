@@ -47,7 +47,10 @@ func _run() -> void:
 	if before_seed == after_seed:
 		failures.append("different visit indices must produce distinct generation seeds")
 
+	world.events["nextSpawnAt"] = 1234.75
 	var normalized := WorldStateScript.normalize(world, 123456)
+	if absf(float(normalized.events.get("nextSpawnAt", -1.0)) - 1234.75) > 0.000001:
+		failures.append("fractional world-event spawn deadline must survive save normalization")
 	if normalized.seed != 123456 or normalized.currentRegionId != "village":
 		failures.append("normalization must preserve valid save state")
 	if not normalized.unlockedRoutes.has(WorldGraph.route_key("forest", "shadow")):
