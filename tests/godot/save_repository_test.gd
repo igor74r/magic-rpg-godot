@@ -101,10 +101,13 @@ func _run() -> void:
 		failures.append("v17 migration must hash supplementary Unicode names using browser-compatible UTF-16 code units")
 	var invalid_seed_string := SaveRepo.migrate_payload({"version":17,"worldSeed":"9876","player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	var invalid_seed_fraction := SaveRepo.migrate_payload({"version":17,"worldSeed":9876.5,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
+	var integral_float_seed := SaveRepo.migrate_payload({"version":17,"worldSeed":9876.0,"worldGeneratorVersion":2.0,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	var invalid_location_type := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":42})
 	var default_location := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	if int(invalid_seed_string.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)) or int(invalid_seed_fraction.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)):
 		failures.append("v18 migration must derive a seed instead of coercing string or fractional worldSeed values")
+	if int(integral_float_seed.get("worldSeed", 0)) != 9876 or int(integral_float_seed.get("worldGeneratorVersion", 0)) != 2:
+		failures.append("v18 migration must preserve browser-safe integral float worldSeed and worldGeneratorVersion values")
 	if int(invalid_location_type.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)):
 		failures.append("v18 migration must use the browser village fallback for non-string locations")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
