@@ -92,6 +92,29 @@ static func begin(enemy: Dictionary) -> Dictionary:
 		return {}
 	return {"enemy": enemy, "turn": "player", "over": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
 
+static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float:
+	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var class_combat: Dictionary = class_data.get("combat", {})
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var chance := float(class_combat.get("critChance", 0.1)) + float(passive_bonus.get("critChance", 0.0)) + extra_bonus
+	var equipped: Dictionary = hero.get("equipped", {})
+	for instance in equipped.values():
+		if instance == null:
+			continue
+		var item_id := str(instance if instance is String else instance.get("id", ""))
+		var item: Dictionary = ItemCatalog.get_item(item_id)
+		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
+		if instance is Dictionary:
+			for key in instance.get("bonus", {}):
+				bonus[key] = float(bonus.get(key, 0.0)) + float(instance.bonus[key])
+			for rune_id in instance.get("runes", []):
+				var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+				for key in rune.get("runeBonus", {}):
+					bonus[key] = float(bonus.get(key, 0.0)) + float(rune.runeBonus[key])
+		chance += float(bonus.get("critChance", 0.0))
+	return clampf(chance, 0.0, 0.75)
+
+
 static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
 		return {"ok": false, "message": "Сейчас нельзя атаковать."}
@@ -100,8 +123,17 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
 	var damage := maxi(1, int(round(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0))))
+	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
+	var crit_chance := critical_chance(hero, cat_luck_bonus)
+	var attack_index := int(combat.get("playerAttackCount", 0))
+	combat["playerAttackCount"] = attack_index + 1
+	var crit_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-crit", enemy.get("persistentId", ""), attack_index])
+	var crit_rng := RandomScript.new(crit_seed)
+	var is_critical := crit_rng.next_float() < crit_chance
+	if is_critical:
+		damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
+	var lines: Array[String] = ["Вы нанесли %d урона.%s" % [damage, " КРИТ!" if is_critical else ""]]
 	lines.append_array(_update_boss_phase(enemy))
 	if int(enemy.hp) <= 0:
 		enemy["dead"] = true
@@ -238,6 +270,13 @@ static func _consume_combat_effect(hero: Dictionary,effect_id: String,field: Str
 	return found
 
 
+static func _has_combat_effect(hero: Dictionary, effect_id: String, field: String = "buffs") -> bool:
+	for effect in hero.get(field, []):
+		if effect is Dictionary and str(effect.get("id", "")) == effect_id and int(effect.get("duration", 0)) > 0:
+			return true
+	return false
+
+
 static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
@@ -247,6 +286,8 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	if bool(enemy.get("elite",false)): exp_multiplier *= 1.5
 	if _consume_combat_effect(hero,"elderBlessing","effects"): exp_multiplier *= 1.2
 	if _consume_combat_effect(hero,"bardBuff","buffs"): exp_multiplier *= 1.1
+	# Cat luck lasts for one victorious encounter, matching the browser.
+	_consume_combat_effect(hero, "catLuck", "buffs")
 	reward_exp = int(round(float(reward_exp)*exp_multiplier))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	if not bool(enemy.get("riftMode", false)) and not bool(enemy.get("towerMode", false)):
