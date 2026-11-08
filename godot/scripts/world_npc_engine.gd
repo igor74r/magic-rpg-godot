@@ -633,15 +633,29 @@ static func reforge_item(world: Dictionary, index: int) -> Dictionary:
 	var preserved_forge_level := maxi(0, int(old.get("forgeLevel", 0)))
 	var preserved_upgrade_percent := maxf(0.0, float(old.get("upgradePercent", 0.0)))
 	var cost: Dictionary = check.cost
-	# Remove the selected equipment before consuming materials. This keeps
-	# the selected index stable even when the essence stack precedes it.
-	inventory.remove_at(index)
+	# Mark the selected instance while the essence is consumed. The browser
+	# removes the material first, then restores the reforged item at its shifted
+	# original index; tracking the instance preserves that exact ordering.
+	const marker := "__native_reforge_selected_7f3a__"
+	old[marker] = true
 	hero["inventory"] = inventory
 	if not Combat.remove_item(hero, str(cost.id), int(cost.qty)):
 		hero["inventory"] = snapshot
 		world["hero"] = hero
 		return {"ok":false,"message":"Не удалось списать эссенцию; предметы не изменены."}
 	inventory = hero.get("inventory", [])
+	var selected_index := -1
+	for candidate_index in range(inventory.size()):
+		if inventory[candidate_index] is Dictionary and bool(inventory[candidate_index].get(marker, false)):
+			selected_index = candidate_index
+			inventory[candidate_index].erase(marker)
+			break
+	if selected_index < 0:
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Предмет не найден; материалы возвращены."}
+	inventory.remove_at(selected_index)
+	hero["inventory"] = inventory
 	if not Combat.add_item(hero, item_id, 1, rarity):
 		hero["inventory"] = snapshot
 		world["hero"] = hero
@@ -667,7 +681,7 @@ static func reforge_item(world: Dictionary, index: int) -> Dictionary:
 		reforged["bonus"] = bonus
 		inventory[reforged_index] = reforged
 	inventory.remove_at(reforged_index)
-	inventory.insert(mini(index, inventory.size()), reforged)
+	inventory.insert(mini(selected_index, inventory.size()), reforged)
 	hero["inventory"] = inventory
 	world["hero"] = hero
 	return {"ok":true,"message":"Перековано: %s." % str(CatalogItem.get_item(item_id).get("name", item_id))}

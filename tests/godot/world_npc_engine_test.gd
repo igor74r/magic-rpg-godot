@@ -250,11 +250,12 @@ func _initialize() -> void:
 	var material_before_equipment := WorldState.create(20261135)
 	material_before_equipment["hero"] = {"level":1,"inventory":[
 		{"id":"ember-core","qty":1},
-		{"id":"iron-sword","qty":1,"rarity":"rare"}
+		{"id":"iron-sword","qty":1,"rarity":"rare"},
+		{"id":"mana-potion","qty":1}
 	],"equipped":{}}
 	var material_first_result := Npc.reforge_item(material_before_equipment, 1)
-	if not bool(material_first_result.get("ok", false)) or material_before_equipment.hero.inventory.size() != 1 or str(material_before_equipment.hero.inventory[0].get("id", "")) != "iron-sword":
-		failures.append("reforge must preserve the selected equipment when its essence stack appears earlier in the bag")
+	if not bool(material_first_result.get("ok", false)) or material_before_equipment.hero.inventory.size() != 2 or str(material_before_equipment.hero.inventory[0].get("id", "")) != "iron-sword" or str(material_before_equipment.hero.inventory[1].get("id", "")) != "mana-potion":
+		failures.append("reforge must preserve the selected equipment and its browser-compatible relative inventory position when essence precedes it")
 	var insufficient_reforge := WorldState.create(20261133)
 	insufficient_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
 	var insufficient_snapshot: Array = insufficient_reforge.hero.inventory.duplicate(true)
