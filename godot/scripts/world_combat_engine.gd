@@ -250,7 +250,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 		if not adaptation_message.is_empty():
 			lines.append(adaptation_message)
-		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense") * _effect_multiplier(hero, "defMult")) / 2.0)))
+		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
 		var special: Dictionary = enemy.get("special", {})
@@ -497,6 +497,23 @@ static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enem
 	return "Получен сюжетный предмет: %s." % str(dragon.name)
 
 
+static func mitigate_incoming_damage(attack: float, defense: float) -> int:
+	var safe_attack := maxf(0.0, attack)
+	var safe_defense := maxf(0.0, defense)
+	return maxi(1, int(floor(safe_attack * (100.0 / (100.0 + safe_defense * 1.5)))))
+
+
+static func _calculate_incoming_damage(world: Dictionary, hero: Dictionary, enemy: Dictionary, turn_count: int) -> int:
+	var attack := maxf(0.0, float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))
+	var damage_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-incoming", enemy.get("persistentId", ""), turn_count])
+	var damage_rng := RandomScript.new(damage_seed)
+	attack += float(damage_rng.next_int(5))
+	var defense := float(effective_stat(hero, "defense")) * _effect_multiplier(hero, "defMult")
+	var base_damage := mitigate_incoming_damage(attack, defense)
+	var difficulty := 0.7 if str(world.get("difficulty", "normal")) == "easy" else (1.4 if str(world.get("difficulty", "normal")) == "hard" else 1.0)
+	return maxi(1, int(floor(float(base_damage) * difficulty)))
+
+
 static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
 	if _has_effect(enemy, "stun"):
 		_remove_effect(enemy, "stun")
@@ -515,7 +532,7 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 	if dodge_ready:
 		lines.append("Вы уклонились от атаки — урон полностью предотвращён.")
 	else:
-		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense") * _effect_multiplier(hero, "defMult")) / 2.0)))
+		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
 		if special_ready and special_type == "snipe":
 			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
 		elif special_ready and special_type == "double":
