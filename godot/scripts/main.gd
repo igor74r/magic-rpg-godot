@@ -1093,62 +1093,110 @@ func _refresh_achievements() -> void:
 func _refresh_chronicles() -> void:
 	for child in chronicles_container.get_children():
 		child.queue_free()
-	var intro := Label.new()
-	intro.text = "%s — %s" % [ChroniclesCatalogScript.TITLE, ChroniclesCatalogScript.SUBTITLE]
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	chronicles_container.add_child(intro)
+
+	var hero := Label.new()
+	hero.text = "✦  АРХИВ АВРОРЫ\n%s\n%s" % [ChroniclesCatalogScript.TITLE, ChroniclesCatalogScript.SUBTITLE]
+	hero.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hero.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hero.add_theme_font_size_override("font_size", 19)
+	hero.modulate = Color(0.94, 0.84, 0.63)
+	chronicles_container.add_child(hero)
+
 	var archive_note := Label.new()
 	archive_note.text = ChroniclesCatalogScript.NOTE
 	archive_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	archive_note.modulate = Color(0.78, 0.78, 0.72)
+	archive_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	archive_note.modulate = Color(0.72, 0.70, 0.65)
 	chronicles_container.add_child(archive_note)
+
 	for chapter in ChroniclesCatalogScript.CHAPTERS:
 		var section_title := "ГЛАВА %s · %s · %s" % [str(chapter.id), str(chapter.title), str(chapter.period)]
 		var section := _add_chronicle_section(section_title, chronicles_container)
 		var summary := Label.new()
 		summary.text = str(chapter.summary)
 		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		summary.modulate = Color(0.88, 0.81, 0.68)
 		section.add_child(summary)
 		for entry in chapter.entries:
+			var entry_card := PanelContainer.new()
+			entry_card.add_theme_stylebox_override("panel", _make_chronicle_panel_style(Color(0.075, 0.085, 0.105, 0.96), Color(0.42, 0.34, 0.23, 0.7), 7))
+			section.add_child(entry_card)
+			var entry_content := VBoxContainer.new()
+			entry_content.add_theme_constant_override("separation", 5)
+			entry_card.add_child(entry_content)
 			var entry_title := Label.new()
 			entry_title.text = str(entry.title)
-			entry_title.add_theme_font_size_override("font_size", 14)
-			section.add_child(entry_title)
+			entry_title.add_theme_font_size_override("font_size", 15)
+			entry_title.modulate = Color(0.91, 0.78, 0.53)
+			entry_content.add_child(entry_title)
 			var note := Label.new()
 			note.text = str(entry.text)
 			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			section.add_child(note)
+			note.modulate = Color(0.82, 0.81, 0.77)
+			entry_content.add_child(note)
+
 	var factions_section := _add_chronicle_section("Знамёна старого мира", chronicles_container)
 	for faction in ChroniclesCatalogScript.LORE_FACTIONS:
-		var note := Label.new()
-		note.text = "%s %s — %s. %s" % [str(faction.symbol), str(faction.name), str(faction.tone), str(faction.text)]
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		factions_section.add_child(note)
+		var faction_card := PanelContainer.new()
+		faction_card.add_theme_stylebox_override("panel", _make_chronicle_panel_style(Color(0.09, 0.085, 0.065, 0.96), Color(0.55, 0.43, 0.25, 0.72), 7))
+		factions_section.add_child(faction_card)
+		var faction_note := Label.new()
+		faction_note.text = "%s  %s — %s\n%s" % [str(faction.symbol), str(faction.name), str(faction.tone), str(faction.text)]
+		faction_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		faction_note.modulate = Color(0.86, 0.82, 0.71)
+		faction_card.add_child(faction_note)
+
 	var stories_section := _add_chronicle_section("Нити побочных историй", chronicles_container)
 	for story in ChroniclesCatalogScript.SIDE_STORIES:
-		var note := Label.new()
-		note.text = "%s · %s — %s" % [str(story.place), str(story.title), str(story.hook)]
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		stories_section.add_child(note)
+		var story_card := PanelContainer.new()
+		story_card.add_theme_stylebox_override("panel", _make_chronicle_panel_style(Color(0.065, 0.08, 0.095, 0.96), Color(0.30, 0.43, 0.43, 0.72), 7))
+		stories_section.add_child(story_card)
+		var story_note := Label.new()
+		story_note.text = "%s\n%s\n%s" % [str(story.place), str(story.title), str(story.hook)]
+		story_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		story_note.modulate = Color(0.80, 0.85, 0.82)
+		story_card.add_child(story_note)
 
 
 func _add_chronicle_section(title: String, parent: VBoxContainer) -> VBoxContainer:
 	var toggle := Button.new()
-	toggle.text = "▶ " + title
+	toggle.text = "▶  " + title
 	toggle.toggle_mode = true
 	toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	toggle.custom_minimum_size.y = 42
+	toggle.add_theme_stylebox_override("normal", _make_chronicle_panel_style(Color(0.12, 0.105, 0.08, 0.98), Color(0.62, 0.48, 0.27, 0.8), 7))
+	toggle.add_theme_stylebox_override("hover", _make_chronicle_panel_style(Color(0.17, 0.14, 0.095, 0.98), Color(0.82, 0.66, 0.37, 0.95), 7))
+	toggle.add_theme_stylebox_override("pressed", _make_chronicle_panel_style(Color(0.19, 0.15, 0.09, 0.98), Color(0.88, 0.72, 0.43, 1.0), 7))
+	toggle.add_theme_stylebox_override("focus", _make_chronicle_panel_style(Color(0.12, 0.105, 0.08, 0.98), Color(0.9, 0.78, 0.5, 1.0), 7))
 	parent.add_child(toggle)
+
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _make_chronicle_panel_style(Color(0.045, 0.055, 0.07, 0.96), Color(0.30, 0.27, 0.21, 0.65), 8))
+	panel.visible = false
+	parent.add_child(panel)
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 5)
-	body.visible = false
-	parent.add_child(body)
-	toggle.toggled.connect(_set_chronicle_section.bind(body, toggle, title))
+	body.add_theme_constant_override("separation", 9)
+	panel.add_child(body)
+	toggle.toggled.connect(_set_chronicle_section.bind(body, panel, toggle, title))
 	return body
 
 
-func _set_chronicle_section(expanded: bool, body: VBoxContainer, toggle: Button, title: String) -> void:
-	body.visible = expanded
-	toggle.text = ("▼ " if expanded else "▶ ") + title
+func _set_chronicle_section(expanded: bool, body: VBoxContainer, panel: PanelContainer, toggle: Button, title: String) -> void:
+	panel.visible = expanded
+	toggle.text = ("▼  " if expanded else "▶  ") + title
+
+
+func _make_chronicle_panel_style(background_color: Color, border_color: Color, corner_radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(corner_radius)
+	style.content_margin_left = 12
+	style.content_margin_top = 10
+	style.content_margin_right = 12
+	style.content_margin_bottom = 10
+	return style
 
 
 func _refresh_factions() -> void:
