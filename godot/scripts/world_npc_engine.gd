@@ -246,7 +246,10 @@ static func _valid_buyback_records(hero: Dictionary, today: String = "") -> Arra
 		var price_value: Variant = record.get("price", 0)
 		if item.is_empty() or not price_value is int or int(price_value) <= 0 or qty < 1: continue
 		if str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(item.get("bossOnly", false)): continue
-		if rarity == "mythic" or (not _is_stackable(str(item.get("type", ""))) and qty != 1): continue
+		# Match the browser buyback validator: unknown rarities and boss-only tiers
+		# are never eligible, even when a legacy record otherwise looks valid.
+		if rarity not in ["common", "uncommon", "rare", "epic", "legendary"]: continue
+		if not _is_stackable(str(item.get("type", ""))) and qty != 1: continue
 		valid.append({"recordIndex":index,"item":instance.duplicate(true),"price":int(price_value),"soldAt":date_key})
 	return valid
 
