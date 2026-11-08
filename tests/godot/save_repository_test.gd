@@ -82,6 +82,25 @@ func _run() -> void:
 	invalid_browser_item.player.inventory = [{"qty": 0}]
 	if SaveRepo.is_browser_v18_payload(invalid_browser_item):
 		failures.append("browser v18 contract must reject inventory entries without valid ids")
+	browser_payload["extensionData"] = {"customQuestFlag": true, "opaqueCounter": 73}
+	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(browser_payload)) != OK:
+		failures.append("valid browser v18 payload must import into a Godot slot")
+	var imported_browser := SaveRepo.load_slot(TEST_SLOT)
+	if imported_browser.get("extensionData", {}).get("customQuestFlag", false) != true or int(imported_browser.get("extensionData", {}).get("opaqueCounter", 0)) != 73:
+		failures.append("browser import must preserve unknown extension data")
+	var exported_browser_text := SaveRepo.export_browser_save(TEST_SLOT)
+	var exported_browser: Variant = JSON.parse_string(exported_browser_text)
+	if not exported_browser is Dictionary or not SaveRepo.is_browser_v18_payload(exported_browser):
+		failures.append("browser export must produce a valid v18 payload")
+	elif exported_browser.get("extensionData", {}).get("customQuestFlag", false) != true:
+		failures.append("browser export must preserve extension data")
+	var invalid_import := browser_payload.duplicate(true)
+	invalid_import.world.erase("unlockedRoutes")
+	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(invalid_import)) != ERR_INVALID_DATA:
+		failures.append("invalid browser payload must be rejected during import")
+	if SaveRepo.load_slot(TEST_SLOT).get("extensionData", {}).get("customQuestFlag", false) != true:
+		failures.append("rejected browser import must not overwrite the healthy slot")
+
 
 	var payload := {
 		"version": 18,
@@ -117,11 +136,11 @@ func _run() -> void:
 		if str(preserved.get("player", {}).get("name", "")) != "Replacement hero":
 			failures.append("rejected replacement must leave the previous healthy slot intact")
 
-	if FileAccess.file_exists(TEST_PATH):
-		var absolute_path := ProjectSettings.globalize_path(TEST_PATH)
-		var remove_error := DirAccess.remove_absolute(absolute_path)
-		if remove_error != OK:
-			failures.append("test save file cleanup failed (error %d)" % remove_error)
+	for candidate in [TEST_PATH, TEST_PATH + ".tmp", TEST_PATH + ".bak"]:
+		if FileAccess.file_exists(candidate):
+			var remove_error := DirAccess.remove_absolute(ProjectSettings.globalize_path(candidate))
+			if remove_error != OK:
+				failures.append("test save file cleanup failed (error %d)" % remove_error)
 
 	if failures.is_empty():
 		print("PASS: save repository slot bounds, version guard and JSON field round-trip")

@@ -169,5 +169,23 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	return true
 
 
+# Browser exports are accepted only when they satisfy the complete v18
+# browser contract. Unknown fields are deliberately retained by save_slot.
+static func import_browser_save(slot: int, serialized: String) -> Error:
+	if slot < 1 or slot > 3:
+		return ERR_INVALID_PARAMETER
+	var parsed: Variant = JSON.parse_string(serialized)
+	if not parsed is Dictionary or not is_browser_v18_payload(parsed):
+		return ERR_INVALID_DATA
+	return save_slot(slot, parsed)
+
+
+static func export_browser_save(slot: int) -> String:
+	var payload := load_slot(slot)
+	if payload.is_empty() or not is_browser_v18_payload(payload):
+		return ""
+	return JSON.stringify(payload)
+
+
 static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
