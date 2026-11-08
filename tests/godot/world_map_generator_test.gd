@@ -32,8 +32,8 @@ func _run() -> void:
 		failures.append("village horizontal road must not be a full-width cross")
 	if village[15][18] != Generator.TILE_ROAD or village[15][22] != Generator.TILE_ROAD:
 		failures.append("village central plaza must retain the browser's widened paved footprint")
-	if village[14][13] != Generator.TILE_ROAD or village[16][13] != Generator.TILE_ROAD:
-		failures.append("village craft and market junctions must retain their paved widening")
+	if village[25][13] != Generator.TILE_ROAD or village[27][13] != Generator.TILE_ROAD or village[25][27] != Generator.TILE_ROAD or village[27][27] != Generator.TILE_ROAD:
+		failures.append("village southern craft and market junctions must retain their paved widening")
 	var protected_cells: Array[Vector2i] = [
 		Vector2i(19,15), Vector2i(17,19), Vector2i(20,19), Vector2i(22,6), Vector2i(4,9), Vector2i(33,10), Vector2i(5,20), Vector2i(33,21),
 		Vector2i(16,14), Vector2i(19,13), Vector2i(22,13), Vector2i(15,10), Vector2i(17,10), Vector2i(20,10), Vector2i(7,10), Vector2i(31,10),
