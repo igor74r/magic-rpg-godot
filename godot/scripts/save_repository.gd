@@ -264,7 +264,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	for item in player.inventory:
 		if not item is Dictionary or not item.get("id", null) is String or str(item.id).strip_edges().is_empty():
 			return false
-		if item.has("qty") and (not _is_safe_integer(item.qty) or int(item.qty) <= 0):
+		if item.has("qty") and item.qty != null and (not _is_safe_integer(item.qty) or int(item.qty) <= 0):
 			return false
 	for spell_id in player.spells:
 		if not spell_id is String:
@@ -278,7 +278,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 		return false
 	if not payload.get("storyShards", null) is Dictionary or not payload.get("storyDragons", null) is Dictionary:
 		return false
-	if not payload.get("worldSeed", null) is int or int(payload.worldSeed) < 1 or int(payload.worldSeed) > 4294967295:
+	if not _is_safe_integer(payload.get("worldSeed", null)) or int(payload.worldSeed) < 1 or int(payload.worldSeed) > 4294967295:
 		return false
 	if payload.get("worldGeneratorVersion", null) != 1:
 		return false
@@ -321,7 +321,12 @@ static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
 
 static func _is_safe_integer(value: Variant) -> bool:
-	return value is int and int(value) >= -9007199254740991 and int(value) <= 9007199254740991
+	if value is int:
+		return int(value) >= -9007199254740991 and int(value) <= 9007199254740991
+	if value is float:
+		var number := float(value)
+		return is_finite(number) and number >= -9007199254740991.0 and number <= 9007199254740991.0 and floor(number) == number
+	return false
 
 
 static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
