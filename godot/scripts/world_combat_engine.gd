@@ -701,13 +701,6 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 				total += forge_bonus
 			elif str(slot) == "chest" and stat == "defense":
 				total += forge_bonus
-	for effect in hero.get("effects", []):
-		if not effect is Dictionary:
-			continue
-		var effect_data: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
-		total += int(effect_data.get("atkFlat", 0)) if stat == "attack" else 0
-		total += int(effect_data.get("magFlat", 0)) if stat == "magic" else 0
-		total += int(effect_data.get("defFlat", 0)) if stat == "defense" else 0
 	if stat == "defense":
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
