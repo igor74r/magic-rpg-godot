@@ -66,8 +66,13 @@ static func get_mission(mission_id: String) -> Dictionary:
 static func get_active(hero: Dictionary) -> Dictionary:
 	ensure_state(hero)
 	var id:=str(hero.get("activeCampaignMission",""))
-	if id.is_empty() or bool(hero.campaignClaimed.get(id,false)): return {}
-	return Catalog.find_mission(id)
+	if id.is_empty():
+		return {}
+	var mission := Catalog.find_mission(id)
+	if mission.is_empty() or hero.campaignClaimed.get(id, false) == true:
+		hero["activeCampaignMission"] = ""
+		return {}
+	return mission
 static func get_next(hero: Dictionary) -> Dictionary:
 	ensure_state(hero)
 	var active:=get_active(hero)
