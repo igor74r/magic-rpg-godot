@@ -4,6 +4,7 @@ const Rift = preload("res://godot/scripts/world_rift_engine.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
 const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
 const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
 
 
 func _initialize() -> void:
@@ -30,8 +31,9 @@ func _run() -> void:
 	else:
 		var enemy: Dictionary = started.get("enemy", {})
 		var definition: Dictionary = Enemies.get_enemy(str(enemy.get("enemyId", "")))
-		var expected_hp := int(round(float(definition.get("hp", 0)) * 2.0))
-		var expected_attack := int(round(float(definition.get("attack", 0)) * 1.6))
+		var rift_mult: Dictionary = Campaign.get_rift_multiplier(10)
+		var expected_hp := int(round(float(definition.get("hp", 0)) * float(rift_mult.hpMult) * 2.0))
+		var expected_attack := int(round(float(definition.get("attack", 0)) * float(rift_mult.atkMult) * 1.6))
 		if int(enemy.get("hp", 0)) != expected_hp:
 			failures.append("Rift encounter HP must apply New Game+ scaling")
 		if int(enemy.get("attack", 0)) != expected_attack:
