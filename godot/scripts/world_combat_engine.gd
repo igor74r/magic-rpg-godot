@@ -537,8 +537,16 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
 			damage = int(round(float(damage) * 1.2))
 			_remove_effect(enemy, "slow")
+		# Browser combat spells share the weapon critical formula.
+		var attack_index := int(combat.get("playerAttackCount", 0))
+		combat["playerAttackCount"] = attack_index + 1
+		var crit_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-crit", enemy.get("persistentId", ""), attack_index])
+		var crit_rng := RandomScript.new(crit_seed)
+		var is_critical := crit_rng.next_float() < critical_chance(hero)
+		if is_critical:
+			damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-		lines.append("Нанесено %d урона." % damage)
+		lines.append("Нанесено %d урона.%s" % [damage, " КРИТ!" if is_critical else ""])
 		lines.append_array(_update_boss_phase(enemy))
 		var effect_id := str(spell.get("effect", ""))
 		if not effect_id.is_empty():

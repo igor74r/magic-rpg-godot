@@ -182,6 +182,26 @@ func _initialize() -> void:
 	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
 	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) != 65:
 		failures.append("fireball damage must add half effective Intelligence, matching the browser formula, and spend mana")
+	var spell_crit_world := WorldState.create(9921)
+	Combat.select_class(spell_crit_world, "mage")
+	var spell_crit_chance := Combat.critical_chance(spell_crit_world.hero)
+	var spell_crit_seed := 1
+	var spell_crit_found := false
+	for candidate_seed in range(1, 100000):
+		var candidate_rng := preload("res://godot/scripts/world_random.gd").new(preload("res://godot/scripts/world_random.gd").derive_seed([candidate_seed, "combat-crit", "spell-crit-test", 0]))
+		if candidate_rng.next_float() < spell_crit_chance:
+			spell_crit_seed = candidate_seed
+			spell_crit_found = true
+			break
+	if not spell_crit_found:
+		failures.append("test seed search must find a deterministic spell critical roll")
+	else:
+		spell_crit_world["seed"] = spell_crit_seed
+		var spell_crit_enemy := {"name":"Цель критического заклинания","persistentId":"spell-crit-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+		var spell_crit_fight := Combat.begin(spell_crit_enemy)
+		var spell_crit_result := Combat.cast_spell(spell_crit_world, spell_crit_fight, "fireball")
+		if not spell_crit_result.ok or int(spell_crit_enemy.hp) != 48 or not str(spell_crit_result.message).contains("КРИТ!"):
+			failures.append("native damaging spells must use browser-compatible critical chance and critical damage")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
