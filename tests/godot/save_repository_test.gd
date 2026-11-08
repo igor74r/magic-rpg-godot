@@ -53,6 +53,11 @@ func _run() -> void:
 		"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"bad"},"changeLog":["opaque-v18-entry"]}
 	}
 	var normalized_v18 := SaveRepo.migrate_payload(current_v18)
+	var integral_float_experience_v18 := current_v18.duplicate(true)
+	integral_float_experience_v18.player.level = 12.0
+	integral_float_experience_v18.player.exp = 150.0
+	integral_float_experience_v18.player.expNext = 300.0
+	var normalized_integral_float_experience_v18 := SaveRepo.migrate_payload(integral_float_experience_v18)
 	var stale_world_metadata_v18 := SaveRepo.migrate_payload({
 		"version":18,"worldSeed":999,"worldGeneratorVersion":9,
 		"player":{"name":"Stale metadata hero","class":"mage","level":1},
@@ -69,6 +74,9 @@ func _run() -> void:
 		failures.append("current v18 campaign branches must preserve existing branch state and recover the legacy active mission")
 	if int(normalized_v18_player.get("expNext", 0)) != 259 or int(normalized_v18_player.get("exp", -1)) != 129 or int(normalized_v18_player.get("ngPlus", -1)) != 0:
 		failures.append("current v18 saves must rebase XP and normalize malformed NG+ values")
+	var normalized_float_experience_player: Dictionary = normalized_integral_float_experience_v18.get("player", {})
+	if int(normalized_float_experience_player.get("expNext", 0)) != 259 or int(normalized_float_experience_player.get("exp", -1)) != 129:
+		failures.append("current v18 migration must rebase browser-safe integral float level, exp, and expNext values")
 	var normalized_v18_reputation: Dictionary = normalized_v18_factions.get("reputation", {})
 	if normalized_v18_reputation.get("hub-guardians", 0) != 13 or normalized_v18_reputation.get("rift-cult", 0) != -1 or normalized_v18_reputation.get("free-traders", 0) != 42 or normalized_v18_reputation.get("ash-nomads", 1) != 0:
 		failures.append("current v18 faction reputation must use browser-compatible normalization")
