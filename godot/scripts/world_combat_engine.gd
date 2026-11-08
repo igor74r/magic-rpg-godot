@@ -720,6 +720,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	hero["mp"] = int(hero.mp) - int(spell.get("cost", 0))
 	var enemy: Dictionary = combat.get("enemy", {})
 	var lines: Array[String] = [str(spell.name)]
+	var non_damage_spell := spell.has("heal") or spell.has("selfDamagePct") or spell.has("selfEffect")
 	if spell.has("heal"):
 		var heal_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 		var restored := mini(int(round(float(spell.heal) * float(heal_bonus.get("healMult", 1.0)))), int(hero.maxHp) - int(hero.hp))
@@ -786,6 +787,12 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
 			if not modifier_message.is_empty():
 				lines.append(modifier_message)
+	if non_damage_spell:
+		combat["turn"] = "enemy"
+		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+		if not adaptation_message.is_empty():
+			lines.append(adaptation_message)
+		_resolve_enemy_response(world, combat, hero, enemy, lines)
 	combat["log"] = "\n".join(lines)
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
