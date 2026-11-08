@@ -386,15 +386,17 @@ static func _campaign_branch_for_mission(mission_id: String) -> String:
 
 
 static func _rebase_legacy_experience(hero: Dictionary) -> void:
+	# Browser Number.isSafeInteger accepts JSON values such as 12.0; Godot's
+	# JSON parser may expose those as floats, so use the shared parity helper.
 	var level_value: Variant = hero.get("level", null)
-	if not level_value is int or int(level_value) < 1 or int(level_value) >= 100:
+	if not _is_safe_integer(level_value) or int(level_value) < 1 or int(level_value) >= 100:
 		return
 	var level := int(level_value)
 	var next_exp := _experience_to_next_level(level)
 	var previous_next_value: Variant = hero.get("expNext", null)
-	var previous_next := int(previous_next_value) if previous_next_value is int and int(previous_next_value) > 0 else int(floor(100.0 * pow(float(level), 1.6)))
+	var previous_next := int(previous_next_value) if _is_safe_integer(previous_next_value) and int(previous_next_value) > 0 else int(floor(100.0 * pow(float(level), 1.6)))
 	var previous_exp_value: Variant = hero.get("exp", 0)
-	var previous_exp := int(previous_exp_value) if previous_exp_value is int and int(previous_exp_value) >= 0 else 0
+	var previous_exp := int(previous_exp_value) if _is_safe_integer(previous_exp_value) and int(previous_exp_value) >= 0 else 0
 	if previous_next != next_exp:
 		var progress := minf(1.0, float(previous_exp) / float(previous_next)) if previous_next > 0 else 0.0
 		hero["exp"] = mini(next_exp - 1, int(floor(progress * next_exp)))
