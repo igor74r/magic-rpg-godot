@@ -40,10 +40,15 @@ static func _write_json_atomically(path: String, serialized: String) -> Error:
 	var absolute_backup := ProjectSettings.globalize_path(backup_path)
 	var had_previous := FileAccess.file_exists(path)
 	if FileAccess.file_exists(backup_path):
-		if not had_previous:
+		if not had_previous or _read_slot_payload(path).is_empty():
 			# A previous interrupted write may have left the only valid save in
-			# .bak. Restore it before starting another replacement so a second
-			# crash cannot destroy the last recoverable copy.
+			# .bak. Prefer that validated copy when the primary is missing or
+			# malformed; never discard it merely because a primary path exists.
+			if had_previous:
+				var remove_error := DirAccess.remove_absolute(absolute_path)
+				if remove_error != OK:
+					DirAccess.remove_absolute(absolute_temporary)
+					return remove_error
 			var recovery_error := DirAccess.rename_absolute(absolute_backup, absolute_path)
 			if recovery_error != OK:
 				DirAccess.remove_absolute(absolute_temporary)

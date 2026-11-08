@@ -204,6 +204,23 @@ func _run() -> void:
 	if str(SaveRepo.load_slot(TEST_SLOT).get("player", {}).get("name", "")) != str(browser_payload.player.name):
 		failures.append("a new atomic save must replace a recovered backup-only slot with the new complete payload")
 
+	# A malformed primary must not cause the only valid backup to be discarded.
+	var corrupt_primary := FileAccess.open(TEST_PATH, FileAccess.WRITE)
+	if corrupt_primary != null:
+		corrupt_primary.store_string("{corrupt")
+		corrupt_primary.close()
+	var valid_backup_payload := browser_payload.duplicate(true)
+	valid_backup_payload.player.name = "Validated backup hero"
+	var valid_backup_file := FileAccess.open(backup_path, FileAccess.WRITE)
+	if valid_backup_file != null:
+		valid_backup_file.store_string(JSON.stringify(valid_backup_payload))
+		valid_backup_file.close()
+	if not SaveRepo._read_slot_payload(TEST_PATH).is_empty() or SaveRepo._read_slot_payload(backup_path).is_empty():
+		failures.append("backup recovery fixture must contain a malformed primary and a valid backup")
+	var corrupt_primary_recovery: Error = SaveRepo._write_json_atomically(TEST_PATH, JSON.stringify(browser_payload))
+	if corrupt_primary_recovery != OK or str(SaveRepo.load_slot(TEST_SLOT).get("player", {}).get("name", "")) != str(browser_payload.player.name):
+		failures.append("atomic replacement must recover a validated backup before replacing a malformed primary")
+
 	var interrupted_save := browser_payload.duplicate(true)
 	interrupted_save.player.name = "Recovered browser hero"
 	var primary_file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
