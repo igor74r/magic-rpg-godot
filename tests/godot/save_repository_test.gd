@@ -75,6 +75,11 @@ func _run() -> void:
 	var integral_float_version := SaveRepo.migrate_payload({"version":17.0,"player":{"name":"Integral float version","level":1}})
 	if int(integral_float_version.get("version", -1)) != 18:
 		failures.append("legacy migration must accept integral numeric versions like browser Number()")
+	var empty_string_version := SaveRepo.migrate_payload({"version":"","player":{"name":"Empty string version","level":1}})
+	var whitespace_version := SaveRepo.migrate_payload({"version":"  ","player":{"name":"Whitespace version","level":1}})
+	var null_version := SaveRepo.migrate_payload({"version":null,"player":{"name":"Null version","level":1}})
+	if int(empty_string_version.get("version", -1)) != 18 or int(whitespace_version.get("version", -1)) != 18 or int(null_version.get("version", -1)) != 18:
+		failures.append("legacy migration must treat empty, whitespace, and null versions as browser Number() zero")
 	if not SaveRepo.migrate_payload({"version":"eighteen","player":{"name":"Invalid string version"}}).is_empty():
 		failures.append("legacy migration must reject non-numeric version strings")
 	if not SaveRepo.migrate_payload({"version":true,"player":{"name":"Boolean version"}}).is_empty():
