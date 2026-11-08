@@ -289,10 +289,8 @@ static func buy_item(world: Dictionary, item_id: String) -> Dictionary:
  var item := CatalogItem.get_item(item_id)
  var price := get_buy_price(world, item_id)
  if price <= 0: return {"ok":false,"message":"Этот предмет нельзя купить у торговца."}
- var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
- var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
- var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
- var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ # Use the canonical browser-compatible reputation normalization and thresholds.
+ var discount := FactionEngine.get_trade_discount(world)
  var balance := int(hero.get("gold", 0))
  if balance < 0 or balance < price: return {"ok":false,"message":"Недостаточно золота: нужно %d." % price}
  var capacity := _can_add_item(hero, item_id, 1)
