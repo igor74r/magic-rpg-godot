@@ -38,6 +38,9 @@ static func persistent_id(enemy_id: String, is_boss: bool, occurrence: int = 1, 
 		return "boss-%s%s" % [enemy_id, "" if safe_occurrence == 1 else "-%d" % safe_occurrence]
 	return "enemy-%d" % maxi(0, spawn_index)
 
+static func persistent_id_for_spawn(enemy_id: String, is_boss: bool, occurrence: int, spawn_index: int) -> String:
+	return persistent_id(enemy_id, is_boss, occurrence, spawn_index)
+
 static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal", ng_plus: int = 0) -> Array:
 	if Catalog.is_safe(region_id) or grid.is_empty():
 		return []
@@ -82,7 +85,7 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 		var hp := int(round(float(definition.hp) * (ELITE_HP_MULT if elite else 1.0) * float(modifier.get("hpMult", 1.0)) * (1.0 + 0.5 * ng)))
 		var attack := int(round(float(definition.attack) * (ELITE_ATTACK_MULT if elite else 1.0) * float(modifier.get("atkMult", 1.0)) * (1.0 + 0.3 * ng)))
 		var defense := int(round(float(definition.defense) * float(modifier.get("defMult", 1.0))))
-		var persistent_id := "boss-%s%s" % [enemy_id, "" if occurrence <= 1 else "-%d" % occurrence] if is_boss else "enemy-%d" % index
+		var persistent_id := persistent_id_for_spawn(enemy_id, is_boss, occurrence, index)
 		enemies.append({
 			"id": index, "persistentId": persistent_id, "enemyId": enemy_id,
 			"name": definition.name, "emoji": definition.emoji,
