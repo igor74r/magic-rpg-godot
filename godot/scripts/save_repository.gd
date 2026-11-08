@@ -40,6 +40,12 @@ static func load_slot(slot: int) -> Dictionary:
 static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var migrated: Dictionary = payload.duplicate(true)
 	var version := int(migrated.get("version", -1))
+	var hero_key := "player" if migrated.get("player", null) is Dictionary else "hero"
+	var hero_value: Variant = migrated.get(hero_key, null)
+	# A version marker alone is not a save. Reject payloads without a valid
+	# hero record instead of silently upgrading malformed/empty data.
+	if not hero_value is Dictionary:
+		return {}
 	if version == SAVE_VERSION:
 		return migrated
 	if version != PREVIOUS_SAVE_VERSION:
@@ -47,16 +53,13 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	# v17 already stores the full hero/world payload. v18 adds optional
 	# progression fields; preserve all existing fields and initialize only
 	# missing containers so old campaign progress is never discarded.
-	var hero_value: Variant = migrated.get("player", migrated.get("hero", {}))
-	if hero_value is Dictionary:
-		var hero: Dictionary = hero_value
-		if not hero.get("campaignKills", {}) is Dictionary: hero["campaignKills"] = {}
-		if not hero.get("campaignClaimed", {}) is Dictionary: hero["campaignClaimed"] = {}
-		if not hero.get("storyShards", {}) is Dictionary: hero["storyShards"] = {}
-		if not hero.get("riftClearedLocations", []) is Array: hero["riftClearedLocations"] = []
-		if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
-		if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
-		if migrated.has("player"): migrated["player"] = hero
-		else: migrated["hero"] = hero
+	var hero: Dictionary = hero_value
+	if not hero.get("campaignKills", {}) is Dictionary: hero["campaignKills"] = {}
+	if not hero.get("campaignClaimed", {}) is Dictionary: hero["campaignClaimed"] = {}
+	if not hero.get("storyShards", {}) is Dictionary: hero["storyShards"] = {}
+	if not hero.get("riftClearedLocations", []) is Array: hero["riftClearedLocations"] = []
+	if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
+	if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
+	migrated[hero_key] = hero
 	migrated["version"] = SAVE_VERSION
 	return migrated

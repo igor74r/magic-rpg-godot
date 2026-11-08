@@ -30,6 +30,15 @@ func _run() -> void:
 		failures.append("v17 migration must initialize missing progression containers")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
 		failures.append("unsupported v16 payload must not be migrated blindly")
+	if not SaveRepo.migrate_payload({"version":17,"worldSeed":9876}).is_empty():
+		failures.append("v17 payload without a hero record must be rejected")
+	if not SaveRepo.migrate_payload({"version":17,"player":"corrupt"}).is_empty():
+		failures.append("v17 payload with a malformed player record must be rejected")
+	if not SaveRepo.migrate_payload({"version":18,"player":null}).is_empty():
+		failures.append("v18 payload without a valid player record must be rejected")
+	var hero_alias := SaveRepo.migrate_payload({"version":17,"hero":{"name":"Legacy alias","level":9}})
+	if int(hero_alias.get("version",-1)) != 18 or hero_alias.get("hero",{}).get("name","") != "Legacy alias":
+		failures.append("v17 hero alias must migrate without renaming or losing its data")
 
 	var payload := {
 		"version": 18,
