@@ -13,6 +13,25 @@ const EncounterGenerator = preload("res://godot/scripts/world_encounter_generato
 const FORGE_BONUS := [0, 2, 4, 7]
 const MAGIC_WEAK_ENEMIES := ["skeleton", "skeleton-archer", "dark-knight", "magma-golem", "grave-king"]
 const MAGIC_RESIST_ENEMIES := ["ghost", "wraith", "shadow-mage"]
+const PHYSICAL_WEAK_ENEMIES := ["ghost", "wraith", "shadow-mage", "fire-elemental", "flame-lord"]
+const PHYSICAL_RESIST_ENEMIES := ["magma-golem", "dark-knight", "grave-king"]
+
+static func enemy_damage_multiplier(enemy: Dictionary, style: String) -> float:
+	var enemy_id := str(enemy.get("enemyId", ""))
+	if enemy_id.is_empty() or not ["melee", "ranged", "magic"].has(style):
+		return 1.0
+	var physical := style == "melee" or style == "ranged"
+	var weak := (PHYSICAL_WEAK_ENEMIES if physical else MAGIC_WEAK_ENEMIES).has(enemy_id)
+	var resistant := (PHYSICAL_RESIST_ENEMIES if physical else MAGIC_RESIST_ENEMIES).has(enemy_id)
+	if weak and resistant:
+		return 1.0
+	return 1.25 if weak else (0.8 if resistant else 1.0)
+
+
+static func enemy_defense_for_style(enemy: Dictionary, armor_pen: float = 0.0) -> int:
+	var penetration := clampf(armor_pen * 0.025, 0.0, 0.75)
+	return maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - armor_pen * 0.5)))
+
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -136,8 +155,8 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-	var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult"))))
+	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)))
+	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, "melee")))
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
 	var crit_chance := critical_chance(hero, cat_luck_bonus)
 	var attack_index := int(combat.get("playerAttackCount", 0))
@@ -470,9 +489,10 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 				apply_effect(enemy, "poison")
 			elif kind == "stun":
 				apply_effect(enemy, "stun")
-		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
+		var ability_style := "magic" if kind == "meteor" else "melee"
+		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)))
 		var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
-		damage = maxi(1, int(round(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier)))
+		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 		var lines := ["%s: %d урона." % [str(ability.name), damage]]
 		lines.append_array(_update_boss_phase(enemy))
@@ -533,11 +553,9 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		lines.append("Защита усилена на 2 хода.")
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-		var armor_pen := maxi(0, int(passive_bonus.get("armorPen", 0)))
-		var penetration := minf(0.75, float(armor_pen) * 0.025)
-		var enemy_armor := maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - float(armor_pen) * 0.5)))
-		var enemy_id := str(enemy.get("enemyId", ""))
-		var matchup_multiplier := 1.25 if MAGIC_WEAK_ENEMIES.has(enemy_id) else (0.8 if MAGIC_RESIST_ENEMIES.has(enemy_id) else 1.0)
+		var armor_pen := float(passive_bonus.get("armorPen", 0))
+		var enemy_armor := enemy_defense_for_style(enemy, armor_pen)
+		var matchup_multiplier := enemy_damage_multiplier(enemy, "magic")
 		var raw_damage := int(spell.get("damage", 0)) + int(floor(float(effective_stat(hero, "magic")) / 2.0)) - int(floor(float(enemy_armor) / 2.0))
 		var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)) * matchup_multiplier)))
 		var element := str(spell.get("element", ""))
