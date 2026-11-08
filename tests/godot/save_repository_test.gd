@@ -50,6 +50,39 @@ func _run() -> void:
 	if int(hero_alias.get("version",-1)) != 18 or hero_alias.get("hero",{}).get("name","") != "Legacy alias":
 		failures.append("v17 hero alias must migrate without renaming or losing its data")
 
+
+	var browser_payload := {
+		"version": 18,
+		"worldSeed": 123456,
+		"worldGeneratorVersion": 1,
+		"player": {
+			"name": "Browser fixture", "class": "mage", "level": 12, "ngPlus": 0, "gold": 250,
+			"hp": 80, "maxHp": 100, "mp": 40, "maxMp": 60,
+			"str": 5, "int": 20, "wis": 12, "con": 8, "dex": 10, "luck": 10.5,
+			"exp": 120, "statPoints": 2, "passivePoints": 3,
+			"inventory": [{"id": "health-potion", "qty": 2}], "spells": ["fireball"],
+			"equipped": {}, "stats": {"kills": {}}, "campaignKills": {},
+			"campaignClaimed": {}, "activeCampaignByBranch": {}, "activeCampaignMission": null
+		},
+		"storyShards": {}, "storyDragons": {},
+		"world": {"seed": 123456, "generatorVersion": 1, "discoveredRegions": ["village"], "unlockedRoutes": []},
+		"factions": {"reputation": {}, "changeLog": []}
+	}
+	if not SaveRepo.is_browser_v18_payload(browser_payload):
+		failures.append("complete browser v18 contract fixture must be accepted")
+	var incomplete_browser_payload := browser_payload.duplicate(true)
+	incomplete_browser_payload.world.erase("unlockedRoutes")
+	if SaveRepo.is_browser_v18_payload(incomplete_browser_payload):
+		failures.append("browser v18 payload missing world routes must be rejected")
+	var fractional_browser_version := browser_payload.duplicate(true)
+	fractional_browser_version.version = 18.5
+	if SaveRepo.is_browser_v18_payload(fractional_browser_version):
+		failures.append("browser v18 contract must reject fractional versions")
+	var invalid_browser_item := browser_payload.duplicate(true)
+	invalid_browser_item.player.inventory = [{"qty": 0}]
+	if SaveRepo.is_browser_v18_payload(invalid_browser_item):
+		failures.append("browser v18 contract must reject inventory entries without valid ids")
+
 	var payload := {
 		"version": 18,
 		"player": {"name": "Godot CI fixture", "level": 1},
