@@ -5,6 +5,28 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	# Browser parity: well cooldown is stored in hero.stats in milliseconds
+	# and becomes available only after strictly more than 24 hours.
+	var well_world := WorldState.create(20261127)
+	well_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":0,"inventory":[],"stats":{"lastWellUse":1000000}}
+	var exact_cooldown := Npc.use_well(well_world, 1000000 + 86400000)
+	if bool(exact_cooldown.get("ok", true)) or int(well_world.hero.hp) != 10:
+		failures.append("well must remain unavailable at exactly 24 hours, matching the browser's strict greater-than cooldown")
+	var elapsed_cooldown := Npc.use_well(well_world, 1000000 + 86400001)
+	if not bool(elapsed_cooldown.get("ok", false)) or int(well_world.hero.hp) != 100 or int(well_world.hero.mp) != 50:
+		failures.append("well must restore mage health and mana after more than 24 hours")
+	if int(well_world.hero.stats.get("lastWellUse", 0)) != 87400001 or well_world.hero.has("lastWellUse"):
+		failures.append("well use must persist the browser-compatible stats.lastWellUse millisecond timestamp")
+	var legacy_well_world := WorldState.create(20261128)
+	legacy_well_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":0,"inventory":[],"lastWellUse":1000}
+	var legacy_cooldown := Npc.use_well(legacy_well_world, 1000 * 1000 + 86400000)
+	if bool(legacy_cooldown.get("ok", true)):
+		failures.append("legacy native seconds cooldown must be read during migration without granting an early well use")
+	var warrior_well_world := WorldState.create(20261129)
+	warrior_well_world["hero"] = {"level":1,"class":"warrior","hp":10,"maxHp":100,"mp":0,"maxMp":50,"gold":0,"inventory":[],"stats":{}}
+	var warrior_well := Npc.use_well(warrior_well_world, 90000001)
+	if not bool(warrior_well.get("ok", false)) or int(warrior_well_world.hero.hp) != 100 or int(warrior_well_world.hero.mp) != 0:
+		failures.append("well must preserve warrior rage instead of restoring mana")
 	var world := WorldState.create(20261108)
 	world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
 	var crafted := Npc.craft(world,"r-briar-court-mantle","blacksmith")
