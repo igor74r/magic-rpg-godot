@@ -10,6 +10,7 @@ const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const WorldTowerEngine = preload("res://godot/scripts/world_tower_engine.gd")
 const AchievementEngine = preload("res://godot/scripts/world_achievement_engine.gd")
 const DailyQuestEngine = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -40,6 +41,7 @@ static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
 		"regionVisits": {"village": 1},
 		"regions": {},
 		"factionCampaigns": {},
+		"factions": FactionEngine.create_state(),
 		"events": {
 			"active": [],
 			"cooldowns": {},
@@ -192,6 +194,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		world["riftRun"] = run_value.duplicate(true) if run_value is Dictionary else {}
 	if not world.get("factionCampaigns", {}) is Dictionary:
 		world["factionCampaigns"] = {}
+	FactionEngine.ensure_state(world)
 	if not world.get("events", {}) is Dictionary:
 		world["events"] = defaults.events.duplicate(true)
 	var events: Dictionary = world["events"]

@@ -28,7 +28,7 @@ jobs:
       - name: Test native achievement rules and rewards
         run: godot --headless --path . --script res://tests/godot/world_achievement_engine_test.gd
 
-      - name: Test save repository contract
+      - name: Test chronicles archive content\n        run: godot --headless --path . --script res://tests/godot/world_chronicles_catalog_test.gd\n\n      - name: Test faction reputation and bonuses\n        run: godot --headless --path . --script res://tests/godot/world_faction_engine_test.gd\n\n      - name: Test save repository contract
         run: godot --headless --path . --script res://tests/godot/save_repository_test.gd
 
       - name: Test canonical world graph

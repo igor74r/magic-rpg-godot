@@ -13,6 +13,8 @@ const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd
 const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
 const AchievementEngineScript = preload("res://godot/scripts/world_achievement_engine.gd")
+const ChroniclesCatalogScript = preload("res://godot/scripts/world_chronicles_catalog.gd")
+const FactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
 const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
 const RiftEngineScript = preload("res://godot/scripts/world_rift_engine.gd")
 const TowerEngineScript = preload("res://godot/scripts/world_tower_engine.gd")
@@ -33,6 +35,8 @@ var combat_container: VBoxContainer
 var inventory_container: VBoxContainer
 var passives_container: VBoxContainer
 var achievements_container: VBoxContainer
+var chronicles_container: VBoxContainer
+var factions_container: VBoxContainer
 var daily_quests_container: VBoxContainer
 var campaign_container: VBoxContainer
 var rift_container: VBoxContainer
@@ -97,6 +101,20 @@ func _build_exploration_ui() -> void:
 	achievements_container = VBoxContainer.new()
 	achievements_container.add_theme_constant_override("separation", 3)
 	_insert_before_spacer(achievements_container)
+	var chronicles_title := Label.new()
+	chronicles_title.text = "ХРОНИКИ РАСКОЛОТОЙ ЗАРИ"
+	chronicles_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(chronicles_title)
+	chronicles_container = VBoxContainer.new()
+	chronicles_container.add_theme_constant_override("separation", 8)
+	_insert_before_spacer(chronicles_container)
+	var factions_title := Label.new()
+	factions_title.text = "РЕПУТАЦИЯ ФРАКЦИЙ"
+	factions_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(factions_title)
+	factions_container = VBoxContainer.new()
+	factions_container.add_theme_constant_override("separation", 5)
+	_insert_before_spacer(factions_container)
 	var passives_title := Label.new()
 	passives_title.text = "ДРЕВО ПАССИВНЫХ НАВЫКОВ"
 	passives_title.add_theme_font_size_override("font_size", 16)
@@ -249,6 +267,8 @@ func _refresh_exploration() -> void:
 	
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	_refresh_inventory()
+	_refresh_chronicles()
+	_refresh_factions()
 	for child in routes_container.get_children():
 		child.queue_free()
 	var exits := WorldGraph.neighbors(current)
@@ -878,6 +898,63 @@ func _refresh_achievements() -> void:
 			row.modulate = Color(0.65, 0.9, 0.7)
 		achievements_container.add_child(row)
 
+
+
+func _refresh_chronicles() -> void:
+	for child in chronicles_container.get_children():
+		child.queue_free()
+	var intro := Label.new()
+	intro.text = "%s — %s" % [ChroniclesCatalogScript.TITLE, ChroniclesCatalogScript.SUBTITLE]
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chronicles_container.add_child(intro)
+	for chapter in ChroniclesCatalogScript.CHAPTERS:
+		var heading := Label.new()
+		heading.text = "ГЛАВА %s · %s · %s" % [str(chapter.id), str(chapter.title), str(chapter.period)]
+		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		heading.add_theme_font_size_override("font_size", 15)
+		chronicles_container.add_child(heading)
+		var summary := Label.new()
+		summary.text = str(chapter.summary)
+		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		chronicles_container.add_child(summary)
+		for entry in chapter.entries:
+			var note := Label.new()
+			note.text = "• %s: %s" % [str(entry.title), str(entry.text)]
+			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			chronicles_container.add_child(note)
+	var factions_heading := Label.new()
+	factions_heading.text = "Знамёна старого мира"
+	chronicles_container.add_child(factions_heading)
+	for faction in ChroniclesCatalogScript.LORE_FACTIONS:
+		var note := Label.new()
+		note.text = "%s %s — %s. %s" % [str(faction.symbol), str(faction.name), str(faction.tone), str(faction.text)]
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		chronicles_container.add_child(note)
+	var stories_heading := Label.new()
+	stories_heading.text = "Нити побочных историй"
+	chronicles_container.add_child(stories_heading)
+	for story in ChroniclesCatalogScript.SIDE_STORIES:
+		var note := Label.new()
+		note.text = "%s · %s — %s" % [str(story.place), str(story.title), str(story.hook)]
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		chronicles_container.add_child(note)
+
+
+func _refresh_factions() -> void:
+	for child in factions_container.get_children():
+		child.queue_free()
+	var state := FactionEngineScript.ensure_state(world)
+	for faction_id in FactionEngineScript.FACTIONS:
+		var faction: Dictionary = FactionEngineScript.FACTIONS[faction_id]
+		var reputation := int(state.reputation.get(faction_id, 0))
+		var row := Label.new()
+		row.text = "%s %s · %s · репутация %+d (%s)" % [str(faction.symbol), str(faction.name), str(faction.description), reputation, FactionEngineScript.get_rank(reputation)]
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		factions_container.add_child(row)
+	var benefit := Label.new()
+	benefit.text = "Бонусы: торговцы %d%% · стража %d%% снижения урона · кочевники %d%% добычи · культисты %d%% золота событий" % [roundi(FactionEngineScript.get_trade_discount(world) * 100.0), roundi(FactionEngineScript.get_damage_reduction(world) * 100.0), roundi(FactionEngineScript.get_loot_bonus(world) * 100.0), roundi(FactionEngineScript.get_event_gold_bonus(world, "rift-cult") * 100.0)]
+	benefit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	factions_container.add_child(benefit)
 
 
 func _refresh_passives() -> void:
