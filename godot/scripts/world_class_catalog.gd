@@ -42,8 +42,8 @@ const CLASSES := {
 }
 
 const SPELLS := {
-	"fireball":{"name":"Огненный шар","cost":15,"damage":25,"effect":"burn"},
-	"ice-bolt":{"name":"Ледяная стрела","cost":12,"damage":25,"effect":"slow"},
+	"fireball":{"name":"Огненный шар","cost":15,"damage":25,"element":"fire","effect":"burn"},
+	"ice-bolt":{"name":"Ледяная стрела","cost":12,"damage":25,"element":"ice","effect":"slow"},
 	"lightning":{"name":"Молния","cost":25,"damage":45,"element":"lightning"},
 	"poison-cloud":{"name":"Ядовитый туман","cost":20,"damage":15,"effect":"poison"},
 	"poison-arrow":{"name":"Ядовитая стрела","cost":10,"damage":15,"effect":"poison"},
