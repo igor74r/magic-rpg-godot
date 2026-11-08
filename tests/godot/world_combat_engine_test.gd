@@ -238,6 +238,27 @@ func _initialize() -> void:
 	var physical_resist_result := Combat.player_attack(physical_resist_world, physical_resist_fight)
 	if not physical_resist_result.ok or 1000 - int(physical_resist_enemy.hp) != int(floor(float(physical_base_damage) * 0.8)):
 		failures.append("physical resistance must reduce melee damage by the browser multiplier")
+	# Adaptive enemy AI: three recent player actions with a 2-of-3 style majority
+	# cause a temporary defense counter on the enemy's next turn.
+	var adaptive_enemy := {"enemyId":"goblin","defense":20,"boss":false}
+	var adaptive_combat := {"playerStyleHistory":["melee","magic","melee"]}
+	var adaptation_message := Combat.prepare_enemy_adaptation(adaptive_combat, adaptive_enemy)
+	if adaptation_message.is_empty() or adaptive_enemy.get("adaptiveCounter", {}).get("style", "") != "melee" or int(adaptive_enemy.adaptiveCounter.remaining) != 1:
+		failures.append("regular enemies must adapt to a repeated player attack style")
+	if Combat.enemy_defense_for_style(adaptive_enemy, 0.0, "melee") != 24 or Combat.enemy_defense_for_style(adaptive_enemy, 0.0, "magic") != 20:
+		failures.append("adaptive defense must only mitigate the style the enemy learned")
+	if not Combat.consume_enemy_adaptation(adaptive_enemy, "melee") or adaptive_enemy.get("adaptiveCounter", null) != null:
+		failures.append("regular enemy adaptation must be consumed by one matching attack")
+	var adaptive_boss := {"enemyId":"grave-king","defense":20,"boss":true}
+	var adaptive_boss_combat := {"playerStyleHistory":["ranged","ranged","magic"]}
+	if Combat.prepare_enemy_adaptation(adaptive_boss_combat, adaptive_boss).is_empty() or int(adaptive_boss.adaptiveCounter.remaining) != 2:
+		failures.append("bosses must retain a weaker adaptive counter for two matching attacks")
+	if Combat.enemy_defense_for_style(adaptive_boss, 0.0, "ranged") != 22 or not Combat.consume_enemy_adaptation(adaptive_boss, "ranged") or int(adaptive_boss.adaptiveCounter.remaining) != 1:
+		failures.append("boss adaptive defense must use the reduced multiplier and two-charge duration")
+	var mixed_adaptive_combat := {"playerStyleHistory":["melee","ranged","magic"]}
+	var mixed_adaptive_enemy := {"enemyId":"goblin","defense":20,"boss":false}
+	if not Combat.prepare_enemy_adaptation(mixed_adaptive_combat, mixed_adaptive_enemy).is_empty():
+		failures.append("enemy adaptation must not trigger without a repeated style majority")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
