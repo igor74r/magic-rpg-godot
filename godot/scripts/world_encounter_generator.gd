@@ -32,6 +32,10 @@ static func base_drop_chance(difficulty: String, elite: bool = false) -> float:
 		return 0.85
 	return 0.70 if difficulty == "easy" else 0.30 if difficulty == "hard" else 0.50
 
+static func ambient_gold_reward(base_gold: int, is_elite: bool = false) -> int:
+	var multiplier := 2.0 if is_elite else 1.0
+	return maxi(0, int(round(float(maxi(0, base_gold)) * 0.15 * multiplier)))
+
 static func herb_drop_chance(is_boss: bool = false, is_elite: bool = false) -> float:
 	if is_boss:
 		return 0.875
