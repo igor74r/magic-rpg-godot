@@ -57,7 +57,7 @@ static func generate_map(region_id: String, cols: int, rows: int, world_seed: in
 	return grid
 
 
-static func wandering_merchant_cell(region_id: String, cols: int, rows: int, world_seed: int, generator_version: int = 1, visit_index: int = 0) -> Vector2i:
+static func wandering_merchant_cell(region_id: String, cols: int, rows: int, world_seed: int, generator_version: int = 1, visit_index: int = 0, map_grid: Array = []) -> Vector2i:
 	if cols < 7 or rows < 7 or region_id in ["village", "rift", "obsidian-fields", "frost-citadel", "dragon-lair"] or region_id.begins_with("tower-floor-"):
 		return Vector2i(-1, -1)
 	if WorldRegionCatalog.is_safe(region_id):
@@ -66,7 +66,36 @@ static func wandering_merchant_cell(region_id: String, cols: int, rows: int, wor
 	var rng := WorldRandomScript.new(seed_value)
 	if rng.next_float() >= 0.16:
 		return Vector2i(-1, -1)
-	return Vector2i(3 + rng.next_int(maxi(1, cols - 6)), 3 + rng.next_int(maxi(1, rows - 6)))
+	var candidate := Vector2i(3 + rng.next_int(maxi(1, cols - 6)), 3 + rng.next_int(maxi(1, rows - 6)))
+	if map_grid.is_empty():
+		return candidate
+	# Keep the deterministic encounter roll and preferred cell, but never place
+	# an NPC inside a wall, prop, or hazard tile on the generated map.
+	if _merchant_cell_is_walkable(map_grid, candidate):
+		return candidate
+	var nearest := Vector2i(-1, -1)
+	var nearest_distance := 2147483647
+	for y in range(mini(rows, map_grid.size())):
+		if not map_grid[y] is Array:
+			continue
+		for x in range(mini(cols, map_grid[y].size())):
+			var cell := Vector2i(x, y)
+			if not _merchant_cell_is_walkable(map_grid, cell):
+				continue
+			var distance := (cell - candidate).length_squared()
+			if distance < nearest_distance:
+				nearest = cell
+				nearest_distance = distance
+	return nearest
+
+
+static func _merchant_cell_is_walkable(map_grid: Array, cell: Vector2i) -> bool:
+	if cell.y < 0 or cell.y >= map_grid.size() or not map_grid[cell.y] is Array:
+		return false
+	var row: Array = map_grid[cell.y]
+	if cell.x < 0 or cell.x >= row.size():
+		return false
+	return int(row[cell.x]) in [TILE_GROUND, TILE_ROAD]
 
 
 static func _generate_village(grid: Array, cols: int, rows: int) -> Array:

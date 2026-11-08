@@ -43,6 +43,20 @@ func _run() -> void:
 		failures.append("wandering merchant spawn must match the deterministic browser-compatible seed vector")
 	if Generator.wandering_merchant_cell("forest", 40, 30, 3, 1, 1) != merchant_spawn:
 		failures.append("wandering merchant placement must be deterministic for the same save and visit")
+	var merchant_map := Generator.generate_map("forest", 40, 30, 3, 1, 1)
+	var safe_merchant_spawn := Generator.wandering_merchant_cell("forest", 40, 30, 3, 1, 1, merchant_map)
+	if safe_merchant_spawn != merchant_spawn or Generator.is_blocked(merchant_map, safe_merchant_spawn.x, safe_merchant_spawn.y):
+		failures.append("merchant must retain its preferred deterministic cell when walkable and never spawn on blocked terrain")
+	var blocked_merchant_map: Array = []
+	for _row in range(10):
+		var blocked_row: Array[int] = []
+		blocked_row.resize(10)
+		blocked_row.fill(Generator.TILE_WALL)
+		blocked_merchant_map.append(blocked_row)
+	blocked_merchant_map[3][3] = Generator.TILE_GROUND
+	var relocated_merchant := Generator.wandering_merchant_cell("forest", 10, 10, 3, 1, 1, blocked_merchant_map)
+	if relocated_merchant != Vector2i(3, 3):
+		failures.append("merchant must relocate deterministically to the nearest walkable cell when its preferred cell is blocked")
 	if Generator.wandering_merchant_cell("forest", 40, 30, 1, 1, 1) != Vector2i(-1, -1):
 		failures.append("regions without a successful 16 percent encounter roll must not spawn a merchant")
 	for excluded_region in ["village", "rift", "obsidian-fields", "frost-citadel", "dragon-lair", "tower-floor-1"]:

@@ -739,9 +739,10 @@ func _refresh_map_npcs(region_id: String) -> void:
 			markers.append({"id":str(npc_id),"cell":locations[npc_id],"emoji":str(npc.get("emoji","✦")),"short":str(npc.get("name",npc_id)).split(" ")[0]})
 	else:
 		var visits: Dictionary=world.get("regionVisits",{})
+		var current_grid: Array = map_view.get("map_grid") if map_view.get("map_grid") is Array else []
 		wandering_merchant_cell = WorldMapGeneratorScript.wandering_merchant_cell(
 			region_id, 40, 30, int(world.get("seed",1)),
-			int(world.get("generatorVersion",1)), int(visits.get(region_id,1))
+			int(world.get("generatorVersion",1)), int(visits.get(region_id,1)), current_grid
 		)
 		if wandering_merchant_cell.x >= 0:
 			markers.append({"id":"wandering-merchant","cell":wandering_merchant_cell,"emoji":"🧳","short":"Торговец"})
