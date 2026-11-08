@@ -19,6 +19,25 @@ const MODIFIERS := {
 	"berserk": {"hpMult": 0.9, "atkMult": 1.25, "defMult": 1.0, "effect": ""}
 }
 
+static func elite_chance(difficulty: String, security_threat: int = 0) -> float:
+	var base := 0.15 if difficulty == "easy" else 0.35 if difficulty == "hard" else 0.20
+	return minf(0.5, base + float(clampi(security_threat, 0, 3)) * 0.05)
+
+static func respawn_minutes(difficulty: String) -> float:
+	var seconds := 15.0 if difficulty == "easy" else 60.0 if difficulty == "hard" else 30.0
+	return seconds / 60.0
+
+static func base_drop_chance(difficulty: String, elite: bool = false) -> float:
+	if elite:
+		return 0.85
+	return 0.70 if difficulty == "easy" else 0.30 if difficulty == "hard" else 0.50
+
+static func persistent_id(enemy_id: String, is_boss: bool, occurrence: int = 1, spawn_index: int = 0) -> String:
+	if is_boss:
+		var safe_occurrence := maxi(1, occurrence)
+		return "boss-%s%s" % [enemy_id, "" if safe_occurrence == 1 else "-%d" % safe_occurrence]
+	return "enemy-%d" % maxi(0, spawn_index)
+
 static func generate(region_id: String, grid: Array, world_seed: int, generator_version: int = 1, visit_index: int = 1, player_cell: Vector2i = Vector2i(20, 15), security_threat: int = 0, difficulty: String = "normal", ng_plus: int = 0) -> Array:
 	if Catalog.is_safe(region_id) or grid.is_empty():
 		return []
