@@ -52,6 +52,35 @@ func _initialize() -> void:
 	Combat.player_attack(world, boss_fight)
 	if not world.regions.forest.defeatedBosses.has("boss-test"):
 		failures.append("boss victory must be persisted permanently")
+	# Browser parity: class critical chance and catLuck affect real attack damage.
+	var crit_hero := {"class":"warrior","level":1,"exp":0,"gold":0,"hp":170,"maxHp":170,"mp":0,"maxMp":100,"str":22,"con":16,"inventory":[],"equipped":{},"buffs":[],"effects":[],"passives":["start"],"talents":[]}
+	var base_crit := Combat.critical_chance(crit_hero)
+	crit_hero["buffs"] = [{"id":"catLuck","duration":1}]
+	var cat_crit := Combat.critical_chance(crit_hero, 0.05)
+	if not is_equal_approx(base_crit, 0.08) or not is_equal_approx(cat_crit, 0.13):
+		failures.append("warrior critical chance must match browser base and receive the cat's five-point bonus")
+	var crit_seed := 1
+	var found_cat_roll := false
+	for candidate_seed in range(1, 100000):
+		var candidate_rng := preload("res://godot/scripts/world_random.gd").new(preload("res://godot/scripts/world_random.gd").derive_seed([candidate_seed, "combat-crit", "cat-crit-test", 0]))
+		var candidate_roll := candidate_rng.next_float()
+		if candidate_roll >= base_crit and candidate_roll < cat_crit:
+			crit_seed = candidate_seed
+			found_cat_roll = true
+			break
+	if not found_cat_roll:
+		failures.append("test seed search must find a deterministic roll inside the cat-only critical chance interval")
+	else:
+		var cat_combat_world := WorldState.create(crit_seed)
+		cat_combat_world["hero"] = crit_hero.duplicate(true)
+		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
+		var cat_fight := Combat.begin(cat_enemy)
+		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack")
+		Combat.player_attack(cat_combat_world, cat_fight)
+		if int(cat_enemy.hp) != 1000 - int(floor(float(cat_base_damage) * 1.5)):
+			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
+		if not cat_combat_world.hero.buffs.is_empty():
+			failures.append("catLuck must be consumed after victorious combat")
 	var guarded_world := WorldState.create(9912)
 	guarded_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
 	var guarded_hero := Combat.ensure_hero(guarded_world)
