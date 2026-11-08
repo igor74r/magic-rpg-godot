@@ -517,14 +517,10 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 				combat["turn"] = "over"
 				lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
 			else:
+				_decrease_cooldowns(hero)
 				combat["turn"] = "player"
-			var cooldowns: Dictionary = hero.get("cooldowns", {})
-			for cooldown_id in cooldowns:
-				if int(cooldowns[cooldown_id]) > 0:
-					cooldowns[cooldown_id] = int(cooldowns[cooldown_id]) - 1
-			hero["cooldowns"] = cooldowns
-			enemy["turnCount"] = int(enemy.get("turnCount", 0)) + 1
-			combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
+				enemy["turnCount"] = int(enemy.get("turnCount", 0)) + 1
+				combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
 		combat["blocking"] = false
 		combat["enemy"] = enemy
 		world["hero"] = hero
@@ -571,7 +567,9 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 		combat["turn"] = "over"
 		lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
 	else:
+		_decrease_cooldowns(hero)
 		combat["turn"] = "player"
+		combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
 	combat["enemy"] = enemy
 	world["hero"] = hero
 
@@ -805,6 +803,13 @@ static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming:
 			enemy["hp"] = int(enemy.get("hp", 0)) + maxi(0, healed)
 			return "Враг восстанавливает %d HP." % healed if healed > 0 else ""
 	return ""
+
+
+static func _decrease_cooldowns(hero: Dictionary) -> void:
+	var cooldowns: Dictionary = hero.get("cooldowns", {}) if hero.get("cooldowns", {}) is Dictionary else {}
+	for cooldown_id in cooldowns.keys():
+		cooldowns[cooldown_id] = maxi(0, int(cooldowns.get(cooldown_id, 0)) - 1)
+	hero["cooldowns"] = cooldowns
 
 
 static func _has_effect(target: Dictionary, effect_id: String) -> bool:

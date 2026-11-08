@@ -585,6 +585,16 @@ func _initialize() -> void:
 	Combat._resolve_enemy_response(stun_tick_world,stun_tick_fight,stun_tick_world.hero,stun_tick_enemy,stun_tick_lines)
 	if int(stun_tick_world.hero.hp) != 95 or int(stun_tick_world.hero.cooldowns["shield-bash"]) != 1 or int(stun_tick_enemy.hp) != 92 or int(stun_tick_enemy.effects[0].duration) != 1 or int(stun_tick_enemy.turnCount) != 1:
 		failures.append("stunned enemy turns must tick both sides' effects, reduce player cooldowns, and advance turn counters")
+	# Normal enemy turns must also decrement cooldowns and advance the shared turn counter.
+	var normal_tick_world := WorldState.create(1111)
+	normal_tick_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{"shield-bash":2}}
+	var normal_tick_enemy := {"name":"Обычный враг","enemyId":"goblin","persistentId":"normal-tick-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":11}
+	var normal_tick_fight := Combat.begin(normal_tick_enemy)
+	normal_tick_fight["turn"] = "enemy"
+	var normal_tick_lines: Array[String] = []
+	Combat._resolve_enemy_response(normal_tick_world,normal_tick_fight,normal_tick_world.hero,normal_tick_enemy,normal_tick_lines)
+	if int(normal_tick_world.hero.cooldowns["shield-bash"]) != 1 or int(normal_tick_fight.get("turnCount", -1)) != 1 or normal_tick_fight.turn != "player":
+		failures.append("normal enemy turns must decrement ability cooldowns and advance the shared turn counter")
 	var nova_world := WorldState.create(1109)
 	nova_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["frost-nova"],"buffs":[],"effects":[],"cooldowns":{}}
 	var nova_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-spell-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":9}
