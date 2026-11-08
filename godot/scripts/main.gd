@@ -31,6 +31,7 @@ var encounters_container: VBoxContainer
 var combat_container: VBoxContainer
 var inventory_container: VBoxContainer
 var passives_container: VBoxContainer
+var achievements_container: VBoxContainer
 var daily_quests_container: VBoxContainer
 var campaign_container: VBoxContainer
 var rift_container: VBoxContainer
@@ -88,6 +89,13 @@ func _build_exploration_ui() -> void:
 	inventory_container = VBoxContainer.new()
 	inventory_container.add_theme_constant_override("separation", 4)
 	_insert_before_spacer(inventory_container)
+	var achievements_title := Label.new()
+	achievements_title.text = "ДОСТИЖЕНИЯ"
+	achievements_title.add_theme_font_size_override("font_size", 16)
+	_insert_before_spacer(achievements_title)
+	achievements_container = VBoxContainer.new()
+	achievements_container.add_theme_constant_override("separation", 3)
+	_insert_before_spacer(achievements_container)
 	var passives_title := Label.new()
 	passives_title.text = "ДРЕВО ПАССИВНЫХ НАВЫКОВ"
 	passives_title.add_theme_font_size_override("font_size", 16)
@@ -354,6 +362,7 @@ func _refresh_inventory() -> void:
 	_refresh_tower()
 	_refresh_npcs()
 	_refresh_passives()
+	_refresh_achievements()
 
 
 
@@ -843,6 +852,31 @@ func _upgrade_npc_equipment(slot: String) -> void:
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_inventory()
 	_show_npc_forge()
+
+
+func _refresh_achievements() -> void:
+	for child in achievements_container.get_children():
+		child.queue_free()
+	var hero := CombatEngineScript.ensure_hero(world)
+	var unlocked: Array = hero.get("achievements", []) if hero.get("achievements", []) is Array else []
+	var count := AchievementEngineScript.unlocked_count(hero)
+	var heading := Label.new()
+	heading.text = "Открыто: %d / %d" % [count, AchievementEngineScript.DEFINITIONS.size()]
+	achievements_container.add_child(heading)
+	for definition in AchievementEngineScript.DEFINITIONS:
+		var id := str(definition.get("id", ""))
+		var progress: Dictionary = AchievementEngineScript.get_progress(world, definition)
+		var is_unlocked := unlocked.has(id)
+		var icon := str(AchievementEngineScript.ICONS.get(id, "🏅"))
+		var reward := int(definition.get("reward", 0))
+		var row := Label.new()
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var state_text := "✓ получено" if is_unlocked else "%d/%d" % [int(progress.current), int(progress.target)]
+		row.text = "%s %s — %s · %s · награда %d золота" % [icon, str(definition.get("name", id)), str(definition.get("desc", "")), state_text, reward]
+		if is_unlocked:
+			row.modulate = Color(0.65, 0.9, 0.7)
+		achievements_container.add_child(row)
+
 
 
 func _refresh_passives() -> void:

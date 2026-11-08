@@ -39,6 +39,22 @@ func _run() -> void:
 	if overflow_unlocks.size() != 0 or overflow.hero.achievements.size() != 0:
 		failures.append("reward overflow must not grant an achievement without its reward")
 
+
+	var progress_world := {"hero":{"level":4,"gold":0,"stats":{"kills":{"goblin":6}}}}
+	var goblin_definition: Dictionary = {}
+	for definition in AchievementEngine.DEFINITIONS:
+		if str(definition.id) == "goblin-slayer":
+			goblin_definition = definition
+	var progress := AchievementEngine.get_progress(progress_world, goblin_definition)
+	if int(progress.get("current", -1)) != 6 or int(progress.get("target", -1)) != 10 or bool(progress.get("complete", true)):
+		failures.append("achievement progress view must expose accurate partial progress")
+	progress_world.hero.stats.kills.goblin = 10
+	progress = AchievementEngine.get_progress(progress_world, goblin_definition)
+	if int(progress.get("current", -1)) != 10 or not bool(progress.get("complete", false)):
+		failures.append("achievement progress must clamp at target and report completion")
+	if AchievementEngine.ICONS.size() != AchievementEngine.DEFINITIONS.size():
+		failures.append("every achievement must have a native UI icon")
+
 	if failures.is_empty():
 		print("PASS: native achievement conditions, one-time rewards and overflow safety")
 		quit(0)

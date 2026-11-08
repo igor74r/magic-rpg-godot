@@ -25,6 +25,27 @@ const DEFINITIONS := [
 ]
 
 
+const ICONS := {
+	"first-blood":"🩸", "goblin-slayer":"👺", "skeleton-slayer":"💀",
+	"wolf-hunter":"🐺", "treasure-hunter":"📦", "rich":"💰",
+	"level-5":"⬆️", "level-10":"🌟", "shard-flame":"🔥", "shard-ice":"❄️",
+	"shard-blood":"🩸", "elite-slayer":"★", "boss-slayer":"☠️",
+	"daily-devotee":"🎁", "completionist":"🏆", "rift-10":"🌀",
+	"rift-25":"🌀", "rift-50":"🌀", "dragon-slayer":"🐲"
+}
+
+
+static func progress_value(world: Dictionary, definition: Dictionary) -> int:
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	return _progress(world, hero, definition)
+
+
+static func get_progress(world: Dictionary, definition: Dictionary) -> Dictionary:
+	var current := progress_value(world, definition)
+	var target := maxi(1, int(definition.get("target", 1)))
+	return {"current": mini(target, current), "target": target, "complete": current >= target}
+
+
 static func evaluate(world: Dictionary) -> Array:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
 	var unlocked: Array = hero.get("achievements", []) if hero.get("achievements", []) is Array else []
