@@ -122,6 +122,8 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
 		elif special_ready and special_type == "double":
 			incoming = maxi(1, int(floor(float(incoming) * 0.6))) * 2
+		var faction_reduction := FactionEngine.get_damage_reduction(world)
+		incoming = maxi(1, int(floor(float(incoming) * (1.0 - faction_reduction))))
 		hero["hp"] = maxi(0, int(hero.hp) - incoming)
 		lines.append("%s наносит вам %d урона." % [str(enemy.get("name", "Противник")), incoming])
 		if special_ready:

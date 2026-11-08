@@ -156,26 +156,54 @@ static func current_act(hero: Dictionary) -> int:
    var mission_id:=str(mission.get("id","a1-m1"))
    return clampi(int(mission_id.substr(1,1)),1,5)
  return 5
-static func buy_item(world: Dictionary,item_id: String) -> Dictionary:
- var hero:=hero_for(world)
- if not SHOP_STOCK.has(item_id): return {"ok":false,"message":"Этот предмет не продаётся у торговца."}
- var item:=CatalogItem.get_item(item_id)
- if item.is_empty() or str(item.get("type",""))=="quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return {"ok":false,"message":"Предмет нельзя купить."}
- var act:=current_act(hero)
- var multipliers: Array=[1.0,1.2,1.4,1.6,1.8]
- var faction_state: Dictionary=world.get("factions",{}) if world.get("factions",{}) is Dictionary else {}
- var reputation: Dictionary=faction_state.get("reputation",{}) if faction_state.get("reputation",{}) is Dictionary else {}
- var trader_reputation:=clampi(int(reputation.get("free-traders",0)),-100,100)
- var discount:=0.15 if trader_reputation>=90 else 0.10 if trader_reputation>=70 else 0.05 if trader_reputation>=30 else 0.0
- var base_price:=int(item.get("price",0))
- if base_price<=0: return {"ok":false,"message":"У предмета нет цены покупки."}
- var price:=maxi(1,int(round(float(base_price)*multipliers[act-1]*(1.0-discount))))
- var balance:=int(hero.get("gold",0))
- if balance<0 or balance<price: return {"ok":false,"message":"Недостаточно золота: нужно %d." % price}
- if not Combat.add_item(hero,item_id,1): return {"ok":false,"message":"Не удалось добавить предмет."}
- hero["gold"]=balance-price
- world["hero"]=hero
- return {"ok":true,"message":"Куплено: %s за %d золота." % [str(item.name),price],"price":price,"discount":discount}
+static func get_buy_price(world: Dictionary, item_id: String) -> int:
+ if not SHOP_STOCK.has(item_id): return 0
+ var item := CatalogItem.get_item(item_id)
+ if item.is_empty() or str(item.get("type","")) == "quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return 0
+ var hero := hero_for(world)
+ var multipliers: Array = [1.0, 1.2, 1.4, 1.6, 1.8]
+ var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
+ var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
+ var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
+ var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ var base_price := int(item.get("price", 0))
+ if base_price <= 0: return 0
+ return maxi(1, int(round(float(base_price) * multipliers[current_act(hero) - 1] * (1.0 - discount))))
+
+static func get_sell_price(world: Dictionary, instance: Dictionary) -> int:
+ var item := CatalogItem.get_item(str(instance.get("id", "")))
+ if item.is_empty() or str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(item.get("bossOnly", false)): return 0
+ var raw_qty: Variant = instance.get("qty", 1)
+ var stackable := str(item.get("type", "")) in ["consumable", "material", "rune", "scroll"]
+ var qty := int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
+ if stackable and (not raw_qty is int or qty < 1): return 0
+ if not stackable: qty = 1
+ var rarity := str(instance.get("rarity", "common"))
+ var rarity_prices: Dictionary = {"common":10, "uncommon":25, "rare":60, "epic":150, "legendary":400}
+ var rarity_multipliers: Dictionary = {"common":1.0, "uncommon":1.25, "rare":1.5, "epic":2.2, "legendary":3.5}
+ if rarity == "mythic": return 0
+ var base_price := int(rarity_prices.get(rarity, float(item.get("price", 0)) * float(rarity_multipliers.get(rarity, 1.0))))
+ if base_price <= 0: return 0
+ var multipliers: Array = [1.0, 1.2, 1.4, 1.6, 1.8]
+ var unit_price := maxi(1, int(floor(float(base_price) * multipliers[current_act(hero_for(world)) - 1] * 0.35)))
+ var price := unit_price * qty
+ return price if price > 0 and price <= 2147483647 else 0
+
+static func buy_item(world: Dictionary, item_id: String) -> Dictionary:
+ var hero := hero_for(world)
+ var item := CatalogItem.get_item(item_id)
+ var price := get_buy_price(world, item_id)
+ if price <= 0: return {"ok":false,"message":"Этот предмет нельзя купить у торговца."}
+ var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
+ var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
+ var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
+ var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ var balance := int(hero.get("gold", 0))
+ if balance < 0 or balance < price: return {"ok":false,"message":"Недостаточно золота: нужно %d." % price}
+ if not Combat.add_item(hero, item_id, 1): return {"ok":false,"message":"Не удалось добавить предмет."}
+ hero["gold"] = balance - price
+ world["hero"] = hero
+ return {"ok":true,"message":"Куплено: %s за %d золота." % [str(item.name), price], "price":price, "discount":discount}
 static func sell_item(world: Dictionary,index: int) -> Dictionary:
  var hero:=hero_for(world)
  var inventory: Array=hero.get("inventory",[])
@@ -183,21 +211,8 @@ static func sell_item(world: Dictionary,index: int) -> Dictionary:
  var instance: Dictionary=inventory[index]
  var item:=CatalogItem.get_item(str(instance.get("id","")))
  if item.is_empty() or str(item.get("type",""))=="quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return {"ok":false,"message":"Этот предмет нельзя продать."}
- var raw_qty: Variant=instance.get("qty",1)
- var stackable:=str(item.get("type","")) in ["consumable","material","rune","scroll"]
- var qty:=int(raw_qty) if raw_qty is int and int(raw_qty)>0 else 1
- if stackable and (not raw_qty is int or qty<1): return {"ok":false,"message":"Некорректное количество предмета."}
- if not stackable: qty=1
- var rarity:=str(instance.get("rarity","common"))
- var rarity_prices: Dictionary={"common":10,"uncommon":25,"rare":60,"epic":150,"legendary":400}
- var rarity_multipliers: Dictionary={"common":1.0,"uncommon":1.25,"rare":1.5,"epic":2.2,"legendary":3.5}
- if rarity=="mythic": return {"ok":false,"message":"Мифические предметы нельзя продать торговцу."}
- var base_price:=int(rarity_prices.get(rarity,float(item.get("price",0))*float(rarity_multipliers.get(rarity,1.0))))
- if base_price<=0: return {"ok":false,"message":"У предмета нет цены продажи."}
- var act:=current_act(hero)
- var act_multipliers: Array=[1.0,1.2,1.4,1.6,1.8]
- var unit_price:=maxi(1,int(floor(float(base_price)*act_multipliers[act-1]*0.35)))
- var price:=unit_price*qty
+ var price := get_sell_price(world, instance)
+ if price <= 0: return {"ok":false,"message":"Этот предмет нельзя продать или его цена некорректна."}
  var balance:=int(hero.get("gold",0))
  var stats: Dictionary=hero.get("stats",{}) if hero.get("stats",{}) is Dictionary else {}
  var earned:=int(stats.get("goldEarned",0))

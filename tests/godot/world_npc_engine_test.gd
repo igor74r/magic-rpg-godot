@@ -35,6 +35,18 @@ func _initialize() -> void:
 		failures.append("allied Free Traders must apply the 15 percent discount to act-scaled purchases")
 	if int(trader_world.hero.get("gold",0)) != 62:
 		failures.append("merchant purchase must debit the discounted price exactly once")
+	if Npc.get_buy_price(trader_world, "iron-sword") != int(bought.get("price", 0)):
+		failures.append("shop preview and purchase must share the same faction-adjusted price")
+	var preview_world := WorldState.create(20261114)
+	preview_world["hero"] = {"level":1,"gold":0,"inventory":[],"campaignClaimed":{},"equipped":{}}
+	preview_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
+	if Npc.get_buy_price(preview_world, "iron-sword") != 38:
+		failures.append("shop preview must include act scaling and allied trader discount")
+	var sale_preview := {"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}
+	if Npc.get_sell_price(sell_world, sale_preview) != 8:
+		failures.append("sale preview must include rarity and act multipliers")
+	if Npc.get_sell_price(sell_world, {"id":"old-archive-seal","qty":1}) != 0:
+		failures.append("quest items must not receive a sell preview price")
 	var sell_world := WorldState.create(20261111)
 	sell_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var sold := Npc.sell_item(sell_world,0)

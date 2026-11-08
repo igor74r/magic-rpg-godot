@@ -778,12 +778,11 @@ func _perform_npc_action(action: String) -> void:
 
 func _show_npc_shop() -> void:
 	var hero:=CombatEngineScript.ensure_hero(world)
-	var multipliers: Array=[1.0,1.2,1.4,1.6,1.8]
-	var multiplier: float=multipliers[NpcEngineScript.current_act(hero)-1]
 	for item_id in NpcEngineScript.SHOP_STOCK:
 		var item: Dictionary=WorldItemCatalogScript.get_item(str(item_id))
 		if item.is_empty(): continue
-		var price:=maxi(1,int(round(float(item.get("price",0))*multiplier)))
+		var price := NpcEngineScript.get_buy_price(world, str(item_id))
+		if price <= 0: continue
 		var button:=Button.new()
 		button.name="NpcAction"
 		button.text="%s %s · %d золота" % [str(item.get("icon","📦")),str(item.get("name",item_id)),price]
@@ -793,8 +792,8 @@ func _show_npc_shop() -> void:
 	for i in range(hero.inventory.size()):
 		var instance: Dictionary=hero.inventory[i]
 		var item:=WorldItemCatalogScript.get_item(str(instance.get("id","")))
-		if item.is_empty() or int(item.get("price",0))<=0: continue
-		var price:=maxi(1,int(floor(float(item.get("price",0))*0.35)))*int(instance.get("qty",1))
+		var price := NpcEngineScript.get_sell_price(world, instance)
+		if price <= 0: continue
 		var button:=Button.new()
 		button.name="NpcAction"
 		button.text="Продать: %s · %d золота" % [str(item.get("name",instance.id)),price]
