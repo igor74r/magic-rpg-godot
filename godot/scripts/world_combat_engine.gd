@@ -10,6 +10,7 @@ const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
 const EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const RandomScript = preload("res://godot/scripts/world_random.gd")
 const EncounterGenerator = preload("res://godot/scripts/world_encounter_generator.gd")
+const FORGE_BONUS := [0, 2, 4, 7]
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -662,9 +663,26 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 					if rune_bonus is Dictionary:
 						for key in rune_bonus:
 							bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
-		for key in bonus:
-			if str(key) == stat:
-				total += int(bonus[key])
+		if stat == "defense":
+			total += int(bonus.get("defense", bonus.get("armor", 0)))
+		elif stat == "attack":
+			total += int(bonus.get("attack", 0))
+		elif stat == "magic":
+			total += int(bonus.get("magic", 0))
+		elif stat == "dex":
+			total += int(bonus.get("dex", 0))
+		var forge_level := clampi(int(instance.get("forgeLevel", 0)) if instance is Dictionary else 0, 0, FORGE_BONUS.size() - 1)
+		var forge_bonus := int(FORGE_BONUS[forge_level])
+		if forge_bonus > 0:
+			if str(key) == "defense" and stat == "defense":
+				pass
+			if stat == "attack" and str(instance.get("id", "") if instance is Dictionary else instance) != "":
+				if not item.get("bonus", {}).has("magic"):
+					total += forge_bonus
+			elif stat == "magic" and item.get("bonus", {}).has("magic"):
+				total += forge_bonus
+			elif stat == "defense" and str(equipped.keys()[equipped.values().find(instance)]) == "chest":
+				total += forge_bonus
 	if stat == "defense":
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
