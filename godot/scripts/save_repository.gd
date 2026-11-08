@@ -164,13 +164,16 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		var current_hero: Dictionary = hero_value
 		var has_world_state := migrated.get("world", null) is Dictionary
 		var seed_candidate: Variant = migrated.get("worldSeed", null)
-		var seed_fallback := int(seed_candidate) if (seed_candidate is int or seed_candidate is float) and is_finite(float(seed_candidate)) else 0
+		# Browser v18 validation requires a positive safe-integer root seed.
+		# Do not truncate fractional values or cast unsafe floats into an Int64:
+		# malformed roots must use the same deterministic legacy fallback.
+		var seed_fallback := int(seed_candidate) if _is_safe_integer(seed_candidate) else 0
 		if seed_fallback <= 0:
 			var current_world_value: Variant = migrated.get("world", null)
 			if current_world_value is Dictionary:
 				var current_world_seed: Variant = current_world_value.get("seed", null)
 				if (current_world_seed is int or current_world_seed is float) and is_finite(float(current_world_seed)):
-					seed_fallback = int(current_world_seed)
+					seed_fallback = int(fposmod(float(current_world_seed), 4294967296.0))
 		if seed_fallback <= 0:
 			var current_location: Variant = migrated.get("location", "village")
 			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
