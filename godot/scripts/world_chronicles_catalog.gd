@@ -39,7 +39,33 @@ const SIDE_STORIES := [
 static func validate_catalog() -> bool:
 	if CHAPTERS.size() != 4 or LORE_FACTIONS.size() != 3 or SIDE_STORIES.size() != 5:
 		return false
+	var chapter_ids: Dictionary = {}
+	var entry_count := 0
 	for chapter in CHAPTERS:
-		if chapter.get("entries", []).size() != 3:
+		for key in ["id", "title", "period", "summary", "entries"]:
+			if not chapter.has(key):
+				return false
+			if str(chapter.get(key, "")).strip_edges().is_empty() and key != "entries":
+				return false
+		var chapter_id := str(chapter.get("id", ""))
+		if chapter_ids.has(chapter_id) or chapter_id.is_empty():
 			return false
+		chapter_ids[chapter_id] = true
+		var entries: Array = chapter.get("entries", [])
+		if entries.size() != 3:
+			return false
+		for entry in entries:
+			if str(entry.get("title", "")).strip_edges().is_empty() or str(entry.get("text", "")).strip_edges().is_empty():
+				return false
+			entry_count += 1
+	if entry_count != 12:
+		return false
+	for faction in LORE_FACTIONS:
+		for key in ["name", "symbol", "tone", "text"]:
+			if str(faction.get(key, "")).strip_edges().is_empty():
+				return false
+	for story in SIDE_STORIES:
+		for key in ["place", "title", "hook"]:
+			if str(story.get(key, "")).strip_edges().is_empty():
+				return false
 	return true
