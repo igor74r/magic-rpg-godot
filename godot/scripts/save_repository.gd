@@ -110,7 +110,13 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		return {}
 	if version == SAVE_VERSION:
 		return migrated
-	if version != PREVIOUS_SAVE_VERSION:
+	if version < 0 or version > PREVIOUS_SAVE_VERSION:
+		return {}
+	if version < PREVIOUS_SAVE_VERSION:
+		_migrate_browser_legacy_versions(migrated, hero_key, version)
+		migrated["version"] = PREVIOUS_SAVE_VERSION
+	hero_value = migrated.get(hero_key, null)
+	if not hero_value is Dictionary:
 		return {}
 	# Browser v17 -> v18 migration. Match systems/save.js: derive the stable
 	# per-save seed, create legacy-fast-travel world state when absent, normalize
@@ -328,3 +334,175 @@ static func _experience_to_next_level(level: int) -> int:
 	if level <= 50:
 		return 535
 	return int(floor(535.0 * pow(float(level) / 50.0, 1.5)))
+
+# Port of the browser save.js v1-v17 migration chain. Each block mirrors the
+# original version boundary so legacy equipment, campaign claims and shard
+# progress are transformed in the same order before the v18 world migration.
+static func _migrate_browser_legacy_versions(game: Dictionary, hero_key: String, source_version: int) -> void:
+	var player: Dictionary = game[hero_key]
+	var version := source_version
+	for slot in ["weapon", "armor"]:
+		if player.get("equipped", {}) is Dictionary:
+			var equipped_early: Dictionary = player.equipped
+			if equipped_early.get(slot, null) is String:
+				equipped_early[slot] = {"id": equipped_early[slot], "qty": 1}
+	if version < 2:
+		if not player.get("spells", null) is Array: player["spells"] = []
+		if not player.get("inventory", null) is Array: player["inventory"] = []
+		if not player.get("equipped", null) is Dictionary: player["equipped"] = {"weapon": null, "armor": null}
+		version = 2
+	if version < 3:
+		if not player.get("statPoints", null) is int and not player.get("statPoints", null) is float: player["statPoints"] = 0
+		if not game.get("shards", null) is Dictionary: game["shards"] = {"forest": false, "ruins": false, "shadow": false}
+		if not game.get("quests", null) is Dictionary: game["quests"] = {}
+		version = 3
+	if version < 4:
+		if not player.get("stats", null) is Dictionary: player["stats"] = {"kills": {}, "deaths": 0, "goldEarned": 0, "chestsOpened": 0, "dailyChestAt": 0, "dailyChestsOpened": 0}
+		if not player.get("achievements", null) is Array: player["achievements"] = []
+		if not player.get("weaponLevel", null) is int: player["weaponLevel"] = 0
+		if not player.get("armorLevel", null) is int: player["armorLevel"] = 0
+		if not player.get("herbs", null) is Dictionary: player["herbs"] = {}
+		if not player.get("cooldowns", null) is Dictionary: player["cooldowns"] = {}
+		if not player.get("effects", null) is Array: player["effects"] = []
+		version = 4
+	if version < 5:
+		if not player.get("ngPlus", null) is int and not player.get("ngPlus", null) is float: player["ngPlus"] = 0
+		version = 5
+	if version < 6:
+		if not player.get("riftBest", null) is int and not player.get("riftBest", null) is float: player["riftBest"] = 0
+		version = 6
+	if version < 7:
+		if not player.get("playtimeSec", null) is int and not player.get("playtimeSec", null) is float: player["playtimeSec"] = 0
+		if not player.get("createdAt", null) is int and not player.get("createdAt", null) is float: player["createdAt"] = int(Time.get_unix_time_from_system() * 1000.0)
+		version = 7
+	if version < 8:
+		if not player.get("talents", null) is Array: player["talents"] = []
+		version = 8
+	if version < 9:
+		if not player.get("dailyQuests", null) is Dictionary: player["dailyQuests"] = {"date": 0, "list": []}
+		if not player.get("buffs", null) is Array: player["buffs"] = []
+		version = 9
+	if version < 10:
+		if not player.get("dex", null) is int and not player.get("dex", null) is float: player["dex"] = 0
+		var passives: Variant = player.get("passives", null)
+		if not passives is Array: player["passives"] = ["start"]
+		elif not passives.has("start"): passives.push_front("start")
+		if not player.get("passivePoints", null) is int and not player.get("passivePoints", null) is float:
+			player["passivePoints"] = maxi(0, int(player.get("level", 1)) - 1)
+		if not player.get("statPoints", null) is int and not player.get("statPoints", null) is float: player["statPoints"] = 0
+		if not player.get("stats", null) is Dictionary: player["stats"] = {"kills": {}, "deaths": 0, "goldEarned": 0, "chestsOpened": 0}
+		if not player.stats.get("kills", null) is Dictionary: player.stats["kills"] = {}
+		version = 10
+	if version < 11:
+		var defaults := {"warrior": 6, "mage": 8, "archer": 18, "priest": 7}
+		var dex_value: Variant = player.get("dex", null)
+		if not (dex_value is int or dex_value is float) or not is_finite(float(dex_value)) or float(dex_value) <= 0.0:
+			player["dex"] = int(defaults.get(str(player.get("class", "")), 10))
+		if not player.get("campaignKills", null) is Dictionary: player["campaignKills"] = {}
+		var kills: Dictionary = player.campaignKills
+		for enemy_id in kills.keys():
+			var amount := float(kills[enemy_id])
+			kills[enemy_id] = maxi(0, int(floor(amount))) if is_finite(amount) else 0
+		version = 11
+	if version < 12:
+		var equipped: Dictionary = player.get("equipped", {}) if player.get("equipped", {}) is Dictionary else {}
+		for slot in ["weapon", "armor", "helmet", "gloves", "boots", "amulet", "ring1", "ring2"]:
+			if not equipped.has(slot): equipped[slot] = null
+		for slot in equipped.keys():
+			var instance: Variant = equipped[slot]
+			if instance is Dictionary and not instance.get("runes", null) is Array: instance["runes"] = []
+		player["equipped"] = equipped
+		if not player.get("campaignClaimed", null) is Dictionary: player["campaignClaimed"] = {}
+		var claimed: Dictionary = player.campaignClaimed
+		var campaign_kills: Dictionary = player.get("campaignKills", {})
+		for mission in WorldCampaignCatalog.MISSIONS:
+			var mission_id := str(mission.get("id", ""))
+			if float(campaign_kills.get(mission_id, 0)) >= float(mission.get("count", 0)):
+				claimed[mission_id] = true
+		if not player.get("activeCampaignMission", null) is String:
+			player["activeCampaignMission"] = null
+			for mission in WorldCampaignCatalog.MISSIONS:
+				var mission_id := str(mission.get("id", ""))
+				if not bool(claimed.get(mission_id, false)) and float(campaign_kills.get(mission_id, 0)) > 0.0:
+					player["activeCampaignMission"] = mission_id
+					break
+		version = 12
+	if version < 13:
+		var inventory: Array = player.get("inventory", []) if player.get("inventory", []) is Array else []
+		var equipped: Dictionary = player.get("equipped", {}) if player.get("equipped", {}) is Dictionary else {}
+		for mapping in [["helmet", "head"], ["armor", "chest"], ["gloves", "hands"], ["boots", "legs"]]:
+			var old_slot: String = mapping[0]
+			var default_slot: String = mapping[1]
+			var instance: Variant = equipped.get(old_slot, null)
+			if instance == null:
+				equipped.erase(old_slot)
+				continue
+			var item_id := str(instance) if instance is String else str(instance.get("id", "")) if instance is Dictionary else ""
+			var destination := "amulet" if item_id == "crystal-amulet" else "back" if item_id == "ranger-cloak" else default_slot
+			if not equipped.get(destination, null): equipped[destination] = instance
+			else: inventory.append(instance)
+			equipped.erase(old_slot)
+		for slot in ["weapon", "head", "shoulders", "chest", "back", "wrists", "hands", "legs", "ring1", "ring2", "amulet", "seal"]:
+			if not equipped.has(slot): equipped[slot] = null
+			var instance: Variant = equipped[slot]
+			if instance is String: equipped[slot] = {"id": instance, "qty": 1, "runes": []}
+			elif instance is Dictionary and not instance.get("runes", null) is Array: instance["runes"] = []
+		for instance in inventory:
+			if instance is Dictionary and instance.has("id") and not instance.has("qty"): instance["qty"] = 1
+		if not player.get("campaignShards", null) is Dictionary: player["campaignShards"] = {}
+		for shard in ["forest", "ruins", "shadow"]:
+			if bool(game.get("shards", {}).get(shard, false)): player.campaignShards[shard] = true
+		player["inventory"] = inventory
+		player["equipped"] = equipped
+		version = 13
+	if version < 14:
+		var dragons: Dictionary = game.get("storyDragons", {}) if game.get("storyDragons", {}) is Dictionary else {}
+		for id in ["ash-herald", "ice-grasp", "blood-crown"]:
+			if dragons.get(id, false) != true: dragons[id] = false
+		game["storyDragons"] = dragons
+		var shards: Dictionary = game.get("storyShards", {}) if game.get("storyShards", {}) is Dictionary else {}
+		for id in ["flame", "ice", "blood"]:
+			if shards.get(id, false) != true: shards[id] = false
+		game["storyShards"] = shards
+		version = 14
+	if version < 15:
+		var level := maxi(1, int(floor(float(player.get("level", 1)))))
+		player["luck"] = minf(100.0, 5.0 + float(level - 1) * 0.5)
+		version = 15
+	if version < 16:
+		var inventory: Array = player.get("inventory", []) if player.get("inventory", []) is Array else []
+		var equipped: Dictionary = player.get("equipped", {}) if player.get("equipped", {}) is Dictionary else {}
+		for mapping in [["back", "cloak"], ["wrists", "gloves"], ["seal", "amulet"]]:
+			var old_slot: String = mapping[0]
+			var new_slot: String = mapping[1]
+			var instance: Variant = equipped.get(old_slot, null)
+			if instance == null: equipped.erase(old_slot); continue
+			if not equipped.get(new_slot, null): equipped[new_slot] = instance
+			else: inventory.append(instance)
+			equipped.erase(old_slot)
+		for old_slot in ["hands", "legs"]:
+			var instance: Variant = equipped.get(old_slot, null)
+			if instance == null: equipped.erase(old_slot); continue
+			var item_id := str(instance) if instance is String else str(instance.get("id", "")) if instance is Dictionary else ""
+			var new_slot := ("shield" if item_id == "tower-shield" else "gloves") if old_slot == "hands" else ("boots" if item_id == "windstep-boots" else "legs")
+			if not equipped.get(new_slot, null): equipped[new_slot] = instance
+			else: inventory.append(instance)
+			equipped.erase(old_slot)
+		for slot in ["weapon", "head", "shoulders", "chest", "gloves", "legs", "boots", "shield", "ring1", "ring2", "amulet", "cloak"]:
+			if not equipped.has(slot): equipped[slot] = null
+			var instance: Variant = equipped[slot]
+			if instance is String: equipped[slot] = {"id": instance, "qty": 1, "runes": [], "sockets": 0}
+			elif instance is Dictionary and not instance.get("runes", null) is Array: instance["runes"] = []
+		player["inventory"] = inventory
+		player["equipped"] = equipped
+		version = 16
+	if version < 17:
+		var inventory: Array = player.get("inventory", []) if player.get("inventory", []) is Array else []
+		for index in range(inventory.size()):
+			var entry: Variant = inventory[index]
+			if entry == "mana-crystal": inventory[index] = {"id": "old-archive-seal", "qty": 1}
+			elif entry is Dictionary and entry.get("id", "") == "mana-crystal": entry["id"] = "old-archive-seal"
+		player["inventory"] = inventory
+		version = 17
+	game[hero_key] = player
+	game["version"] = version
