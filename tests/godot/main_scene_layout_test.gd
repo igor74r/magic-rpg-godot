@@ -43,6 +43,25 @@ func _initialize() -> void:
 		var victory_handler_calls := controller_source.split("_handle_combat_victory(combat_state.get(\"enemy\", {}))").size() - 1
 		if victory_handler_calls != 4:
 			failures.append("block, basic attack, ability and spell victories must all use the shared Rift/Tower completion path")
+		for required_fragment in [
+			"func _save_world_or_restore(snapshot: Dictionary, failure_prefix: String) -> bool:",
+			"func _claim_daily_quest(quest_id: String) -> void:",
+			"if not _save_world_or_restore(snapshot, \\\"Получение ежедневной награды отменено\\\"):",
+			"func _claim_campaign_mission() -> void:",
+			"if not CombatEngineScript.add_item(hero, str(reward.itemId), 1):",
+			"func _allocate_passive(node_id: String) -> void:",
+			"func _reset_passives() -> void:",
+			"func _take_class_talent(talent_id: String) -> void:",
+			"func _reset_class_talents() -> void:",
+			"func _select_hero_class(class_id: String) -> void:"
+		]:
+			if not controller_source.contains(required_fragment):
+				failures.append("progression reward actions must use validated persistence and rollback: %s" % required_fragment)
+		var campaign_claim_start := controller_source.find("func _claim_campaign_mission() -> void:")
+		var campaign_claim_end := controller_source.find("\\n\\nfunc ", campaign_claim_start)
+		var campaign_claim_source := controller_source.substr(campaign_claim_start, campaign_claim_end - campaign_claim_start)
+		if campaign_claim_source.find("add_item(hero, str(reward.itemId), 1)") > campaign_claim_source.find("CampaignScript.claim(hero)"):
+			failures.append("campaign reward inventory capacity must be validated before granting the claim permanently")
 		scene.free()
 
 	if failures.is_empty():
