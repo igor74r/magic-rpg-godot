@@ -111,6 +111,12 @@ func _initialize() -> void:
 		failures.append("uncommon equipment sale must use rarity price and the 35 percent act-one rate")
 	if int(sell_world.hero.get("gold",0)) != 8 or int(sell_world.hero.get("stats",{}).get("goldEarned",0)) != 8:
 		failures.append("sale must update spendable gold and lifetime-earned gold atomically")
+	var bulk_sell_world := WorldState.create(20261124)
+	bulk_sell_world["hero"] = {"level":1,"gold":20,"inventory":[{"id":"health-potion","qty":1,"rarity":"common"},{"id":"iron-sword","qty":1,"rarity":"common"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
+	var bulk_expected := Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[0]) + Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[1])
+	var bulk_sale := Npc.sell_items(bulk_sell_world, [1,0,1])
+	if not bool(bulk_sale.get("ok",false)) or int(bulk_sale.get("count",0)) != 2 or int(bulk_sale.get("total",0)) != bulk_expected or not bulk_sell_world.hero.inventory.is_empty():
+		failures.append("bulk sale must deduplicate selected indices, process original slots safely, and credit the combined value")
 	var base_item: Dictionary = preload("res://godot/scripts/world_item_catalog.gd").get_item("iron-sword")
 	var legacy_price := Npc.get_sell_price(sell_world, {"id":"iron-sword","qty":1})
 	var expected_legacy_price := int(floor(float(base_item.get("price", 0)) * 0.35))
