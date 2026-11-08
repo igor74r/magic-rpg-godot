@@ -44,6 +44,16 @@ The native job uses container image `barichello/godot-ci:4.4.1`. The current mai
 
 This is a documentation/configuration provenance conflict, not proof that either engine version is correct. It must be resolved from the project's actual approved target before changing anything. Per the task constraint, this audit makes no engine-version changes.
 
+### Implemented during this audit — integral-float schema version parity
+
+A concrete browser/Godot contract mismatch was found and fixed on this audit branch:
+- JavaScript `Number.isSafeInteger(18.0)` accepts the value because JavaScript has one numeric type.
+- Godot's JSON parser may represent JSON `18.0` as a float, while the native browser-v18 validator previously required the concrete `int` Variant type.
+- The validator now uses the existing safe-integer predicate and still requires the exact schema value 18.
+- A regression case was added to `tests/godot/save_repository_test.gd`.
+
+This is a narrow compatibility fix, not proof of complete save round-trip parity. Runtime execution remains pending CI.
+
 ### P0 — Save compatibility needs end-to-end parity proof
 
 Verified implementation:
