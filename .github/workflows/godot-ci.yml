@@ -55,6 +55,9 @@ jobs:
       - name: Test Tower of Trials progression
         run: godot --headless --path . --script res://tests/godot/world_tower_engine_test.gd
 
+      - name: Test passive allocation, bonus aggregation and talent resets
+        run: godot --headless --path . --script res://tests/godot/world_passive_engine_test.gd
+
       - name: Test NPC crafting, rarity and transaction safety
         run: godot --headless --path . --script res://tests/godot/world_npc_engine_test.gd
 
