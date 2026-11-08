@@ -111,16 +111,52 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		return migrated
 	if version != PREVIOUS_SAVE_VERSION:
 		return {}
-	# v17 already stores the full hero/world payload. v18 adds optional
-	# progression fields; preserve all existing fields and initialize only
-	# missing containers so old campaign progress is never discarded.
+	# Browser v17 -> v18 migration. Match systems/save.js: derive the stable
+	# per-save seed, create legacy-fast-travel world state when absent, normalize
+	# factions and campaign branches, then rebase XP without losing fractional
+	# progress toward the next level.
 	var hero: Dictionary = hero_value
 	if not hero.get("campaignKills", {}) is Dictionary: hero["campaignKills"] = {}
 	if not hero.get("campaignClaimed", {}) is Dictionary: hero["campaignClaimed"] = {}
+	if not hero.get("activeCampaignByBranch", {}) is Dictionary: hero["activeCampaignByBranch"] = {}
 	if not hero.get("storyShards", {}) is Dictionary: hero["storyShards"] = {}
 	if not hero.get("riftClearedLocations", []) is Array: hero["riftClearedLocations"] = []
 	if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
 	if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
+
+	var source_seed := int(migrated.get("worldSeed", 0))
+	if source_seed < 1 or source_seed > 4294967295:
+		source_seed = _derive_legacy_world_seed(hero, str(migrated.get("location", "village")))
+	migrated["worldSeed"] = source_seed
+	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
+	migrated["worldGeneratorVersion"] = int(generator_value) if generator_value is int and int(generator_value) >= 1 else 1
+
+	var world_value: Variant = migrated.get("world", null)
+	var world: Dictionary = WorldStateData.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
+	world = WorldStateData.normalize(world, source_seed, true)
+	migrated["world"] = world
+
+	var factions_value: Variant = migrated.get("factions", null)
+	var factions: Dictionary = factions_value.duplicate(true) if factions_value is Dictionary else {}
+	var reputation_value: Variant = factions.get("reputation", {})
+	var reputation: Dictionary = reputation_value.duplicate(true) if reputation_value is Dictionary else {}
+	for faction_id in ["hub-guardians", "rift-cult", "free-traders", "ash-nomads"]:
+		var reputation_number := float(reputation.get(faction_id, 0))
+		reputation[faction_id] = clampi(roundi(reputation_number), -100, 100) if is_finite(reputation_number) else 0
+	factions["schemaVersion"] = 1
+	factions["reputation"] = reputation
+	var log_value: Variant = factions.get("changeLog", [])
+	var change_log: Array = log_value.duplicate(true) if log_value is Array else []
+	if change_log.size() > 50:
+		change_log = change_log.slice(change_log.size() - 50)
+	factions["changeLog"] = change_log
+	migrated["factions"] = factions
+
+	_normalize_campaign_branches(hero)
+	migrated[hero_key] = hero
+	_rebase_legacy_experience(hero)
+	if not hero.get("ngPlus", null) is int or int(hero.get("ngPlus", 0)) < 0:
+		hero["ngPlus"] = 0
 	migrated[hero_key] = hero
 	migrated["version"] = SAVE_VERSION
 	return migrated
@@ -211,3 +247,83 @@ static func export_browser_save(slot: int) -> String:
 
 static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
+
+static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
+	var source := "%d|%s|%s|%s" % [
+		int(hero.get("createdAt", 0)) if hero.get("createdAt", 0) is int else 0,
+		str(hero.get("name", "")) if hero.get("name", "") is String else "",
+		str(hero.get("class", "")) if hero.get("class", "") is String else "",
+		location if not location.is_empty() else "village"
+	]
+	var hash_value: int = 2166136261
+	for index in range(source.length()):
+		hash_value = int((hash_value ^ source.unicode_at(index)) * 16777619) & 0xffffffff
+	return hash_value if hash_value != 0 else 1
+
+
+static func _normalize_campaign_branches(hero: Dictionary) -> void:
+	var branches := ["intro", "ash", "ice", "blood"]
+	var value: Variant = hero.get("activeCampaignByBranch", {})
+	var active: Dictionary = value.duplicate(true) if value is Dictionary else {}
+	for branch in branches:
+		if not active.has(branch):
+			active[branch] = null
+		var mission := str(active[branch]) if active[branch] is String else ""
+		if not mission.is_empty() and _campaign_branch_for_mission(mission) != branch:
+			active[branch] = null
+	var legacy_mission := str(hero.get("activeCampaignMission", "")) if hero.get("activeCampaignMission", null) is String else ""
+	var legacy_branch := _campaign_branch_for_mission(legacy_mission)
+	if not legacy_branch.is_empty() and not active.get(legacy_branch, null):
+		active[legacy_branch] = legacy_mission
+	hero["activeCampaignByBranch"] = active
+
+
+static func _campaign_branch_for_mission(mission_id: String) -> String:
+	if not mission_id.begins_with("a") or not mission_id.contains("-m"):
+		return ""
+	var parts := mission_id.split("-m")
+	if parts.size() != 2 or not parts[1].is_valid_int():
+		return ""
+	var act_text := parts[0].trim_prefix("a")
+	if not act_text.is_valid_int():
+		return ""
+	var act := int(act_text)
+	if act < 1 or act > 5:
+		return ""
+	if act <= 2:
+		return "intro"
+	if act == 3:
+		return "ash"
+	if act == 4:
+		return "ice"
+	return "blood"
+
+
+static func _rebase_legacy_experience(hero: Dictionary) -> void:
+	var level_value: Variant = hero.get("level", null)
+	if not level_value is int or int(level_value) < 1 or int(level_value) >= 100:
+		return
+	var level := int(level_value)
+	var next_exp := _experience_to_next_level(level)
+	var previous_next_value: Variant = hero.get("expNext", null)
+	var previous_next := int(previous_next_value) if previous_next_value is int and int(previous_next_value) > 0 else int(floor(100.0 * pow(float(level), 1.6)))
+	var previous_exp_value: Variant = hero.get("exp", 0)
+	var previous_exp := int(previous_exp_value) if previous_exp_value is int and int(previous_exp_value) >= 0 else 0
+	if previous_next != next_exp:
+		var progress := minf(1.0, float(previous_exp) / float(previous_next)) if previous_next > 0 else 0.0
+		hero["exp"] = mini(next_exp - 1, int(floor(progress * next_exp)))
+	hero["expNext"] = next_exp
+
+
+static func _experience_to_next_level(level: int) -> int:
+	if level <= 10:
+		return 125
+	if level <= 20:
+		return 259
+	if level <= 30:
+		return 269
+	if level <= 40:
+		return 369
+	if level <= 50:
+		return 535
+	return int(floor(535.0 * pow(float(level) / 50.0, 1.5)))
