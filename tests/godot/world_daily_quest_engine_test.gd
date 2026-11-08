@@ -47,6 +47,30 @@ func _run() -> void:
 		if str(quest.get("id", "")) == "q-chest" and int(quest.get("current", 0)) != 0:
 			failures.append("unrelated objective progress must remain unchanged")
 
+
+	# Daily chest: rolling 24-hour cooldown, browser-millisecond timestamp parity,
+	# one-time lifetime counters, item reward and achievement unlock.
+	var chest_world := WorldState.create(8080)
+	chest_world["hero"] = {"level": 1, "gold": 0, "stats": {"dailyChestAt": 0, "dailyChestsOpened": 0, "goldEarned": 0}, "inventory": [], "pendingLoot": []}
+	var opened := Daily.open_daily_chest(chest_world, 200000000)
+	if not bool(opened.get("ok", false)):
+		failures.append("daily chest must open when no cooldown is active")
+	if int(chest_world.hero.gold) != 8 or int(chest_world.hero.stats.goldEarned) != 8 or int(chest_world.hero.stats.dailyChestsOpened) != 1:
+		failures.append("daily chest must credit gold and lifetime counters exactly once")
+	if not ["health-potion", "mana-potion", "strong-health-potion", "strong-mana-potion"].has(str(opened.get("itemId", ""))) or chest_world.hero.inventory.size() != 1:
+		failures.append("daily chest must award exactly one valid potion")
+	var blocked := Daily.open_daily_chest(chest_world, 200000001)
+	if bool(blocked.get("ok", false)) or int(blocked.get("remainingMs", 0)) != 86399999:
+		failures.append("daily chest must enforce a rolling 24-hour cooldown")
+	var ready_again := Daily.can_open_daily(chest_world, 286400000)
+	if not ready_again:
+		failures.append("daily chest must become available at the exact 24-hour boundary")
+	var devotee_world := WorldState.create(8081)
+	devotee_world["hero"] = {"level": 1, "gold": 0, "stats": {"dailyChestAt": 0, "dailyChestsOpened": 2, "goldEarned": 0}, "inventory": []}
+	var devotee := Daily.open_daily_chest(devotee_world, 300000000)
+	if not bool(devotee.get("ok", false)) or not devotee_world.hero.get("achievements", []).has("daily-devotee") or int(devotee_world.hero.gold) != 30:
+		failures.append("third daily chest must unlock the daily devotee achievement and its reward")
+
 	if failures.is_empty():
 		print("PASS: daily cumulative Rift progress and kill objective isolation")
 		quit(0)

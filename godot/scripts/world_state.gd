@@ -9,6 +9,7 @@ const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
 const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const WorldTowerEngine = preload("res://godot/scripts/world_tower_engine.gd")
 const AchievementEngine = preload("res://godot/scripts/world_achievement_engine.gd")
+const DailyQuestEngine = preload("res://godot/scripts/world_daily_quest_engine.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -374,29 +375,8 @@ static func mark_chest_opened(world: Dictionary, region_id: String, chest_id: St
 	hero["stats"] = stats
 	world["hero"] = hero
 	AchievementEngine.evaluate(world)
-	_advance_daily_chest_progress(world)
+	DailyQuestEngine.update_progress(world, "chest", "chest")
 	return true
-
-
-static func _advance_daily_chest_progress(world: Dictionary) -> void:
-	var daily_value: Variant = world.get("dailyQuests", {})
-	if not daily_value is Dictionary:
-		return
-	var date: Dictionary = Time.get_date_dict_from_system()
-	var today := "%04d-%02d-%02d" % [int(date.year), int(date.month), int(date.day)]
-	if str(daily_value.get("date", "")) != today:
-		return
-	var quests: Variant = daily_value.get("list", [])
-	if not quests is Array:
-		return
-	for quest in quests:
-		if not quest is Dictionary or str(quest.get("type", "")) != "chest" or str(quest.get("target", "")) != "chest":
-			continue
-		if bool(quest.get("completed", false)) or bool(quest.get("claimed", false)):
-			continue
-		var maximum := maxi(1, int(quest.get("max", 1)))
-		quest["current"] = mini(maximum, maxi(0, int(quest.get("current", 0))) + 1)
-		quest["completed"] = int(quest.current) >= maximum
 
 
 static func mark_enemy_defeated(world: Dictionary, region_id: String, enemy_id: String, respawn_at: float) -> bool:

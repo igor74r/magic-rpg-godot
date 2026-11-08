@@ -88,3 +88,56 @@ static func claim(world: Dictionary,quest_id: String) -> Dictionary:
 		world["hero"]=hero
 		return {"ok":true,"message":"Награда: +%d золота, +%d опыта" % [gold,exp],"levelUps":level_ups}
 	return {"ok":false,"message":"Задание не найдено"}
+
+
+# Browser parity: the daily chest is available once per rolling 24-hour period.
+# Timestamps stay in milliseconds so imported browser v18 saves remain compatible.
+static func can_open_daily(world: Dictionary, now_ms: int = -1) -> bool:
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	if hero.is_empty():
+		return false
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	var current_ms := now_ms if now_ms >= 0 else int(Time.get_unix_time_from_system() * 1000.0)
+	var last_ms := maxi(0, int(stats.get("dailyChestAt", 0)))
+	return current_ms >= last_ms and current_ms - last_ms >= 86400000
+
+
+static func daily_chest_time_remaining(world: Dictionary, now_ms: int = -1) -> int:
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	var current_ms := now_ms if now_ms >= 0 else int(Time.get_unix_time_from_system() * 1000.0)
+	var last_ms := maxi(0, int(stats.get("dailyChestAt", 0)))
+	if last_ms == 0 or current_ms < last_ms:
+		return 0
+	return maxi(0, 86400000 - (current_ms - last_ms))
+
+
+static func open_daily_chest(world: Dictionary, now_ms: int = -1) -> Dictionary:
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	if hero.is_empty():
+		return {"ok": false, "message": "Нет персонажа."}
+	var current_ms := now_ms if now_ms >= 0 else int(Time.get_unix_time_from_system() * 1000.0)
+	if not can_open_daily(world, current_ms):
+		return {"ok": false, "message": "Ежедневный сундук ещё не готов.", "remainingMs": daily_chest_time_remaining(world, current_ms)}
+	var gold := int(hero.get("gold", 0))
+	if gold < 0 or gold > 2147483639:
+		return {"ok": false, "message": "Невозможно выдать награду: проверьте баланс золота."}
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	var daily_count := int(stats.get("dailyChestsOpened", 0))
+	var earned := int(stats.get("goldEarned", 0))
+	if daily_count < 0 or daily_count >= 2147483647 or earned < 0 or earned > 2147483639:
+		return {"ok": false, "message": "Счётчик ежедневных сундуков или заработанного золота переполнен."}
+	var pool := ["health-potion", "mana-potion", "strong-health-potion", "strong-mana-potion"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(WorldRandom.derive_seed([world.get("seed", 1), current_ms, "daily-chest"]))
+	var item_id := str(pool[rng.randi_range(0, pool.size() - 1)])
+	if not WorldCombatEngine.add_item(hero, item_id, 1):
+		return {"ok": false, "message": "Не удалось подготовить предмет ежедневной награды."}
+	hero["gold"] = gold + 8
+	stats["goldEarned"] = earned + 8
+	stats["dailyChestAt"] = current_ms
+	stats["dailyChestsOpened"] = daily_count + 1
+	hero["stats"] = stats
+	world["hero"] = hero
+	var achievements: Array = preload("res://godot/scripts/world_achievement_engine.gd").evaluate(world)
+	return {"ok": true, "message": "Ежедневный сундук открыт: +8 золота и %s." % item_id, "itemId": item_id, "gold": 8, "achievements": achievements}

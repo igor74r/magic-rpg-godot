@@ -499,6 +499,18 @@ func _refresh_daily_quests() -> void:
 	var title := Label.new()
 	title.text = "ЕЖЕДНЕВНЫЕ ЗАДАНИЯ · %s" % str(world.dailyQuests.date)
 	daily_quests_container.add_child(title)
+	var chest_row := HBoxContainer.new()
+	var chest_label := Label.new()
+	chest_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var chest_remaining := DailyQuestScript.daily_chest_time_remaining(world)
+	chest_label.text = "Ежедневный сундук · +8 золота и случайное зелье" if chest_remaining == 0 else "Следующий ежедневный сундук через %s" % _format_duration(chest_remaining)
+	chest_row.add_child(chest_label)
+	var chest_button := Button.new()
+	chest_button.text = "Открыть сундук" if chest_remaining == 0 else "Ожидание"
+	chest_button.disabled = not DailyQuestScript.can_open_daily(world)
+	chest_button.pressed.connect(_open_daily_chest)
+	chest_row.add_child(chest_button)
+	daily_quests_container.add_child(chest_row)
 	for quest in quests:
 		var row := HBoxContainer.new()
 		var label := Label.new()
@@ -511,6 +523,31 @@ func _refresh_daily_quests() -> void:
 		button.pressed.connect(_claim_daily_quest.bind(str(quest.id)))
 		row.add_child(button)
 		daily_quests_container.add_child(row)
+
+
+
+func _open_daily_chest() -> void:
+	var snapshot := world.duplicate(true)
+	var result: Dictionary = DailyQuestScript.open_daily_chest(world)
+	if not bool(result.get("ok", false)):
+		status_label.text = str(result.get("message", "Ежедневный сундук недоступен."))
+		return
+	var save_error: Error = WorldStateRepositoryScript.save_world(world)
+	if save_error != OK:
+		world = snapshot
+		status_label.text = "Ежедневная награда отменена: не удалось сохранить мир (%s)." % error_string(save_error)
+		return
+	status_label.text = str(result.get("message", "Ежедневная награда получена."))
+	for achievement in result.get("achievements", []):
+		status_label.text += "\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
+	_refresh_inventory()
+
+
+func _format_duration(milliseconds: int) -> String:
+	var total_minutes := int(ceil(float(maxi(0, milliseconds)) / 60000.0))
+	var hours := int(total_minutes / 60)
+	var minutes := total_minutes % 60
+	return "%dч %dм" % [hours, minutes]
 
 
 func _claim_daily_quest(quest_id: String) -> void:
