@@ -172,7 +172,7 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		WorldFactionEngineScript.ensure_state(migrated)
 		_normalize_campaign_branches(current_hero)
 		_rebase_legacy_experience(current_hero)
-		if not current_hero.get("ngPlus", null) is int or int(current_hero.get("ngPlus", 0)) < 0:
+		if not _is_safe_integer(current_hero.get("ngPlus", null)) or int(current_hero.get("ngPlus", 0)) < 0:
 			current_hero["ngPlus"] = 0
 		migrated[hero_key] = current_hero
 		return migrated
@@ -222,7 +222,7 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	_normalize_campaign_branches(hero)
 	migrated[hero_key] = hero
 	_rebase_legacy_experience(hero)
-	if not hero.get("ngPlus", null) is int or int(hero.get("ngPlus", 0)) < 0:
+	if not _is_safe_integer(hero.get("ngPlus", null)) or int(hero.get("ngPlus", 0)) < 0:
 		hero["ngPlus"] = 0
 	migrated[hero_key] = hero
 	migrated["version"] = SAVE_VERSION
