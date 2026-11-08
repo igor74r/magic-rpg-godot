@@ -244,8 +244,12 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 	var cooldown_rng := WorldRandomScript.new(WorldRandomScript.derive_seed([world.get("seed", 1), "world-event-cooldown", event.id]))
 	events["cooldowns"][str(event.templateId)] = now + MIN_INTERVAL + cooldown_rng.next_int(INTERVAL_VARIANCE)
 	var remaining: Array = []
-	for active_event in events.get("active", []):
-		if str(active_event.get("id", "")) != str(event.id): remaining.append(active_event)
+	for active_value in events.get("active", []):
+		if not active_value is Dictionary:
+			continue
+		var active_event: Dictionary = active_value
+		if str(active_event.get("id", "")) != str(event.id):
+			remaining.append(active_event)
 	events["active"] = remaining
 	return completed
 

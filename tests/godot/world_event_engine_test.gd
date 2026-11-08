@@ -112,6 +112,16 @@ func _initialize() -> void:
 	if safe_discovery.size() != 1 or Factions.get_reputation(malformed_discovery_world, "free-traders") != 3:
 		failures.append("discovery progress must ignore malformed imported entries and complete valid objectives")
 
+	var mixed_completion_world := WorldState.create(6690)
+	mixed_completion_world.events.active = ["stale-entry", null, {
+		"id":"mixed-valid-event","templateId":"elite-hunt","name":"Элитная цель","regionId":"forest",
+		"status":"active","accepted":true,"objectiveType":"elite-kill","targetCount":1,"progress":0,
+		"phase":0,"factionId":"","reputationReward":0,"failureReputationDelta":0,"reward":{"gold":25}
+	}]
+	var mixed_completion := EventEngine.record_kill(mixed_completion_world, "forest", {"elite":true,"boss":false})
+	if mixed_completion.size() != 1 or not mixed_completion_world.events.active.is_empty():
+		failures.append("completing a valid event must safely remove it while ignoring malformed sibling entries")
+
 	var campaign_world := WorldState.create(6688)
 	campaign_world["factionCampaigns"] = {"ash-nomad-warband":{"status":"active","stage":1}}
 	campaign_world.events.active.append({"id":"event-campaign","templateId":"ash-warband-scouting","name":"Разведчики","regionId":"wasteland","status":"active","accepted":true,"objectiveType":"elite-kill","targetCount":1,"progress":0,"phase":0,"factionId":"ash-nomads","campaignId":"ash-nomad-warband","campaignStage":1,"reputationReward":8,"failureReputationDelta":-4,"reward":{"gold":50}})
