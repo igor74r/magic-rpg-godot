@@ -1317,19 +1317,25 @@ func _accept_world_event(event_id: String) -> void:
 
 func _claim_world_event(event_id: String) -> void:
 	var snapshot := world.duplicate(true)
+	var hero := CombatEngineScript.ensure_hero(world)
 	var reward: Dictionary = WorldEventEngineScript.claim_reward(world, event_id)
 	if reward.is_empty():
 		status_label.text = "Эта награда уже получена или недоступна."
 		return
-	var hero := CombatEngineScript.ensure_hero(world)
-	hero["gold"] = mini(2147483647, int(hero.get("gold", 0)) + int(reward.get("gold", 0)))
+	var raw_gold: Variant = reward.get("gold", 0)
+	var current_gold: Variant = hero.get("gold", 0)
+	if not (raw_gold is int or raw_gold is float) or not is_finite(float(raw_gold)) or floor(float(raw_gold)) != float(raw_gold) or float(raw_gold) < 0.0 or float(raw_gold) > 2147483647.0 or not (current_gold is int) or int(current_gold) < 0 or int(current_gold) > 2147483647 - int(raw_gold):
+		world = snapshot
+		status_label.text = "Награда события не получена: проверьте целостность награды и баланс золота."
+		return
+	hero["gold"] = int(current_gold) + int(raw_gold)
 	world["hero"] = hero
 	var save_error := WorldStateRepositoryScript.save_world(world)
 	if save_error != OK:
 		world = snapshot
 		status_label.text = "Получение награды отменено: сохранение не удалось (%s)." % error_string(save_error)
 		return
-	status_label.text = "Получено за событие: %d золота." % int(reward.get("gold", 0))
+	status_label.text = "Получено за событие: %d золота." % int(raw_gold)
 	_refresh_inventory()
 	_refresh_world_events()
 
