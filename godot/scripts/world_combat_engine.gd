@@ -492,6 +492,54 @@ static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enem
 	return "Получен сюжетный предмет: %s." % str(dragon.name)
 
 
+static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
+	var turn_count := int(enemy.get("turnCount", 0)) + 1
+	enemy["turnCount"] = turn_count
+	var special: Dictionary = enemy.get("special", {})
+	var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
+	var special_ready := not special.is_empty() and turn_count % every == 0
+	var special_type := str(special.get("type", ""))
+	var dodge_ready := _consume_combat_effect(hero, "dodge", "buffs")
+	if dodge_ready:
+		lines.append("Вы уклонились от атаки — урон полностью предотвращён.")
+	else:
+		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense") * _effect_multiplier(hero, "defMult")) / 2.0)))
+		if special_ready and special_type == "snipe":
+			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
+		elif special_ready and special_type == "double":
+			incoming = maxi(1, int(floor(float(incoming) * 0.6))) * 2
+		incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
+		hero["hp"] = maxi(0, int(hero.hp) - incoming)
+		lines.append("%s наносит вам %d урона." % [str(enemy.get("name", "Противник")), incoming])
+		if special_ready:
+			lines.append("Особый приём: %s!" % str(special.get("name", "Атака")))
+			var effect_id := str(special.get("effect", ""))
+			if not effect_id.is_empty() and EFFECTS.has(effect_id):
+				apply_effect(hero, effect_id)
+				lines.append("Наложен эффект: %s." % str(EFFECTS[effect_id].name))
+		if special_ready and special_type == "drain":
+			var healed := mini(incoming, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
+			enemy["hp"] = int(enemy.hp) + maxi(0, healed)
+			lines.append("Противник восстановил %d HP." % maxi(0, healed))
+		var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
+		if not modifier_message.is_empty():
+			lines.append(modifier_message)
+	var effect_tick := tick_effects(hero)
+	if int(effect_tick.damage) > 0:
+		hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
+		lines.append("Эффекты наносят вам %d урона." % int(effect_tick.damage))
+	if int(hero.hp) <= 0:
+		hero["hp"] = 1
+		combat["over"] = true
+		combat["result"] = "defeat"
+		combat["turn"] = "over"
+		lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+	else:
+		combat["turn"] = "player"
+	combat["enemy"] = enemy
+	world["hero"] = hero
+
+
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
 		return {"ok": false, "message": "Сейчас нельзя применить способность."}
@@ -520,29 +568,94 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	match kind:
 		"next_double":
 			hero["buffs"].append({"id":"double_next","duration":1})
-			combat["log"] = "Следующая атака будет усилена."
+			var buff_message := ""
+			match kind:
+				"next_double": buff_message = "Следующая атака будет усилена."
+				"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+				"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+				"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+				"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			var buff_lines: Array[String] = [buff_message]
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			combat["log"] = "\n".join(buff_lines)
 			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 		"attack_buff":
 			hero["buffs"].append({"id":"attack_buff","duration":2})
-			combat["log"] = "Боевой клич усиливает атаку на 2 хода."
+			var buff_message := ""
+			match kind:
+				"next_double": buff_message = "Следующая атака будет усилена."
+				"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+				"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+				"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+				"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			var buff_lines: Array[String] = [buff_message]
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			combat["log"] = "\n".join(buff_lines)
 			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 		"lifesteal":
 			hero["buffs"].append({"id":"lifesteal","duration":2})
-			combat["log"] = "Кровожадность активна: часть урона вернётся здоровьем."
+			var buff_message := ""
+			match kind:
+				"next_double": buff_message = "Следующая атака будет усилена."
+				"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+				"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+				"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+				"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			var buff_lines: Array[String] = [buff_message]
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			combat["log"] = "\n".join(buff_lines)
 			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 		"defense_buff":
 			hero["buffs"].append({"id":"defense_buff","duration":2})
-			combat["log"] = "Магический барьер повышает защиту на 2 хода."
+			var buff_message := ""
+			match kind:
+				"next_double": buff_message = "Следующая атака будет усилена."
+				"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+				"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+				"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+				"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			var buff_lines: Array[String] = [buff_message]
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			combat["log"] = "\n".join(buff_lines)
 			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 		"dodge":
 			hero["buffs"].append({"id":"dodge","duration":1})
-			combat["log"] = "Вы готовы уклониться от следующей атаки."
+			var buff_message := ""
+			match kind:
+				"next_double": buff_message = "Следующая атака будет усилена."
+				"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+				"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+				"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+				"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			var buff_lines: Array[String] = [buff_message]
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			combat["log"] = "\n".join(buff_lines)
 			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 		_:
 			damage = effective_stat(hero, "attack")
 			if kind == "meteor":
