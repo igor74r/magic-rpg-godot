@@ -85,7 +85,7 @@ Visual parity remains explicitly listed as incomplete in `GODOT_MIGRATION_STATUS
 
 Native modules and tests exist for many systems, but a matching filename/catalog is not proof of equivalent gameplay. The repository's own migration status and this source review identify remaining work in:
 - complete legacy-save compatibility and lossless round-trip;
-- chronicles interaction parity: the native runtime renders the complete catalog as text, while browser chronicles use structured article/card markup; interaction and responsive presentation have not been compared end to end;
+- chronicles parity: the native runtime now exposes expandable chapter, lore-faction, and side-story sections and validates all 12 entries, three lore factions, and five side stories; browser-style article/card visuals, responsive presentation, and end-to-end interaction parity still need comparison;
 - visual/UI parity;
 - paired scenario coverage for NPC dialogue/services, map navigation, encounter lifecycle, and campaign/content progression.
 
