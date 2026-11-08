@@ -1142,12 +1142,14 @@ func _refresh_world_events() -> void:
 
 
 func _accept_world_event(event_id: String) -> void:
+	var snapshot := world.duplicate(true)
 	if not WorldEventEngineScript.accept_event(world, event_id):
 		status_label.text = "Событие уже принято или больше недоступно."
 		return
 	var save_error := WorldStateRepositoryScript.save_world(world)
 	if save_error != OK:
-		status_label.text = "Не удалось сохранить принятие события: %s" % error_string(save_error)
+		world = snapshot
+		status_label.text = "Принятие события отменено: сохранение не удалось (%s)." % error_string(save_error)
 		return
 	status_label.text = "Событие принято. Выполните указанную цель до истечения срока."
 	_refresh_world_events()
