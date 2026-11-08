@@ -282,9 +282,9 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 		return false
 	if payload.get("worldGeneratorVersion", null) != 1:
 		return false
-	if not _is_safe_integer(world.get("seed", null)) or int(world.seed) < 1 or int(world.seed) > 0xffffffff:
+	if not _is_safe_integer(world.get("seed", null)) or int(world.seed) < 1:
 		return false
-	if world.get("generatorVersion", null) != 1:
+	if not _is_safe_integer(world.get("generatorVersion", null)) or int(world.generatorVersion) < 0:
 		return false
 	if not world.get("discoveredRegions", null) is Array or not world.get("unlockedRoutes", null) is Array:
 		return false
