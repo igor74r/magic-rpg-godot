@@ -81,6 +81,21 @@ func _run() -> void:
 	if Catalog.all_missions().size() != 25:
 		failures.append("the native campaign catalog must contain all 25 browser story missions")
 
+	var act_hero: Dictionary = {}
+	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.0):
+		failures.append("first campaign act must use the base gold multiplier")
+	act_hero["campaignClaimed"] = {"a1-m1":true,"a1-m2":true,"a1-m3":true,"a1-m4":true,"a1-m5":true}
+	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.2):
+		failures.append("second campaign act must use a 1.2 gold multiplier")
+	for act_index in range(1, 5):
+		for mission_index in range(1, 6):
+			act_hero.campaignClaimed["a%d-m%d" % [act_index + 1, mission_index]] = true
+	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.8):
+		failures.append("completed campaign must retain the final 1.8 gold multiplier")
+	act_hero.campaignClaimed["a3-m5"] = "yes"
+	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.4):
+		failures.append("malformed campaign claims must not advance the act multiplier")
+
 	var finale_world := {"hero":{"level":50,"campaignClaimed":{},"storyShards":{"flame":true,"ice":true,"blood":true}},"storyDragons":{"blood-crown":true}}
 	for mission in Catalog.all_missions():
 		finale_world.hero.campaignClaimed[str(mission.id)] = true

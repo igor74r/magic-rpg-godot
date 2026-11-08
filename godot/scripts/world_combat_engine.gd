@@ -246,7 +246,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	reward_exp = int(round(float(reward_exp)*exp_multiplier))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	if not bool(enemy.get("riftMode", false)) and not bool(enemy.get("towerMode", false)):
-		reward_gold = EncounterGenerator.ambient_gold_reward(reward_gold, bool(enemy.get("elite", false)), int(enemy.get("ngPlus", hero.get("ngPlus", 0))))
+		reward_gold = int(round(float(EncounterGenerator.ambient_gold_reward(reward_gold, bool(enemy.get("elite", false)), int(enemy.get("ngPlus", hero.get("ngPlus", 0))))) * preload("res://godot/scripts/world_campaign_engine.gd").act_price_multiplier(hero)))
 	if bool(enemy.get("riftMode", false)):
 		reward_gold = int(round(float(reward_gold) * float(enemy.get("riftGoldMult", 1.0))))
 	var tower_mode := bool(enemy.get("towerMode", false))

@@ -107,6 +107,21 @@ static func record_kill(world: Dictionary,location_id: String,enemy_id: String) 
 	world["hero"]=hero
 	var now:=progress(hero,mission)
 	return "Сюжет: %s (%d/%d)" % [str(mission.title),int(now.current),int(now.required)]
+# Browser economy: ambient enemy gold follows the currently active campaign act.
+static func act_price_multiplier(hero: Dictionary) -> float:
+	var claimed: Dictionary = hero.get("campaignClaimed", {}) if hero.get("campaignClaimed", {}) is Dictionary else {}
+	var multipliers := [1.0, 1.2, 1.4, 1.6, 1.8]
+	for act_index in range(5):
+		var act_complete := true
+		for mission_index in range(1, 6):
+			if claimed.get("a%d-m%d" % [act_index + 1, mission_index], false) != true:
+				act_complete = false
+				break
+		if not act_complete:
+			return multipliers[act_index]
+	return multipliers[4]
+
+
 static func reward_for(mission: Dictionary) -> Dictionary:
 	var parts:=str(mission.get("id","a1-m1")).split("-")
 	var act:=clampi(int(str(parts[0]).trim_prefix("a")),1,5)
