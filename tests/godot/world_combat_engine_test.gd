@@ -68,6 +68,9 @@ func _initialize() -> void:
 	var equipped_dex_hero := {"class":"archer","str":12,"int":7,"con":10,"dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
 	if Combat.effective_stat(equipped_dex_hero, "dex") != 20:
 		failures.append("equipped Dexterity must contribute to the effective Dexterity stat")
+	var forged_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"armor":5},"forgeLevel":2,"runes":[]}}}
+	if Combat.effective_stat(forged_armor_hero, "defense") != 14:
+		failures.append("effective defense must include browser armor aliases and the chest forge bonus")
 	var crit_seed := 1
 	var found_cat_roll := false
 	for candidate_seed in range(1, 100000):
