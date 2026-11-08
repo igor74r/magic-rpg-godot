@@ -29,6 +29,7 @@ func _run() -> void:
 
 	var browser_payload := {
 		"version": 18,
+		"location": "camp",
 		"worldSeed": 424242,
 		"worldGeneratorVersion": 1,
 		"player": {
@@ -62,6 +63,8 @@ func _run() -> void:
 			failures.append("browser player progression must become the native hero without loss")
 		if int(native_world.get("seed", 0)) != 424242 or str(native_world.get("currentRegionId", "")) != "forest":
 			failures.append("browser world seed and exploration position must map into native world")
+		if str(native_world.get("location", "")) != "camp" or native_world.get("hero", {}).get("craftingJobs", []).size() != 1:
+			failures.append("camp location and pending crafting orders must survive browser save import")
 		if int(native_world.get("factions", {}).get("reputation", {}).get("wardens", 0)) != 35:
 			failures.append("browser faction reputation must remain available in native state")
 		if not bool(native_world.get("storyShards", {}).get("flame", false)):
@@ -72,6 +75,10 @@ func _run() -> void:
 		var exported := Repository.to_browser_payload(native_world)
 		if exported.is_empty() or int(exported.get("player", {}).get("gold", 0)) != 10001:
 			failures.append("native hero changes must be reflected in browser export")
+		if str(exported.get("location", "")) != "camp" or exported.get("player", {}).get("craftingJobs", []).size() != 1:
+			failures.append("camp location and pending crafting orders must survive native browser export")
+		if exported.get("world", {}).has("location"):
+			failures.append("top-level browser location must not leak into the world-state extension object")
 		if exported.get("browserRootExtension", {}).get("opaque", "") != "preserve":
 			failures.append("unknown browser root fields must survive native round-trip")
 		if exported.get("player", {}).get("browserOnlyPlayerFlag", {}).get("keep", false) != true:
