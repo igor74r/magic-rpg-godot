@@ -341,6 +341,62 @@ static func sell_item(world: Dictionary, index: int, confirmed: bool = false) ->
  world["hero"] = hero
  return {"ok":true,"message":"Продано: %s · +%d золота." % [str(item.get("name", "Предмет")), price],"price":price,"buybackPrice":buyback_price}
 
+# Sell several selected inventory entries as one atomic transaction.
+# Indices refer to the original inventory and are processed from highest to lowest.
+static func sell_items(world: Dictionary, indices: Array, confirmed: bool = false) -> Dictionary:
+ var hero := hero_for(world)
+ var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+ var selected: Array[int] = []
+ for value in indices:
+  if not value is int or int(value) < 0 or int(value) >= inventory.size() or selected.has(int(value)):
+   continue
+  selected.append(int(value))
+ selected.sort()
+ selected.reverse()
+ var candidates: Array[Dictionary] = []
+ var total := 0
+ var high_tier := false
+ for index in selected:
+  var value: Variant = inventory[index]
+  if not value is Dictionary:
+   continue
+  var instance: Dictionary = value
+  var item := CatalogItem.get_item(str(instance.get("id", "")))
+  if item.is_empty() or str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(instance.get("storyShard", false)) or bool(item.get("bossOnly", false)):
+   continue
+  var price := get_sell_price(world, instance)
+  if price <= 0 or total > 2147483647 - price:
+   continue
+  total += price
+  var rarity := str(instance.get("rarity", "common"))
+  if rarity in ["epic", "legendary"]:
+   high_tier = true
+  candidates.append({"index":index,"price":price})
+ if candidates.is_empty() or total <= 0:
+  return {"ok":false,"count":0,"total":0,"message":"Нет предметов, доступных для продажи."}
+ if (high_tier or total > 500) and not confirmed:
+  return {"ok":false,"requiresConfirmation":true,"count":candidates.size(),"total":total,"hasHighTier":high_tier}
+ var previous_inventory: Array = inventory.duplicate(true)
+ var previous_gold: Variant = hero.get("gold", 0)
+ var previous_stats: Dictionary = hero.get("stats", {}).duplicate(true) if hero.get("stats", {}) is Dictionary else {}
+ var previous_buyback: Array = hero.get("buyback", []).duplicate(true) if hero.get("buyback", []) is Array else []
+ var sold_count := 0
+ var actual_total := 0
+ for candidate in candidates:
+  var result := sell_item(world, int(candidate.index), true)
+  if not bool(result.get("ok", false)):
+   hero["inventory"] = previous_inventory
+   hero["gold"] = previous_gold
+   hero["stats"] = previous_stats
+   hero["buyback"] = previous_buyback
+   world["hero"] = hero
+   return {"ok":false,"count":0,"total":0,"message":"Продажа отменена: %s" % str(result.get("message", "ошибка операции"))}
+  sold_count += 1
+  actual_total += int(result.get("price", 0))
+ hero = hero_for(world)
+ return {"ok":true,"count":sold_count,"total":actual_total,"message":"Продано предметов: %d · +%d золота." % [sold_count,actual_total]}
+
+
 static func get_buyback_items(world: Dictionary, today: String = "") -> Array:
  return _valid_buyback_records(hero_for(world), today)
 
