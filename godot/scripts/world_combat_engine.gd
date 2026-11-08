@@ -491,7 +491,41 @@ static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero:
 	if _has_effect(enemy, "stun"):
 		_remove_effect(enemy, "stun")
 		lines.append("%s оглушён и пропускает ход." % str(enemy.get("name", "Противник")))
-		combat["turn"] = "player"
+		# A stunned enemy still consumes a complete combat round: both sides'
+		# ongoing effects tick, player cooldowns advance, and turn counters stay aligned.
+		var enemy_tick := tick_effects(enemy)
+		if int(enemy_tick.damage) > 0:
+			enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - int(enemy_tick.damage))
+			lines.append("Эффекты наносят противнику %d урона." % int(enemy_tick.damage))
+		if int(enemy.get("hp", 0)) <= 0:
+			enemy["hp"] = 0
+			enemy["dead"] = true
+			enemy["state"] = "dead"
+			lines.append(_award_victory(world, enemy))
+			combat["over"] = true
+			combat["result"] = "victory"
+			combat["turn"] = "over"
+		else:
+			var hero_tick := tick_effects(hero)
+			if int(hero_tick.damage) > 0:
+				hero["hp"] = maxi(0, int(hero.get("hp", 0)) - int(hero_tick.damage))
+				lines.append("Эффекты наносят вам %d урона." % int(hero_tick.damage))
+			if int(hero.get("hp", 0)) <= 0:
+				hero["hp"] = 1
+				combat["over"] = true
+				combat["result"] = "defeat"
+				combat["turn"] = "over"
+				lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+			else:
+				combat["turn"] = "player"
+			var cooldowns: Dictionary = hero.get("cooldowns", {})
+			for cooldown_id in cooldowns:
+				if int(cooldowns[cooldown_id]) > 0:
+					cooldowns[cooldown_id] = int(cooldowns[cooldown_id]) - 1
+			hero["cooldowns"] = cooldowns
+			enemy["turnCount"] = int(enemy.get("turnCount", 0)) + 1
+			combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
+		combat["blocking"] = false
 		combat["enemy"] = enemy
 		world["hero"] = hero
 		return
