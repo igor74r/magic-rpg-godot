@@ -214,6 +214,14 @@ func _run() -> void:
 	unsafe_negative_browser_world.world.seed = -9007199254740992
 	if SaveRepo.is_browser_v18_payload(unsafe_negative_browser_world):
 		failures.append("browser v18 contract must reject negative world seeds outside JavaScript's safe integer range")
+	var oversized_browser_world_seed := browser_payload.duplicate(true)
+	oversized_browser_world_seed.world.seed = 4294967296
+	if SaveRepo.is_browser_v18_payload(oversized_browser_world_seed):
+		failures.append("browser v18 contract must reject world seeds above the unsigned 32-bit limit")
+	var unsupported_browser_generator := browser_payload.duplicate(true)
+	unsupported_browser_generator.world.generatorVersion = 2
+	if SaveRepo.is_browser_v18_payload(unsupported_browser_generator):
+		failures.append("browser v18 contract must reject unsupported world generator versions")
 	browser_payload["extensionData"] = {"customQuestFlag": true, "opaqueCounter": 73}
 	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(browser_payload)) != OK:
 		failures.append("valid browser v18 payload must import into a Godot slot")
