@@ -22,6 +22,20 @@ func _initialize() -> void:
 	var legacy_cooldown := Npc.use_well(legacy_well_world, 1000 * 1000 + 86400000)
 	if bool(legacy_cooldown.get("ok", true)):
 		failures.append("legacy native seconds cooldown must be read during migration without granting an early well use")
+	# Browser parity: petting the village cat grants one battle of +5% critical chance.
+	var cat_world := WorldState.create(20261130)
+	cat_world["hero"] = {"level":1,"gold":0,"inventory":[],"buffs":[]}
+	var cat_blessing := Npc.pet_cat(cat_world)
+	if not bool(cat_blessing.get("ok", false)) or cat_world.hero.buffs.size() != 1 or str(cat_world.hero.buffs[0].get("id","")) != "catLuck" or int(cat_world.hero.buffs[0].get("duration",0)) != 1:
+		failures.append("petting the cat must grant the browser-compatible one-battle catLuck buff")
+	var repeated_cat_blessing := Npc.pet_cat(cat_world)
+	if bool(repeated_cat_blessing.get("ok", true)) or cat_world.hero.buffs.size() != 1:
+		failures.append("catLuck must not be stacked by repeatedly petting the cat")
+	var already_lucky_world := WorldState.create(20261131)
+	already_lucky_world["hero"] = {"level":1,"gold":0,"inventory":[],"buffs":[{"id":"catLuck","duration":1}]}
+	if bool(Npc.pet_cat(already_lucky_world).get("ok", true)) or already_lucky_world.hero.buffs.size() != 1:
+		failures.append("an existing active catLuck buff must prevent a duplicate cat blessing")
+
 	var warrior_well_world := WorldState.create(20261129)
 	warrior_well_world["hero"] = {"level":1,"class":"warrior","hp":10,"maxHp":100,"mp":0,"maxMp":50,"gold":0,"inventory":[],"stats":{}}
 	var warrior_well := Npc.use_well(warrior_well_world, 90000001)
