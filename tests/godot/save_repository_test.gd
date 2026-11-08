@@ -38,6 +38,14 @@ func _run() -> void:
 		failures.append("v17 migration must initialize legacy world exploration and fast travel")
 	if not migrated.get("factions", {}).get("reputation", {}) is Dictionary or migrated.factions.reputation.get("free-traders", -1) != 0:
 		failures.append("v17 migration must initialize all faction reputation records")
+	var faction_migration := SaveRepo.migrate_payload({"version":17,"player":{"name":"Faction migration","level":1},"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"not-a-number","unknown":99},"changeLog":[{"factionId":"rift-cult","delta":2},"invalid",{"factionId":"unknown"}]}})
+	var migrated_factions: Dictionary = faction_migration.get("factions", {})
+	var migrated_reputation: Dictionary = migrated_factions.get("reputation", {})
+	var migrated_log: Array = migrated_factions.get("changeLog", [])
+	if migrated_reputation.get("hub-guardians", 0) != 13 or migrated_reputation.get("rift-cult", 0) != -1 or migrated_reputation.get("free-traders", 0) != 42 or migrated_reputation.get("ash-nomads", 1) != 0:
+		failures.append("v17 faction migration must match runtime Number/Math.round normalization for numeric, string, and invalid values")
+	if migrated_reputation.has("unknown") or migrated_log.size() != 1 or migrated_log[0].get("factionId", "") != "rift-cult":
+		failures.append("v17 faction migration must discard unknown reputation keys and invalid change-log entries")
 	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
 		failures.append("v17 migration must preserve the legacy active campaign mission in its branch")
 	if int(migrated_player.get("expNext", 0)) != 269:
