@@ -6,6 +6,7 @@ const MapView = preload("res://godot/scripts/world_map_view.gd")
 func _initialize() -> void:
 	var failures: Array[String] = []
 	var view := MapView.new()
+	root.add_child(view)
 	view.size = Vector2(100, 100)
 	view.set_map([[0, 0], [0, 0]])
 	view.set_npcs([{"id":"merchant","cell":Vector2i(0, 0)}])
@@ -34,7 +35,7 @@ func _initialize() -> void:
 	if not clicked.is_empty():
 		failures.append("touches outside NPC hit targets must not activate a marker")
 
-	view.free()
+	view.queue_free()
 	if failures.is_empty():
 		print("PASS: map NPC interaction supports mouse and touch input")
 		quit(0)
