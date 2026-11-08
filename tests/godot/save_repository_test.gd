@@ -187,6 +187,22 @@ func _run() -> void:
 	var migrated_browser_export: Variant = JSON.parse_string(SaveRepo.export_browser_save(TEST_SLOT))
 	if not migrated_browser_export is Dictionary or migrated_browser_export.get("extensionData", {}).get("legacyQuestFlag", false) != true:
 		failures.append("migrated legacy browser save must remain exportable without losing extension data")
+	# A backup can be the only surviving copy after a crash. The next save
+	# must restore it before rotating files for another atomic replacement.
+	var orphaned_backup := browser_payload.duplicate(true)
+	orphaned_backup.player.name = "Backup-only hero"
+	var orphaned_backup_file := FileAccess.open(backup_path, FileAccess.WRITE)
+	if orphaned_backup_file != null:
+		orphaned_backup_file.store_string(JSON.stringify(orphaned_backup))
+		orphaned_backup_file.close()
+	if FileAccess.file_exists(TEST_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
+	var backup_recovery_error: Error = SaveRepo._write_json_atomically(TEST_PATH, JSON.stringify(browser_payload))
+	if backup_recovery_error != OK:
+		failures.append("a backup-only slot must be preserved before a new atomic save (error %d)" % backup_recovery_error)
+	if str(SaveRepo.load_slot(TEST_SLOT).get("player", {}).get("name", "")) != str(browser_payload.player.name):
+		failures.append("a new atomic save must replace a recovered backup-only slot with the new complete payload")
+
 	var interrupted_save := browser_payload.duplicate(true)
 	interrupted_save.player.name = "Recovered browser hero"
 	var backup_path := TEST_PATH + ".bak"
