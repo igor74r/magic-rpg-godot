@@ -820,9 +820,14 @@ func _perform_npc_action(action: String) -> void:
 
 
 
-func _show_npc_shop() -> void:
+func _clear_npc_service_controls() -> void:
 	for child in npc_container.get_children():
-		if child is Button and child.name == "NpcAction": child.queue_free()
+		if child.name in ["NpcAction", "NpcReforgeHeading"]:
+			child.queue_free()
+
+
+func _show_npc_shop() -> void:
+	_clear_npc_service_controls()
 	var hero:=CombatEngineScript.ensure_hero(world)
 	if merchant_stock.is_empty():
 		merchant_stock = NpcEngineScript.get_merchant_stock(false)
@@ -939,12 +944,14 @@ func _refresh_crafting_jobs() -> void:
 
 
 func _show_npc_alchemy() -> void:
+	_clear_npc_service_controls()
 	_refresh_crafting_jobs()
 	for recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
 		_add_recipe_button(recipe_id, "alchemist")
 	var hero := CombatEngineScript.ensure_hero(world)
 	var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
 	var heading := Label.new()
+	heading.name = "NpcReforgeHeading"
 	heading.text = "ПЕРЕКОВКА ЭКИПИРОВКИ"
 	npc_container.add_child(heading)
 	var found_equipment := false
@@ -977,6 +984,7 @@ func _show_npc_alchemy() -> void:
 
 
 func _show_npc_forge() -> void:
+	_clear_npc_service_controls()
 	_refresh_crafting_jobs()
 	var hero:=CombatEngineScript.ensure_hero(world)
 	var equipped: Dictionary=hero.get("equipped",{})
