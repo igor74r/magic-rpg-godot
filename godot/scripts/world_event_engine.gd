@@ -58,10 +58,11 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 		if event.get("status") != "active":
 			continue
 		if bool(event.get("accepted", false)) and event.get("objectiveType") == "defend-region" and str(event.get("regionId", "")) == region_id and now < float(event.get("expiresAt", 0.0)):
+			var previous_progress := int(event.get("progress", 0))
 			var elapsed := minf(float(event.get("targetCount", 1)), float(event.get("holdElapsedMinutes", 0.0)) + minf(delta_minutes, 15.0))
 			event["holdElapsedMinutes"] = elapsed
-			progressed = true
 			event["progress"] = mini(int(event.get("targetCount", 1)), int(floor(elapsed + 0.000000001)))
+			progressed = progressed or int(event.progress) > previous_progress
 			event["phase"] = event.progress
 			if int(event.progress) >= int(event.targetCount):
 				finished.append(_finish(world, event, "completed", now))
