@@ -422,7 +422,7 @@ static func _migrate_browser_legacy_versions(game: Dictionary, hero_key: String,
 				claimed[mission_id_claim] = true
 		if not player.get("activeCampaignMission", null) is String:
 			player["activeCampaignMission"] = null
-			for mission in WorldCampaignCatalog.MISSIONS:
+			for mission in WorldCampaignCatalogScript.MISSIONS:
 				var mission_id_active := str(mission.get("id", ""))
 				if not bool(claimed.get(mission_id_active, false)) and float(campaign_kills.get(mission_id_active, 0)) > 0.0:
 					player["activeCampaignMission"] = mission_id_active
