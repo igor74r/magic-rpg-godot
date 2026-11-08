@@ -904,12 +904,17 @@ func _add_recipe_button(recipe_id: String) -> void:
 
 
 func _craft_npc_recipe(recipe_id: String) -> void:
-	var result: Dictionary=NpcEngineScript.craft(world,recipe_id)
-	status_label.text=str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var previous_world := world.duplicate(true)
+	var result: Dictionary = NpcEngineScript.craft(world, recipe_id)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			world = previous_world
+			status_label.text = "Создание отменено: не удалось сохранить изменения (%s)." % error_string(save_error)
 	_refresh_inventory()
 	for child in npc_container.get_children():
-		if child is Button and child.name=="NpcAction":
+		if child is Button and child.name == "NpcAction":
 			child.queue_free()
 	if recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
 		_show_npc_alchemy()
@@ -918,9 +923,14 @@ func _craft_npc_recipe(recipe_id: String) -> void:
 
 
 func _upgrade_npc_equipment(slot: String) -> void:
-	var result: Dictionary=NpcEngineScript.upgrade_equipment(world,slot)
-	status_label.text=str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var previous_world := world.duplicate(true)
+	var result: Dictionary = NpcEngineScript.upgrade_equipment(world, slot)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			world = previous_world
+			status_label.text = "Улучшение отменено: не удалось сохранить изменения (%s)." % error_string(save_error)
 	_refresh_inventory()
 	_show_npc_forge()
 
