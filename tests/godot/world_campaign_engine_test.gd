@@ -2,6 +2,8 @@ extends SceneTree
 
 const Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
 const Catalog = preload("res://godot/scripts/world_campaign_catalog.gd")
+const Regions = preload("res://godot/scripts/world_region_catalog.gd")
+const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
 
 
 func _initialize() -> void:
@@ -78,8 +80,24 @@ func _run() -> void:
 	if progression.size() < 2 or str(progression[1].get("unlockAfterMissionId", "")) != "a1-m1":
 		failures.append("the second distinct story region must depend on the first mission")
 
-	if Catalog.all_missions().size() != 25:
+	var missions: Array = Catalog.all_missions()
+	if missions.size() != 25:
 		failures.append("the native campaign catalog must contain all 25 browser story missions")
+	var mission_ids: Dictionary = {}
+	for mission in missions:
+		var mission_id := str(mission.get("id", ""))
+		var region_id := str(mission.get("locationId", ""))
+		var enemy_id := str(mission.get("enemyId", ""))
+		if mission_id.is_empty() or mission_ids.has(mission_id):
+			failures.append("campaign mission IDs must be present and unique: %s" % mission_id)
+		else:
+			mission_ids[mission_id] = true
+		if Regions.get_region(region_id).is_empty():
+			failures.append("campaign mission %s references unknown region %s" % [mission_id, region_id])
+		if Enemies.get_enemy(enemy_id).is_empty():
+			failures.append("campaign mission %s references unknown enemy %s" % [mission_id, enemy_id])
+		if int(mission.get("count", 0)) < 1:
+			failures.append("campaign mission %s must require at least one kill" % mission_id)
 
 	var act_hero: Dictionary = {}
 	if not is_equal_approx(Campaign.act_price_multiplier(act_hero), 1.0):
