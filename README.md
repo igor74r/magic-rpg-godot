@@ -5,8 +5,8 @@ The new World & Factions dashboard tab shows faction standing, active regional e
 The world is now explored through a connected region graph instead of a linear level gate. New saves begin in Aurora, reveal neighboring routes as regions are visited, and use a per-save deterministic seed for terrain and encounter placement. Persistent regional events can be accepted, progressed through combat, and claimed for rewards that also affect faction standing. Existing saves migrate from v1–v17 and keep legacy fast travel so returning players are not stranded.
 # Осколки Разлома / Shards of the Rift
 
-[![CI](https://github.com/igor74r/magic-rpg/actions/workflows/ci.yml/badge.svg)](https://github.com/igor74r/magic-rpg/actions/workflows/ci.yml)
-<a href="https://igor74r.github.io/magic-rpg/index.html" target="_blank" rel="noopener"><img alt="Играть в браузере" src="https://img.shields.io/badge/Играть_в_браузере-Запустить-7c3aed?style=for-the-badge"></a>
+[![CI](https://github.com/igor74r/magic-rpg-godot/actions/workflows/ci.yml/badge.svg)](https://github.com/igor74r/magic-rpg-godot/actions/workflows/ci.yml)
+<a href="https://igor74r.github.io/magic-rpg-godot/" target="_blank" rel="noopener"><img alt="Играть в браузере" src="https://img.shields.io/badge/Играть_в_браузере-Запустить-7c3aed?style=for-the-badge"></a>
 
 
 Автономная браузерная 2D-RPG в жанре тёмного фэнтези. Игра запускается как статический сайт: без backend, серверной БД и сетевых игровых функций.
