@@ -218,18 +218,24 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var attack_style := "ranged" if str(hero.get("class", "")) == "archer" else "melee"
 	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), attack_style)
 	var charge_multiplier := 2.0 if _consume_combat_effect(hero, "double_next", "buffs") else 1.0
-	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style) * charge_multiplier)))
+	var attack_index := int(combat.get("playerAttackCount", 0))
+	combat["playerAttackCount"] = attack_index + 1
+	var damage_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-damage", enemy.get("persistentId", ""), attack_index])
+	var damage_rng := RandomScript.new(damage_seed)
+	var damage_roll := damage_rng.next_int(5)
+	var raw_damage := effective_stat(hero, "attack") + damage_roll - int(floor(float(enemy_armor) / 2.0))
+	var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style))))
 	consume_enemy_adaptation(enemy, attack_style)
 	record_player_style(combat, attack_style)
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
 	var crit_chance := critical_chance(hero, cat_luck_bonus)
-	var attack_index := int(combat.get("playerAttackCount", 0))
-	combat["playerAttackCount"] = attack_index + 1
 	var crit_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-crit", enemy.get("persistentId", ""), attack_index])
 	var crit_rng := RandomScript.new(crit_seed)
 	var is_critical := crit_rng.next_float() < crit_chance
 	if is_critical:
 		damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
+	if charge_multiplier > 1.0:
+		damage = int(floor(float(damage) * charge_multiplier))
 	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
 	var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
