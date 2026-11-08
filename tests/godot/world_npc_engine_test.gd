@@ -136,6 +136,15 @@ func _initialize() -> void:
 	var buyback := Npc.buyback_item(confirmation_world, 0)
 	if not bool(buyback.get("ok", false)) or confirmation_world.hero.inventory.size() != 1 or int(confirmation_world.hero.gold) != 100 + int(confirmed_sale.price) - buyback_price:
 		failures.append("same-day buyback must restore the item and charge the 20 percent markup")
+	var rarity_filter_world := WorldState.create(20261123)
+	rarity_filter_world["hero"] = {"level":1,"gold":1000,"inventory":[],"buyback":[
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"common"}},
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"mythic"}},
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"unknown"}}
+	],"campaignClaimed":{},"equipped":{}}
+	var filtered_buybacks := Npc.get_buyback_items(rarity_filter_world, "test-day")
+	if filtered_buybacks.size() != 1 or str(filtered_buybacks[0].item.get("rarity","")) != "common":
+		failures.append("buyback must reject mythic and unknown rarity records just like the browser validator")
 	var act_five_world := WorldState.create(20261117)
 	var claimed_missions: Dictionary = {}
 	for mission in preload("res://godot/scripts/world_campaign_catalog.gd").all_missions():
