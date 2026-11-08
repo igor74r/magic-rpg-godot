@@ -28,6 +28,14 @@ func _run() -> void:
 	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"customFlag":"keep"},"worldSeed":9876}
 	var migrated := SaveRepo.migrate_payload(legacy_payload)
 	var migrated_player: Dictionary = migrated.get("player", {})
+	var integral_float_timestamp := legacy_payload.duplicate(true)
+	integral_float_timestamp.player.createdAt = 1700000000000.0
+	var integer_timestamp := legacy_payload.duplicate(true)
+	integer_timestamp.player.createdAt = 1700000000000
+	var float_timestamp_migration := SaveRepo.migrate_payload(integral_float_timestamp)
+	var integer_timestamp_migration := SaveRepo.migrate_payload(integer_timestamp)
+	if int(float_timestamp_migration.get("worldSeed", 0)) != int(integer_timestamp_migration.get("worldSeed", -1)):
+		failures.append("legacy seed derivation must treat browser-safe integral float timestamps like integer timestamps")
 	if int(migrated.get("version", -1)) != 18 or int(migrated_player.get("level", 0)) != 27 or int(migrated_player.get("gold", 0)) != 900:
 		failures.append("v17 migration must preserve existing player progress")
 	if migrated_player.get("customFlag", "") != "keep" or migrated_player.get("campaignClaimed", {}).get("a1-m1", false) != true:
