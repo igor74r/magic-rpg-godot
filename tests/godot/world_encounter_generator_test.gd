@@ -87,6 +87,30 @@ func _initialize() -> void:
 			finale_has_dragon = true
 	if not finale_has_dragon:
 		failures.append("the accepted finale mission must include its guaranteed story dragon in the encounter roster")
+	# Generate and validate the complete authored region catalog, not just one sample.
+	for region_id in Catalog.region_ids():
+		var region_grid := MapGenerator.generate_map(str(region_id), 40, 30, 77123, 1, 1)
+		var region_first := Encounter.generate(str(region_id), region_grid, 77123, 1, 1)
+		var region_second := Encounter.generate(str(region_id), region_grid, 77123, 1, 1)
+		if region_first != region_second:
+			failures.append("region %s encounter generation must be deterministic for the same seed and visit" % str(region_id))
+		if region_first.size() > 7:
+			failures.append("region %s must never exceed the browser seven-enemy spawn cap" % str(region_id))
+		var region_spawn_ids: Dictionary = {}
+		var occupied_cells: Dictionary = {}
+		for spawned in region_first:
+			var spawned_id := str(spawned.get("persistentId", ""))
+			var spawned_cell: Vector2i = spawned.get("cell", Vector2i(-1, -1))
+			if spawned_id.is_empty() or region_spawn_ids.has(spawned_id):
+				failures.append("region %s must produce unique stable enemy identities" % str(region_id))
+			region_spawn_ids[spawned_id] = true
+			if MapGenerator.is_blocked(region_grid, spawned_cell.x, spawned_cell.y):
+				failures.append("region %s enemy %s must occupy a walkable map cell" % [str(region_id), spawned_id])
+			if occupied_cells.has(spawned_cell):
+				failures.append("region %s must not place two enemies in the same cell" % str(region_id))
+			occupied_cells[spawned_cell] = true
+			if Vector2(spawned_cell - Vector2i(20, 15)).length() < 5.0:
+				failures.append("region %s enemy spawn must respect the player safety radius" % str(region_id))
 	var grid := MapGenerator.generate_map("forest", 40, 30, 123456, 1, 1)
 	var first := Encounter.generate("forest", grid, 123456, 1, 1)
 	var second := Encounter.generate("forest", grid, 123456, 1, 1)
