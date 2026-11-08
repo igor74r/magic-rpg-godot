@@ -860,7 +860,12 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 			"magic":
 				total += int(bonus.get("magic", 0))
 			"defense":
-				total += int(bonus.get("defense", bonus.get("armor", 0)))
+				# Browser stats use `defense || armor || 0`; a zero defense
+				# value must not mask a non-zero legacy armor alias.
+				var defense_bonus := int(bonus.get("defense", 0))
+				if defense_bonus == 0:
+					defense_bonus = int(bonus.get("armor", 0))
+				total += defense_bonus
 			"dex":
 				total += int(bonus.get("dex", 0))
 		var forge_level := clampi(int(instance.get("forgeLevel", 0)) if instance is Dictionary else 0, 0, FORGE_BONUS.size() - 1)
