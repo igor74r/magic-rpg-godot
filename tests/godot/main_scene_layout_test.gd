@@ -75,7 +75,7 @@ func _initialize() -> void:
 		]
 		for action in commerce_actions:
 			var action_start := controller_source.find("func %s(" % str(action.name))
-			var action_end := controller_source.find("\\n\\nfunc ", action_start)
+			var action_end := controller_source.find("\n\nfunc ", action_start)
 			if action_start < 0 or action_end < 0:
 				failures.append("NPC commerce action must remain implemented: %s" % str(action.name))
 				continue
@@ -83,7 +83,7 @@ func _initialize() -> void:
 			if not action_source.contains(str(action.engine)) or not action_source.contains("world.duplicate(true)") or not action_source.contains("WorldStateRepositoryScript.save_world(world)") or not action_source.contains("world = previous_world"):
 				failures.append("NPC commerce action must atomically save or restore its complete world snapshot: %s" % str(action.name))
 		var event_claim_start := controller_source.find("func _claim_world_event(event_id: String) -> void:")
-		var event_claim_end := controller_source.find("\\n\\nfunc ", event_claim_start)
+		var event_claim_end := controller_source.find("\n\nfunc ", event_claim_start)
 		var event_claim_source := controller_source.substr(event_claim_start, event_claim_end - event_claim_start)
 		for required_event_guard in ["floor(float(raw_gold)) != float(raw_gold)", "int(current_gold) > 2147483647 - int(raw_gold)", "world = snapshot", "WorldStateRepositoryScript.save_world(world)"]:
 			if not event_claim_source.contains(required_event_guard):
