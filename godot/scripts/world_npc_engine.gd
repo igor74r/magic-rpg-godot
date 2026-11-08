@@ -401,15 +401,18 @@ static func craft(world: Dictionary, recipe_id: String, station: String = "") ->
   if have < needed:
    return {"ok":false,"message":"Не хватает %s: %d/%d." % [str(ingredient_definition.get("name", ingredient_id)), have, needed]}
  var output_rarity := str(recipe.get("rarity", ""))
- var output_capacity := _can_add_item(hero, result_id, quantity, output_rarity)
- if not bool(output_capacity.get("ok", false)):
-  var capacity_message := "Сумка заполнена." if str(output_capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
-  return {"ok":false,"message":capacity_message}
  var snapshot: Array = inventory.duplicate(true)
  for item_id in ingredients:
   if not Combat.remove_item(hero, str(item_id), int(ingredients[item_id])):
    hero["inventory"] = snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
+ # Capacity is checked after ingredient consumption, just like the browser
+ # crafting transaction: materials being spent must free their weight/slots.
+ var output_capacity := _can_add_item(hero, result_id, quantity, output_rarity)
+ if not bool(output_capacity.get("ok", false)):
+  hero["inventory"] = snapshot
+  var capacity_message := "Сумка заполнена." if str(output_capacity.get("reason", "")) == "slots" else "Превышен лимит переносимого веса."
+  return {"ok":false,"message":capacity_message}
  if not Combat.add_item(hero, result_id, quantity, output_rarity):
   hero["inventory"] = snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}

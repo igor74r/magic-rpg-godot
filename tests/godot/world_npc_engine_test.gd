@@ -21,6 +21,11 @@ func _initialize() -> void:
 		failures.append("crafted equipment must retain its authored rarity")
 	if not inventory.is_empty() and (inventory.any(func(item): return str(item.get("id","")) in ["root-court-seal","root-fiber"])):
 		failures.append("successful craft must consume all required ingredients")
+	var capacity_world := WorldState.create(20261118)
+	capacity_world["hero"] = {"level":1,"str":1,"gold":0,"inventory":[{"id":"iron-sword","qty":1},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
+	var capacity_craft := Npc.craft(capacity_world, "r-briar-court-mantle", "blacksmith")
+	if not bool(capacity_craft.get("ok", false)) or capacity_world.hero.inventory.size() != 2:
+		failures.append("crafting must account for the weight freed by consumed ingredients before rejecting the output")
 	var poor_world := WorldState.create(20261109)
 	poor_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"root-court-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
 	var before: Array = poor_world.hero.inventory.duplicate(true)
