@@ -32,9 +32,10 @@ static func base_drop_chance(difficulty: String, elite: bool = false) -> float:
 		return 0.85
 	return 0.70 if difficulty == "easy" else 0.30 if difficulty == "hard" else 0.50
 
-static func ambient_gold_reward(base_gold: int, is_elite: bool = false) -> int:
-	var multiplier := 2.0 if is_elite else 1.0
-	return maxi(0, int(round(float(maxi(0, base_gold)) * 0.15 * multiplier)))
+static func ambient_gold_reward(base_gold: int, is_elite: bool = false, ng_plus: int = 0) -> int:
+	var elite_multiplier := 2.0 if is_elite else 1.0
+	var ng_multiplier := 1.0 + 0.3 * float(maxi(0, ng_plus))
+	return maxi(0, int(round(float(maxi(0, base_gold)) * 0.15 * elite_multiplier * ng_multiplier)))
 
 static func herb_drop_chance(is_boss: bool = false, is_elite: bool = false) -> float:
 	if is_boss:
@@ -107,7 +108,7 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 			"modifier": modifier_id, "modifierEffect": str(modifier.get("effect", "")),
 			"special": definition.get("special", {}).duplicate(true),
 			"drops": definition.get("drops", []).duplicate(),
-			"dropSeed": region_rng.next_int(2147483647),
+			"dropSeed": region_rng.next_int(2147483647), "ngPlus": ng,
 			"elite": elite, "boss": is_boss, "effects": [], "phase": 0,
 			"state": "idle", "dead": false, "respawnAt": 0
 		})
