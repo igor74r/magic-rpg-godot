@@ -620,6 +620,15 @@ func _initialize() -> void:
 	if not buff_dot_result.ok or buff_dot_fight.result != "victory" or int(buff_dot_world.hero.hp) != 100 or int(buff_dot_enemy.hp) != 0:
 		failures.append("an enemy killed by burn during a buff action must not retaliate")
 
+	# Defensive abilities must still trigger the enemy turn when no adaptation message is produced.
+	var buff_turn_world := WorldState.create(1113)
+	buff_turn_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var buff_turn_enemy := {"name":"Враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":14}
+	var buff_turn_fight := Combat.begin(buff_turn_enemy)
+	var buff_turn_result: Dictionary = Combat.use_ability(buff_turn_world,buff_turn_fight,"mana-shield")
+	if not buff_turn_result.ok or int(buff_turn_world.hero.hp) >= 100 or buff_turn_fight.turn != "player":
+		failures.append("a defensive buff must allow the enemy response even when adaptation is inactive")
+
 	var heal_world := WorldState.create(1103)
 	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
 	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
