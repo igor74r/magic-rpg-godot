@@ -34,6 +34,18 @@ func _run() -> void:
 		failures.append("v17 migration must preserve unknown fields and campaign claims")
 	if not migrated_player.get("storyShards", {}) is Dictionary or not migrated_player.get("campaignKills", {}) is Dictionary:
 		failures.append("v17 migration must initialize missing progression containers")
+	if not migrated.get("world", {}) is Dictionary or not bool(migrated.world.get("legacyFastTravel", false)):
+		failures.append("v17 migration must initialize legacy world exploration and fast travel")
+	if not migrated.get("factions", {}).get("reputation", {}) is Dictionary or migrated.factions.reputation.get("free-traders", -1) != 0:
+		failures.append("v17 migration must initialize all faction reputation records")
+	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
+		failures.append("v17 migration must preserve the legacy active campaign mission in its branch")
+	if int(migrated_player.get("expNext", 0)) != 535:
+		failures.append("v17 migration must rebase XP thresholds to the current level curve")
+	var stable_seed_a := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
+	var stable_seed_b := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
+	if int(stable_seed_a.get("worldSeed", 0)) != int(stable_seed_b.get("worldSeed", -1)) or int(stable_seed_a.get("worldSeed", 0)) <= 0:
+		failures.append("v17 migration must derive a stable non-zero world seed")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
 		failures.append("unsupported v16 payload must not be migrated blindly")
 	if not SaveRepo.migrate_payload({"version":18.5,"player":{"name":"Fractional version"}}).is_empty():

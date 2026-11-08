@@ -3,6 +3,7 @@ extends RefCounted
 
 const SAVE_VERSION := 18
 const PREVIOUS_SAVE_VERSION := 17
+const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 
 
@@ -132,8 +133,8 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	migrated["worldGeneratorVersion"] = int(generator_value) if generator_value is int and int(generator_value) >= 1 else 1
 
 	var world_value: Variant = migrated.get("world", null)
-	var world: Dictionary = WorldStateData.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
-	world = WorldStateData.normalize(world, source_seed, true)
+	var world: Dictionary = WorldStateScript.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
+	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
 
 	var factions_value: Variant = migrated.get("factions", null)
