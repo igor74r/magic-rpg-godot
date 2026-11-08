@@ -129,7 +129,30 @@ static func campaign_action(world: Dictionary,claim_reward: bool=false) -> Dicti
 	return {"ok":true,"message":"%s · +%d золота, +%d опыта, материал %s" % [str(result.message),int(reward.gold),int(reward.exp),str(reward.itemId)]}
 
 
-const SHOP_STOCK := ["health-potion","mana-potion","strong-health-potion","strong-mana-potion","antidote","strength-elixir","mana-elixir","restorative-potion","iron-sword","apprentice-staff","leather-armor","rootbound-hood","cinder-visor","briar-shoulders","duelist-grips","gravebinder-gloves","oath-bracers","windstep-boots","glacier-greaves","tower-shield","ranger-cloak","obsidian-mantle","amulet-first-light","pendant-last-oath","ring-wolf-eye","ring-quiet-tide","rune-root","rune-ember","rune-tide","rune-frost","rune-void","root-fiber","grave-salt","ember-core","frost-essence","void-dust","scroll-lightning","scroll-poison-cloud","scroll-shield","greater-health-potion","greater-mana-potion","moonsteel-spear","rune-sword","astral-staff","warden-plate","void-robe","scroll-frost-nova","scroll-shadow-lance","scroll-arcane-surge","scroll-radiant-aegis","scroll-renewal"]
+const SHOP_STOCK := ["health-potion","mana-potion","strong-health-potion","strong-mana-potion","antidote","strength-elixir","mana-elixir","scroll-lightning","scroll-shield","restorative-potion","iron-sword","apprentice-staff","leather-armor","rootbound-hood","cinder-visor","briar-shoulders","duelist-grips","gravebinder-gloves","oath-bracers","windstep-boots","glacier-greaves","tower-shield","ranger-cloak","obsidian-mantle","amulet-first-light","pendant-last-oath","ring-wolf-eye","ring-quiet-tide","rune-root","rune-ember","rune-tide","rune-frost","rune-void"]
+const RARE_SHOP_STOCK := ["moonsteel-spear","rune-sword","astral-staff","warden-plate","void-robe","scroll-frost-nova","scroll-shadow-lance","scroll-arcane-surge"]
+
+static func _shuffle_stock(pool: Array, rng: RandomNumberGenerator) -> void:
+	for index in range(pool.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var temporary: Variant = pool[index]
+		pool[index] = pool[swap_index]
+		pool[swap_index] = temporary
+
+static func get_merchant_stock(is_wandering: bool = false, seed_value: int = -1) -> Array:
+	var rng := RandomNumberGenerator.new()
+	if seed_value >= 0:
+		rng.seed = seed_value
+	else:
+		rng.randomize()
+	var common_pool: Array = SHOP_STOCK.duplicate()
+	_shuffle_stock(common_pool, rng)
+	var result: Array = common_pool.slice(0, 3 if is_wandering else 5)
+	if is_wandering:
+		var rare_pool: Array = RARE_SHOP_STOCK.duplicate()
+		_shuffle_stock(rare_pool, rng)
+		result.append_array(rare_pool.slice(0, 2))
+	return result
 const RECIPES := {
  "r-hp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"health-potion","ingredients":{"herb-life":3}},
  "r-mp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"mana-potion","ingredients":{"herb-moon":3}},
@@ -227,7 +250,7 @@ static func _valid_buyback_records(hero: Dictionary, today: String = "") -> Arra
 	return valid
 
 static func get_buy_price(world: Dictionary, item_id: String) -> int:
- if not SHOP_STOCK.has(item_id): return 0
+ if not SHOP_STOCK.has(item_id) and not RARE_SHOP_STOCK.has(item_id): return 0
  var item := CatalogItem.get_item(item_id)
  if item.is_empty() or str(item.get("type","")) == "quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return 0
  var hero := hero_for(world)

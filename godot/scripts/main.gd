@@ -43,6 +43,7 @@ var rift_container: VBoxContainer
 var tower_container: VBoxContainer
 var npc_container: VBoxContainer
 var combat_state: Dictionary = {}
+var merchant_stock: Array = []
 var browser_import_dialog: FileDialog
 var browser_export_dialog: FileDialog
 
@@ -705,6 +706,7 @@ func _talk_to_npc(npc_id: String) -> void:
 	elif npc_id=="bard":
 		_add_npc_action("Заплатить 15 золота · +10% опыта","bard")
 	elif npc_id=="merchant":
+		merchant_stock = NpcEngineScript.get_merchant_stock(false)
 		_add_npc_action("Открыть ассортимент торговца","shop")
 	elif npc_id=="blacksmith":
 		_add_npc_action("Открыть кузницу и улучшения","forge")
@@ -789,7 +791,9 @@ func _show_npc_shop() -> void:
 	for child in npc_container.get_children():
 		if child is Button and child.name == "NpcAction": child.queue_free()
 	var hero:=CombatEngineScript.ensure_hero(world)
-	for item_id in NpcEngineScript.SHOP_STOCK:
+	if merchant_stock.is_empty():
+		merchant_stock = NpcEngineScript.get_merchant_stock(false)
+	for item_id in merchant_stock:
 		var item: Dictionary=WorldItemCatalogScript.get_item(str(item_id))
 		if item.is_empty(): continue
 		var price := NpcEngineScript.get_buy_price(world, str(item_id))

@@ -74,11 +74,21 @@ func _initialize() -> void:
 		failures.append("malformed or quest-item crafting orders must never grant restricted rewards")
 	var shop_validation_world := WorldState.create(20261110)
 	shop_validation_world["hero"] = {"level":1,"gold":0,"inventory":[],"campaignClaimed":{},"equipped":{}}
-	if Npc.SHOP_STOCK.size() != 51:
-		failures.append("native merchant stock must match all 51 canonical browser shop entries")
-	for shop_item_id in Npc.SHOP_STOCK:
+	if Npc.SHOP_STOCK.size() != 33 or Npc.RARE_SHOP_STOCK.size() != 8:
+		failures.append("native merchant pools must match 33 common and 8 rare browser entries")
+	for shop_item_id in Npc.SHOP_STOCK + Npc.RARE_SHOP_STOCK:
 		if preload("res://godot/scripts/world_item_catalog.gd").get_item(str(shop_item_id)).is_empty() or Npc.get_buy_price(shop_validation_world, str(shop_item_id)) <= 0:
-			failures.append("canonical shop item must have a valid native definition and purchasable price: %s" % str(shop_item_id))
+			failures.append("canonical merchant item must have a valid native definition and purchasable price: %s" % str(shop_item_id))
+	var regular_stock := Npc.get_merchant_stock(false, 1234)
+	if regular_stock.size() != 5 or regular_stock.any(func(item_id): return Npc.RARE_SHOP_STOCK.has(str(item_id))):
+		failures.append("village merchant must offer five randomly selected common items only")
+	var wandering_stock := Npc.get_merchant_stock(true, 1234)
+	var wandering_rare_count := 0
+	for stock_item_id in wandering_stock:
+		if Npc.RARE_SHOP_STOCK.has(str(stock_item_id)):
+			wandering_rare_count += 1
+	if wandering_stock.size() != 5 or wandering_rare_count != 2:
+		failures.append("wandering merchant must offer three common and two rare items")
 	var trader_world := WorldState.create(20261110)
 	trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
 	trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
