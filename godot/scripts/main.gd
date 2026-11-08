@@ -822,7 +822,7 @@ func _perform_npc_action(action: String) -> void:
 
 func _clear_npc_service_controls() -> void:
 	for child in npc_container.get_children():
-		if child.name in ["NpcAction", "NpcReforgeHeading"]:
+		if child.name in ["NpcAction", "NpcCraftingJobs", "NpcReforgeHeading"]:
 			child.queue_free()
 
 
