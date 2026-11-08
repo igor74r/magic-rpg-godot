@@ -757,20 +757,29 @@ func _add_npc_action(label_text: String,action: String) -> void:
 
 
 func _perform_npc_action(action: String) -> void:
-	var result: Dictionary={}
+	# Opening a service is UI-only. Do not rebuild the NPC panel immediately,
+	# or the shop/forge/alchemy controls disappear in the same frame.
 	match action:
-		"accept": result=NpcEngineScript.campaign_action(world,false)
-		"claim": result=NpcEngineScript.campaign_action(world,true)
-		"blessing": result=NpcEngineScript.take_blessing(world)
-		"heal": result=NpcEngineScript.heal(world)
-		"well": result=NpcEngineScript.use_well(world)
-		"bard": result=NpcEngineScript.pay_bard(world)
-		"shop": _show_npc_shop()
-		"forge": _show_npc_forge()
-		"alchemy": _show_npc_alchemy()
-	status_label.text=str(result.get("message",""))
-	var save_error:=WorldStateRepositoryScript.save_world(world)
-	if save_error!=OK: status_label.text+="\nОшибка сохранения: %s" % error_string(save_error)
+		"shop":
+			_show_npc_shop()
+			return
+		"forge":
+			_show_npc_forge()
+			return
+		"alchemy":
+			_show_npc_alchemy()
+			return
+	var result: Dictionary = {}
+	match action:
+		"accept": result = NpcEngineScript.campaign_action(world, false)
+		"claim": result = NpcEngineScript.campaign_action(world, true)
+		"blessing": result = NpcEngineScript.take_blessing(world)
+		"heal": result = NpcEngineScript.heal(world)
+		"well": result = NpcEngineScript.use_well(world)
+		"bard": result = NpcEngineScript.pay_bard(world)
+	status_label.text = str(result.get("message", ""))
+	var save_error := WorldStateRepositoryScript.save_world(world)
+	if save_error != OK: status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
 	_refresh_inventory()
 	_refresh_npcs()
 
