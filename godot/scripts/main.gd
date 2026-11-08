@@ -1089,7 +1089,7 @@ func _refresh_factions() -> void:
 func _process(delta: float) -> void:
 	if world.is_empty() or (not combat_state.is_empty() and not bool(combat_state.get("over", false))):
 		return
-	var event_result: Dictionary = WorldEventEngineScript.advance_time(world, delta / 60.0, str(world.get("currentRegionId", "village")))
+	var event_result: Dictionary = WorldEventEngineScript.advance_time(world, delta, str(world.get("currentRegionId", "village")))
 	_event_save_elapsed += delta
 	if bool(event_result.get("changed", false)):
 		var save_error := WorldStateRepositoryScript.save_world(world)
