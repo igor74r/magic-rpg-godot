@@ -13,7 +13,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var world := WorldState.create(20261108)
-	world["hero"] = {"level": 50, "ngPlus": 2, "riftBest": 0, "riftClearedLocations": []}
+	world["hero"] = {"level": 50, "ngPlus": 2, "riftBest": 9, "riftClearedLocations": []}
 	world["storyDragons"] = {"blood-crown": true}
 	world["dailyQuests"] = {
 		"date": Daily.today_key(),
@@ -51,7 +51,7 @@ func _run() -> void:
 		enemy["hp"] = 0
 		enemy["dead"] = true
 		var completed: Dictionary = Rift.complete_area(world, enemy)
-		if not bool(completed.get("ok", false)) or int(world.hero.get("riftBest", 0)) != 1:
+		if not bool(completed.get("ok", false)) or int(world.hero.get("riftBest", 0)) != 10:
 			failures.append("valid Rift completion must persist the floor record")
 		if bool(Rift.complete_area(world, enemy).get("ok", false)):
 			failures.append("the same Rift encounter must not award completion twice")
@@ -60,8 +60,10 @@ func _run() -> void:
 		for quest in quests:
 			if str(quest.get("id", "")) == "q-rift-floor":
 				rift_quest = quest
-		if int(rift_quest.get("current", 0)) != 1 or bool(rift_quest.get("completed", false)):
-			failures.append("Rift completion must update the daily floor objective exactly once")
+		if int(rift_quest.get("current", 0)) != 10 or not bool(rift_quest.get("completed", false)):
+			failures.append("Rift completion must update the daily floor objective to the reached floor")
+		if not world.hero.get("achievements", []).has("rift-10") or completed.get("achievements", []).is_empty():
+			failures.append("clearing Rift floor 10 must unlock and report the milestone achievement")
 
 	if failures.is_empty():
 		print("PASS: Rift encounter scaling, completion validation and daily floor progress")

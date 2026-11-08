@@ -8,6 +8,7 @@ const GENERATOR_VERSION := 1
 const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
 const WorldEnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const WorldTowerEngine = preload("res://godot/scripts/world_tower_engine.gd")
+const AchievementEngine = preload("res://godot/scripts/world_achievement_engine.gd")
 
 
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
@@ -367,6 +368,12 @@ static func mark_chest_opened(world: Dictionary, region_id: String, chest_id: St
 	opened.append(chest_id)
 	record["openedChests"] = opened
 	world["regions"][region_id] = record
+	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	stats["chestsOpened"] = mini(2147483647, maxi(0, int(stats.get("chestsOpened", 0))) + 1)
+	hero["stats"] = stats
+	world["hero"] = hero
+	AchievementEngine.evaluate(world)
 	_advance_daily_chest_progress(world)
 	return true
 

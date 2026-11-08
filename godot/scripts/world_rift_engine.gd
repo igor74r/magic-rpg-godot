@@ -5,6 +5,7 @@ extends RefCounted
 const Campaign = preload("res://godot/scripts/world_campaign_engine.gd")
 const Regions = preload("res://godot/scripts/world_region_catalog.gd")
 const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
+const AchievementEngine = preload("res://godot/scripts/world_achievement_engine.gd")
 const STORY_DRAGONS := ["flame-lord", "ice-queen", "ancient-dragon"]
 
 static func is_available(world: Dictionary) -> bool:
@@ -112,7 +113,11 @@ static func complete_area(world: Dictionary, enemy: Dictionary) -> Dictionary:
 	preload("res://godot/scripts/world_daily_quest_engine.gd").set_progress(world, "rift", "floor", int(run.floor))
 	world["hero"] = hero
 	world["riftRun"] = {"active": false, "locationId": str(run.locationId), "floor": int(run.floor), "completed": true}
-	return {"ok": true, "newRecord": new_record, "floor": int(run.floor), "message": "Область Разлома очищена · этаж %d%s" % [int(run.floor), " · новый рекорд!" if new_record else ""]}
+	var achievement_unlocks: Array = AchievementEngine.evaluate(world)
+	var message := "Область Разлома очищена · этаж %d%s" % [int(run.floor), " · новый рекорд!" if new_record else ""]
+	for achievement in achievement_unlocks:
+		message += "\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
+	return {"ok": true, "newRecord": new_record, "floor": int(run.floor), "message": message, "achievements": achievement_unlocks}
 
 static func abandon(world: Dictionary) -> bool:
 	var run := get_run(world)

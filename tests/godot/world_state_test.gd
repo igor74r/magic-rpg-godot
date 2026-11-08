@@ -67,6 +67,13 @@ func _run() -> void:
 		failures.append("first chest open must be recorded")
 	if WorldStateScript.mark_chest_opened(world, "forest", "chest-01"):
 		failures.append("the same chest must not be recorded twice")
+	var chest_achievement_world := WorldStateScript.create(654)
+	chest_achievement_world["hero"] = {"level": 1, "gold": 0, "stats": {}}
+	for chest_index in range(10):
+		if not WorldStateScript.mark_chest_opened(chest_achievement_world, "forest", "achievement-chest-%02d" % chest_index):
+			failures.append("each unique chest must be counted once for achievements")
+	if not chest_achievement_world.hero.get("achievements", []).has("treasure-hunter") or int(chest_achievement_world.hero.gold) != 12:
+		failures.append("opening ten unique chests must unlock and pay the treasure hunter achievement")
 	var chest_quest: Dictionary = {}
 	for quest in DailyQuestEngine.get_quests(world):
 		if str(quest.get("id", "")) == "q-chest": chest_quest = quest

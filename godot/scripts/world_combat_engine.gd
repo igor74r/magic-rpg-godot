@@ -310,7 +310,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	hero = world.get("hero", hero)
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
 	for achievement in achievement_unlocks:
-		message += "\\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
+		message += "\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
 	if not campaign_message.is_empty(): message += "\n" + campaign_message
 	if not dragon_reward_message.is_empty(): message += "\n" + dragon_reward_message
 	if level_ups > 0:
