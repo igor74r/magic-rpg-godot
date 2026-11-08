@@ -1,11 +1,56 @@
 extends RefCounted
 
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
+const SaveRepositoryScript = preload("res://godot/scripts/save_repository.gd")
 const WORLD_PATH := "user://shards_world_state.json"
 
 
 static func save_world(world: Dictionary) -> Error:
 	return _write_json_atomically(WORLD_PATH, JSON.stringify(world))
+
+
+# Convert a validated browser v18 snapshot into the native runtime envelope.
+# Keep the source snapshot so browser-only fields survive native play and export.
+static func from_browser_payload(payload: Dictionary) -> Dictionary:
+	if not SaveRepositoryScript.is_browser_v18_payload(payload):
+		return {}
+	var browser_world_value: Variant = payload.get("world", {})
+	var browser_world: Dictionary = browser_world_value.duplicate(true) if browser_world_value is Dictionary else {}
+	var player: Dictionary = payload.player.duplicate(true)
+	var source_seed := int(browser_world.get("seed", payload.get("worldSeed", 1)))
+	var source_generator := int(browser_world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))
+	browser_world["seed"] = source_seed
+	browser_world["generatorVersion"] = source_generator
+	browser_world["hero"] = player
+	browser_world["factions"] = payload.factions.duplicate(true)
+	browser_world["storyShards"] = payload.storyShards.duplicate(true)
+	browser_world["storyDragons"] = payload.storyDragons.duplicate(true)
+	browser_world["_browserSourcePayload"] = payload.duplicate(true)
+	return WorldStateScript.normalize(browser_world, source_seed)
+
+
+# Rebuild a browser-compatible snapshot from the live native runtime state.
+# Start from the original browser document to retain fields not yet interpreted
+# by Godot, then overlay the authoritative native hero and progression state.
+static func to_browser_payload(world: Dictionary) -> Dictionary:
+	var source_value: Variant = world.get("_browserSourcePayload", {})
+	if not source_value is Dictionary or source_value.is_empty():
+		return {}
+	var payload: Dictionary = source_value.duplicate(true)
+	var hero_value: Variant = world.get("hero", {})
+	if not hero_value is Dictionary or hero_value.is_empty():
+		return {}
+	var browser_world: Dictionary = world.duplicate(true)
+	for runtime_key in ["hero", "factions", "storyShards", "storyDragons", "_browserSourcePayload"]:
+		browser_world.erase(runtime_key)
+	payload["player"] = hero_value.duplicate(true)
+	payload["world"] = browser_world
+	payload["worldSeed"] = int(world.get("seed", payload.get("worldSeed", 1)))
+	payload["worldGeneratorVersion"] = int(world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))
+	payload["factions"] = world.get("factions", payload.get("factions", {})).duplicate(true)
+	payload["storyShards"] = world.get("storyShards", payload.get("storyShards", {})).duplicate(true)
+	payload["storyDragons"] = world.get("storyDragons", payload.get("storyDragons", {})).duplicate(true)
+	return payload
 
 
 static func _write_json_atomically(path: String, serialized: String) -> Error:
