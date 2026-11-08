@@ -68,6 +68,15 @@ func _run() -> void:
 	var expired_quest_window: Array = Daily.get_quests(browser_quest_world, quest_clock + 86400001)
 	if expired_quest_window.size() != 3 or int(browser_quest_world.dailyQuests.get("date",0)) != quest_clock + 86400001:
 		failures.append("daily quests must rotate only after more than 24 hours and save the new millisecond timestamp")
+	var malformed_progress_world := WorldState.create(9093)
+	malformed_progress_world["dailyQuests"] = {"date": quest_clock, "list": [
+		{"id":"q-kill-any","current":2.5,"claimed":true},
+		{"id":"q-kill-goblin","current":2,"claimed":false},
+		{"id":"q-chest","current":1,"claimed":false}
+	]}
+	var malformed_progress: Array = Daily.get_quests(malformed_progress_world, quest_clock + 1000)
+	if int(malformed_progress[0].get("current",-1)) != 0 or bool(malformed_progress[0].get("claimed",true)):
+		failures.append("fractional browser quest progress and an unearned claimed flag must normalize safely")
 	var invalid_quest_date_world := WorldState.create(9091)
 	invalid_quest_date_world["dailyQuests"] = {"date": quest_clock + 5000, "list": browser_quest_world.dailyQuests.list}
 	Daily.get_quests(invalid_quest_date_world, quest_clock)
