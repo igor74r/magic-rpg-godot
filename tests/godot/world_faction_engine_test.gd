@@ -16,6 +16,16 @@ func _initialize() -> void:
 	if Factions.get_reputation(world, "free-traders") != 100: failures.append("reputation is capped at plus 100")
 	Factions.change_reputation(world, "free-traders", -1000)
 	if Factions.get_reputation(world, "free-traders") != -100: failures.append("reputation is capped at minus 100")
+	var legacy_world := World.create(78)
+	legacy_world["factions"] = {"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"not-a-number"},"changeLog":[]}
+	var normalized_factions := Factions.ensure_state(legacy_world)
+	if normalized_factions.reputation["hub-guardians"] != 13 or normalized_factions.reputation["rift-cult"] != -1:
+		failures.append("legacy fractional reputation must use browser-compatible Math.round semantics")
+	if normalized_factions.reputation["free-traders"] != 42 or normalized_factions.reputation["ash-nomads"] != 0:
+		failures.append("legacy numeric strings and invalid reputation must normalize like browser Number()")
+	legacy_world["factions"]["reputation"]["hub-guardians"] = true
+	if Factions.get_reputation(legacy_world, "hub-guardians") != 1:
+		failures.append("legacy boolean reputation must match browser numeric coercion")
 	for i in range(60): Factions.change_reputation(world, "hub-guardians", 1, "log", "test")
 	if world.factions.changeLog.size() != Factions.LOG_LIMIT: failures.append("faction history is bounded to the newest 50 entries")
 	var restored := World.normalize(world, 77)
