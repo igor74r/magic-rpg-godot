@@ -65,6 +65,13 @@ func _initialize() -> void:
 	var blocked_claim := Npc.collect_crafting_jobs(blocked_world, 2)
 	if not blocked_claim.is_empty() or blocked_world.hero.craftingJobs.size() != 1:
 		failures.append("ready camp order must remain claimable when inventory capacity is full")
+
+	var invalid_job_world := WorldState.create(20261122)
+	invalid_job_world["location"] = "camp"
+	invalid_job_world["hero"] = {"level":1,"gold":0,"inventory":[],"campaignClaimed":{},"equipped":{},"inventoryInitialized":true,"craftingJobs":[{"id":"quest-output","result":"old-archive-seal","qty":1,"readyAt":1}]}
+	var invalid_job_claim := Npc.collect_crafting_jobs(invalid_job_world, 2)
+	if not invalid_job_claim.is_empty() or invalid_job_world.hero.craftingJobs.size() != 1:
+		failures.append("malformed or quest-item crafting orders must never grant restricted rewards")
 	var trader_world := WorldState.create(20261110)
 	trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
 	trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}

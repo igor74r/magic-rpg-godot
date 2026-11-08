@@ -387,9 +387,12 @@ static func collect_crafting_jobs(world: Dictionary, now_ms: int = -1) -> Array:
   var quantity := int(quantity_value) if quantity_value is int else 0
   if not (ready_value is int or ready_value is float) or float(ready_value) > float(current_ms):
    continue
-  if job_id.is_empty() or claimed_ids.has(job_id) or result_id.is_empty() or quantity < 1 or quantity > 99 or CatalogItem.get_item(result_id).is_empty():
+  var result_definition := CatalogItem.get_item(result_id)
+  if job_id.is_empty() or claimed_ids.has(job_id) or result_id.is_empty() or quantity < 1 or quantity > 99 or result_definition.is_empty() or str(result_definition.get("type", "")) == "quest" or bool(result_definition.get("storyShard", false)) or bool(result_definition.get("bossOnly", false)):
    continue
   var rarity := str(job.get("rarity", ""))
+  if not rarity.is_empty() and rarity not in ["common", "uncommon", "rare", "epic", "legendary"]:
+   continue
   var capacity := _can_add_item(hero, result_id, quantity, rarity)
   if not bool(capacity.get("ok", false)):
    continue
