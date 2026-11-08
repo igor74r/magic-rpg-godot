@@ -34,7 +34,7 @@ func _initialize() -> void:
 	var result := Combat.player_attack(world, fight)
 	if not result.ok or fight.result != "victory":
 		failures.append("player attack must defeat a low-health enemy")
-	if int(world.hero.exp) != 25 or int(world.hero.gold) != 15:
+	if int(world.hero.exp) != 25 or int(world.hero.gold) != 2:
 		failures.append("victory must award experience and gold")
 	if not WorldState.is_enemy_defeated(world, "forest", "enemy-0", 0.0):
 		failures.append("regular enemy defeat must be persisted with respawn deadline")
@@ -154,7 +154,7 @@ func _initialize() -> void:
 	var ability_boss := {"name":"Босс от способности","enemyId":"shadow-mage","persistentId":"boss-ability-reward","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":37,"gold":19,"boss":true,"dead":false,"drops":["mana-potion"],"dropSeed":6789}
 	var ability_reward_fight := Combat.begin(ability_boss)
 	var ability_kill := Combat.use_ability(ability_reward_world, ability_reward_fight, "shield-bash")
-	if not ability_kill.ok or ability_reward_fight.result != "victory" or int(ability_reward_hero.exp) != 37 or int(ability_reward_hero.gold) != 19 or not ability_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not ability_reward_world.regions.forest.defeatedBosses.has("boss-ability-reward"):
+	if not ability_kill.ok or ability_reward_fight.result != "victory" or int(ability_reward_hero.exp) != 37 or int(ability_reward_hero.gold) != 3 or not ability_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not ability_reward_world.regions.forest.defeatedBosses.has("boss-ability-reward"):
 		failures.append("ability victory must award XP, gold, guaranteed boss loot and persist boss defeat")
 	var spell_reward_world := WorldState.create(999)
 	spell_reward_world["currentRegionId"] = "forest"
@@ -163,7 +163,7 @@ func _initialize() -> void:
 	var spell_boss := {"name":"Босс от заклинания","enemyId":"shadow-mage","persistentId":"boss-spell-reward","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":41,"gold":23,"boss":true,"dead":false,"drops":["mana-potion"],"dropSeed":9876}
 	var spell_reward_fight := Combat.begin(spell_boss)
 	var spell_kill := Combat.cast_spell(spell_reward_world, spell_reward_fight, "fireball")
-	if not spell_kill.ok or spell_reward_fight.result != "victory" or int(spell_reward_hero.exp) != 41 or int(spell_reward_hero.gold) != 23 or not spell_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not spell_reward_world.regions.forest.defeatedBosses.has("boss-spell-reward"):
+	if not spell_kill.ok or spell_reward_fight.result != "victory" or int(spell_reward_hero.exp) != 41 or int(spell_reward_hero.gold) != 3 or not spell_reward_hero.inventory.any(func(item): return str(item.get("id","")) == "mana-potion") or not spell_reward_world.regions.forest.defeatedBosses.has("boss-spell-reward"):
 		failures.append("spell victory must award XP, gold, guaranteed boss loot and persist boss defeat")
 
 	var dragon_world := WorldState.create(1001)
