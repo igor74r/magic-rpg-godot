@@ -1464,6 +1464,16 @@ func _refresh_combat_ui() -> void:
 		combat_container.add_child(close_button)
 
 
+func _handle_combat_victory(defeated_enemy: Dictionary) -> void:
+	_record_world_event_victory(defeated_enemy)
+	if bool(defeated_enemy.get("riftMode", false)):
+		var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
+		if bool(rift_result.get("ok", false)):
+			status_label.text += "\n" + str(rift_result.message)
+	elif bool(defeated_enemy.get("towerMode", false)):
+		_complete_tower_victory(defeated_enemy)
+
+
 func _combat_block() -> void:
 	var result := CombatEngineScript.block(world, combat_state)
 	status_label.text = str(result.get("message", ""))
@@ -1471,14 +1481,7 @@ func _combat_block() -> void:
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	elif str(result.get("result", "")) == "victory":
-		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
-		_record_world_event_victory(defeated_enemy)
-		if bool(defeated_enemy.get("riftMode", false)):
-			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
-			if bool(rift_result.get("ok", false)):
-				status_label.text += "\n" + str(rift_result.message)
-		elif bool(defeated_enemy.get("towerMode", false)):
-			_complete_tower_victory(defeated_enemy)
+		_handle_combat_victory(combat_state.get("enemy", {}))
 	var error := WorldStateRepositoryScript.save_world(world)
 	if error != OK:
 		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
@@ -1495,14 +1498,7 @@ func _combat_attack() -> void:
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	if str(result.get("result", "")) == "victory":
-		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
-		_record_world_event_victory(defeated_enemy)
-		if bool(defeated_enemy.get("riftMode", false)):
-			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
-			if bool(rift_result.get("ok", false)):
-				status_label.text += "\n" + str(rift_result.message)
-		elif bool(defeated_enemy.get("towerMode", false)):
-			_complete_tower_victory(defeated_enemy)
+		_handle_combat_victory(combat_state.get("enemy", {}))
 	var error := WorldStateRepositoryScript.save_world(world)
 	if error != OK:
 		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
@@ -1519,10 +1515,7 @@ func _use_combat_ability(ability_id: String) -> void:
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	elif str(result.get("result", "")) == "victory":
-		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
-		_record_world_event_victory(defeated_enemy)
-		if bool(defeated_enemy.get("towerMode", false)):
-			_complete_tower_victory(defeated_enemy)
+		_handle_combat_victory(combat_state.get("enemy", {}))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
@@ -1535,10 +1528,7 @@ func _cast_combat_spell(spell_id: String) -> void:
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	elif str(result.get("result", "")) == "victory":
-		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
-		_record_world_event_victory(defeated_enemy)
-		if bool(defeated_enemy.get("towerMode", false)):
-			_complete_tower_victory(defeated_enemy)
+		_handle_combat_victory(combat_state.get("enemy", {}))
 	WorldStateRepositoryScript.save_world(world)
 	_refresh_combat_ui()
 	_refresh_inventory()
