@@ -5,6 +5,7 @@ const Graph = preload("res://godot/scripts/world_graph.gd")
 const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
 const Npcs = preload("res://godot/scripts/world_npc_catalog.gd")
 const Items = preload("res://godot/scripts/world_item_catalog.gd")
+const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -40,6 +41,7 @@ func _initialize() -> void:
 		failures.append("unknown region must return empty data")
 	var npc_ids := Npcs.ids()
 	var npc_positions: Dictionary = Npcs.map_locations()
+	var village_map: Array = MapGenerator.generate_map("village", 40, 30, 20261108)
 	if npc_positions.size() != npc_ids.size():
 		failures.append("every authored NPC must have exactly one village map position")
 	for npc_id in npc_ids:
@@ -49,6 +51,8 @@ func _initialize() -> void:
 		var pos: Vector2i = npc_positions[npc_id]
 		if pos.x < 0 or pos.x >= 40 or pos.y < 0 or pos.y >= 30:
 			failures.append("NPC position is outside the 40x30 village map: %s" % npc_id)
+		elif MapGenerator.is_blocked(village_map, pos.x, pos.y):
+			failures.append("NPC position is blocked by village map terrain: %s" % npc_id)
 	if npc_positions.has("questBoard") and npc_positions["questBoard"] == npc_positions.get("elder", Vector2i(-1, -1)):
 		failures.append("quest board must not overlap the elder position")
 	if not failures.is_empty():
