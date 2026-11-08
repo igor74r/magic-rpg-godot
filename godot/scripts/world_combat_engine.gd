@@ -498,6 +498,13 @@ static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enem
 
 
 static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
+	if _has_effect(enemy, "stun"):
+		_remove_effect(enemy, "stun")
+		lines.append("%s оглушён и пропускает ход." % str(enemy.get("name", "Противник")))
+		combat["turn"] = "player"
+		combat["enemy"] = enemy
+		world["hero"] = hero
+		return
 	var turn_count := int(enemy.get("turnCount", 0)) + 1
 	enemy["turnCount"] = turn_count
 	var special: Dictionary = enemy.get("special", {})
@@ -642,13 +649,11 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 			if not adaptation_message.is_empty():
 				combat["log"] += "\n" + adaptation_message
-			var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(hero.defense) / 2.0)))
-			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
-			hero["hp"] = maxi(1, int(hero.hp) - incoming)
-			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
-			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-			if not modifier_message.is_empty():
-				combat["log"] += "\n" + modifier_message
+			combat["turn"] = "enemy"
+			var response_lines: Array[String] = []
+			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+			if not response_lines.is_empty():
+				combat["log"] += "\n" + "\n".join(response_lines)
 		combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -730,13 +735,8 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 			if not adaptation_message.is_empty():
 				lines.append(adaptation_message)
-			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
-			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
-			hero["hp"] = maxi(1, int(hero.hp) - incoming)
-			lines.append("Противник отвечает: %d урона." % incoming)
-			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-			if not modifier_message.is_empty():
-				lines.append(modifier_message)
+			combat["turn"] = "enemy"
+			_resolve_enemy_response(world, combat, hero, enemy, lines)
 	if non_damage_spell:
 		combat["turn"] = "enemy"
 		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
