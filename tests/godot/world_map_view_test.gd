@@ -52,8 +52,8 @@ func _initialize() -> void:
 	clicked.clear()
 	touch.position = Vector2(75, 75)
 	view._gui_input(touch)
-	if clicked != ["edge"]:
-		failures.append("ragged map rows must not crash NPC hit testing")
+	if not clicked.is_empty():
+		failures.append("NPC markers on missing cells in ragged map rows must be ignored")
 
 	view.set_map([])
 	clicked.clear()
