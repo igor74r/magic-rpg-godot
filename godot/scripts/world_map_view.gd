@@ -42,8 +42,17 @@ func _draw() -> void:
 		draw_string(font, center + Vector2(-22, 19), str(npc.get("short", npc.get("id", ""))), HORIZONTAL_ALIGNMENT_LEFT, 60, 9, Color("#fff4d6"))
 
 func _gui_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
-		return
+	if event is InputEventMouseButton:
+		if event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
+			return
+		_activate_npc_at(event.position)
+	elif event is InputEventScreenTouch:
+		if not event.pressed:
+			return
+		_activate_npc_at(event.position)
+
+
+func _activate_npc_at(position: Vector2) -> void:
 	if tile_map.is_empty() or tile_map[0].is_empty():
 		return
 	var cell_w := size.x / float(tile_map[0].size())
@@ -51,7 +60,7 @@ func _gui_input(event: InputEvent) -> void:
 	for npc in npc_markers:
 		var cell: Vector2i = npc.get("cell", Vector2i.ZERO)
 		var center := Vector2((float(cell.x) + 0.5) * cell_w, (float(cell.y) + 0.5) * cell_h)
-		if event.position.distance_to(center) <= 15.0:
+		if position.distance_to(center) <= 15.0:
 			npc_clicked.emit(str(npc.get("id", "")))
 			accept_event()
 			return
