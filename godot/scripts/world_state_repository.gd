@@ -115,7 +115,15 @@ static func _write_json_atomically(path: String, serialized: String) -> Error:
 	var absolute_backup := ProjectSettings.globalize_path(backup_path)
 	var had_previous := FileAccess.file_exists(path)
 	if FileAccess.file_exists(backup_path):
-		if not had_previous:
+		if not had_previous or _read_dictionary(path).is_empty():
+			# The backup may be the only valid world snapshot after an interrupted
+			# replacement. Restore it before rotating files, even if a corrupt
+			# primary path still exists.
+			if had_previous:
+				var remove_error := DirAccess.remove_absolute(absolute_path)
+				if remove_error != OK:
+					DirAccess.remove_absolute(absolute_temporary)
+					return remove_error
 			var recovery_error := DirAccess.rename_absolute(absolute_backup, absolute_path)
 			if recovery_error != OK:
 				DirAccess.remove_absolute(absolute_temporary)
