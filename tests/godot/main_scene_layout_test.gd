@@ -32,7 +32,11 @@ func _initialize() -> void:
 			"panel.visible = false",
 			"panel.visible = expanded",
 			"toggle.toggled.connect(_set_chronicle_section",
-			"note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART"
+			"note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART",
+			"func _handle_combat_victory(defeated_enemy: Dictionary) -> void:",
+			"RiftEngineScript.complete_area(world, defeated_enemy)",
+			"_complete_tower_victory(defeated_enemy)",
+			"_handle_combat_victory(combat_state.get(\"enemy\", {}))"
 		]:
 			if not controller_source.contains(required_fragment):
 				failures.append("native chronicles view must preserve expandable, styled and readable content: %s" % required_fragment)
