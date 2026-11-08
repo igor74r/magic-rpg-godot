@@ -198,16 +198,17 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
 
 	var world_seed_value: Variant = migrated.get("worldSeed", null)
-	# Match Number.isSafeInteger in the browser migration: strings and
-	# fractional values must not be silently coerced into a different seed.
-	var source_seed := int(world_seed_value) if world_seed_value is int else 0
+	# JavaScript JSON numbers have one Number type: an integral 9876.0 is
+	# accepted by Number.isSafeInteger just like 9876. Preserve that identity
+	# when Godot's JSON parser represents the same value as a float.
+	var source_seed := int(world_seed_value) if _is_safe_integer(world_seed_value) else 0
 	if source_seed < 1 or source_seed > 4294967295:
 		var location_value: Variant = migrated.get("location", "village")
 		var legacy_location := location_value if location_value is String else "village"
 		source_seed = _derive_legacy_world_seed(hero, legacy_location)
 	migrated["worldSeed"] = source_seed
 	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
-	migrated["worldGeneratorVersion"] = int(generator_value) if generator_value is int and int(generator_value) >= 1 else 1
+	migrated["worldGeneratorVersion"] = int(generator_value) if _is_safe_integer(generator_value) and int(generator_value) >= 1 else 1
 
 	var world_value: Variant = migrated.get("world", null)
 	var world: Dictionary = WorldStateScript.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
