@@ -79,15 +79,15 @@ Visual parity remains explicitly listed as incomplete in `GODOT_MIGRATION_STATUS
 
 ### P1 — Gameplay parity is broader than module presence
 
-Native modules and tests exist for many systems, but a matching filename/catalog is not proof of equivalent gameplay. The repository's own migration status identifies remaining work in:
+Native modules and tests exist for many systems, but a matching filename/catalog is not proof of equivalent gameplay. The repository's own migration status and this source review identify remaining work in:
 - complete legacy-save compatibility and lossless round-trip;
-- faction bonus application across every relevant gameplay path;
-- chronicles content and interaction parity;
+- chronicles interaction parity: the native runtime renders the complete catalog as text, while browser chronicles use structured article/card markup; interaction and responsive presentation have not been compared end to end;
 - visual/UI parity;
-- NPC behavior beyond the implemented wandering merchant;
-- full gameplay edge cases, encounter and map parity, and campaign/content progression.
+- paired scenario coverage for NPC dialogue/services, map navigation, encounter lifecycle, and campaign/content progression.
 
-These areas need paired browser/Godot fixtures and scenario-level comparisons, not just isolated native unit tests.
+**Correction to the earlier broad audit wording:** faction bonus functions are not merely present as unused helpers. Source inspection confirms their integration into the native runtime: Free Trader discounts are applied in NPC merchant purchase/sale pricing, Guardian damage reduction is applied to incoming combat damage, Ash Nomad loot bonus is included in encounter drop probability, and Rift Cult bonus is applied to eligible world-event gold rewards. Dedicated faction and encounter tests cover these paths. This source-level wiring is verified; final runtime confirmation still depends on the queued Godot CI job.
+
+These remaining areas need paired browser/Godot fixtures and scenario-level comparisons, not just isolated native unit tests.
 
 ### P1 — Browser baseline must remain intact
 
