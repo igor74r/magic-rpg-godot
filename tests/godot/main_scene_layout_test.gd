@@ -40,6 +40,9 @@ func _initialize() -> void:
 		]:
 			if not controller_source.contains(required_fragment):
 				failures.append("native chronicles view must preserve expandable, styled and readable content: %s" % required_fragment)
+		var victory_handler_calls := controller_source.split("_handle_combat_victory(combat_state.get(\"enemy\", {}))").size() - 1
+		if victory_handler_calls != 4:
+			failures.append("block, basic attack, ability and spell victories must all use the shared Rift/Tower completion path")
 		scene.free()
 
 	if failures.is_empty():
