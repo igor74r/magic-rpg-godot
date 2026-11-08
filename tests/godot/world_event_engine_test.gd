@@ -42,6 +42,19 @@ func _initialize() -> void:
 		failures.append("claim returns the deterministic event gold reward")
 	if not EventEngine.claim_reward(world, str(event.get("id", ""))).is_empty():
 		failures.append("event reward cannot be claimed twice")
+
+	var safe_reward_world := WorldState.create(77221)
+	safe_reward_world["factions"] = {"schemaVersion":1,"reputation":{"rift-cult":90}}
+	safe_reward_world.events.history = [
+		{"id":"fractional-gold","status":"completed","rewardClaimed":false,"factionId":"rift-cult","reward":{"gold":10.5}},
+		{"id":"safe-gold","status":"completed","rewardClaimed":false,"factionId":"rift-cult","reward":{"gold":10}}
+	]
+	var fractional_reward := EventEngine.claim_reward(safe_reward_world, "fractional-gold")
+	var safe_integer_reward := EventEngine.claim_reward(safe_reward_world, "safe-gold")
+	if not is_equal_approx(float(fractional_reward.get("gold", 0.0)), 10.5):
+		failures.append("fractional legacy event gold must not receive a faction bonus unlike browser Number.isSafeInteger")
+	if int(safe_integer_reward.get("gold", 0)) != 12:
+		failures.append("positive safe-integer event gold must receive the Rift Cult faction bonus")
 	if EventEngine.get_visible(world, "forest").size() != 0:
 		failures.append("claimed event is removed from visible regional events")
 	var restored := WorldState.normalize(world, 441122)
