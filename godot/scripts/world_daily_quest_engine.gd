@@ -57,7 +57,11 @@ static func get_quests(world: Dictionary, now_ms: int = -1) -> Array:
 			seen.append(definition.id)
 			var quest: Dictionary=definition.duplicate(true)
 			var raw_current: Variant = entry.get("current",0)
-			var progress := int(raw_current) if raw_current is int or raw_current is float else 0
+			var progress := 0
+			if raw_current is int:
+				progress = int(raw_current) if abs(float(raw_current)) <= 9007199254740991.0 else 0
+			elif raw_current is float and is_finite(raw_current) and floor(raw_current) == raw_current and abs(raw_current) <= 9007199254740991.0:
+				progress = int(raw_current)
 			quest["current"]=clampi(progress,0,int(definition.max))
 			quest["completed"]=int(quest.current)>=int(quest.max)
 			quest["claimed"]=entry.get("claimed",false)==true and bool(quest.completed)
