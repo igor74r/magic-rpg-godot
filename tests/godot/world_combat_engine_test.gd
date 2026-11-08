@@ -71,6 +71,9 @@ func _initialize() -> void:
 	var forged_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"armor":5},"forgeLevel":2,"runes":[]}}}
 	if Combat.effective_stat(forged_armor_hero, "defense") != 14:
 		failures.append("effective defense must include browser armor aliases and the chest forge bonus")
+	var aliased_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"defense":0,"armor":5},"forgeLevel":2,"runes":[]}}}
+	if Combat.effective_stat(aliased_armor_hero, "defense") != 14:
+		failures.append("a zero defense override must fall back to the non-zero browser armor alias")
 	var status_effect_hero := {"class":"warrior","str":18,"con":10,"effects":[{"id":"strength"}],"passives":["start"],"talents":[]}
 	if Combat.effective_stat(status_effect_hero, "attack") != 23:
 		failures.append("browser strength status effect must add five effective attack points")
