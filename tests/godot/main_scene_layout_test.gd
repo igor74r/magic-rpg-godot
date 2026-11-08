@@ -22,6 +22,20 @@ func _initialize() -> void:
 		var main_script := scene.get_script() as GDScript
 		if main_script == null or not main_script.source_code.contains("$MarginContainer/ScrollContainer/Content"):
 			failures.append("main controller onready paths must target the scrollable content node")
+		var controller_source := FileAccess.get_file_as_string("res://godot/scripts/main.gd")
+		for required_fragment in [
+			"func _refresh_chronicles() -> void:",
+			"func _add_chronicle_section(",
+			"func _set_chronicle_section(",
+			"func _make_chronicle_panel_style(",
+			"var panel := PanelContainer.new()",
+			"panel.visible = false",
+			"panel.visible = expanded",
+			"toggle.toggled.connect(_set_chronicle_section",
+			"note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART"
+		]:
+			if not controller_source.contains(required_fragment):
+				failures.append("native chronicles view must preserve expandable, styled and readable content: %s" % required_fragment)
 		scene.free()
 
 	if failures.is_empty():
