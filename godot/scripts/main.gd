@@ -17,6 +17,7 @@ const RiftEngineScript = preload("res://godot/scripts/world_rift_engine.gd")
 const TowerEngineScript = preload("res://godot/scripts/world_tower_engine.gd")
 const NpcCatalogScript = preload("res://godot/scripts/world_npc_catalog.gd")
 const NpcEngineScript = preload("res://godot/scripts/world_npc_engine.gd")
+const SaveRepositoryScript = preload("res://godot/scripts/save_repository.gd")
 
 @onready var content: VBoxContainer = $MarginContainer/Content
 @onready var status_label: Label = $MarginContainer/Content/StatusLabel
@@ -36,6 +37,8 @@ var rift_container: VBoxContainer
 var tower_container: VBoxContainer
 var npc_container: VBoxContainer
 var combat_state: Dictionary = {}
+var browser_import_dialog: FileDialog
+var browser_export_dialog: FileDialog
 
 
 func _ready() -> void:
@@ -46,6 +49,7 @@ func _ready() -> void:
 
 
 func _build_exploration_ui() -> void:
+	_build_browser_save_controls()
 	region_label = Label.new()
 	region_label.add_theme_font_size_override("font_size", 24)
 	_insert_before_spacer(region_label)
@@ -135,6 +139,93 @@ func _build_exploration_ui() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
 	_insert_before_spacer(hint)
+
+
+func _build_browser_save_controls() -> void:
+	var save_controls := HBoxContainer.new()
+	save_controls.add_theme_constant_override("separation", 10)
+	var import_button := Button.new()
+	import_button.text = "Импорт браузерного сохранения"
+	import_button.pressed.connect(_open_browser_import_dialog)
+	save_controls.add_child(import_button)
+	var export_button := Button.new()
+	export_button.text = "Экспорт сохранения для браузера"
+	export_button.pressed.connect(_open_browser_export_dialog)
+	save_controls.add_child(export_button)
+	_insert_before_spacer(save_controls)
+
+	browser_import_dialog = FileDialog.new()
+	browser_import_dialog.title = "Импорт сохранения Shards of the Rift"
+	browser_import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	browser_import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	browser_import_dialog.filters = PackedStringArray(["*.json ; Browser save (*.json)"])
+	browser_import_dialog.file_selected.connect(_on_browser_import_selected)
+	add_child(browser_import_dialog)
+
+	browser_export_dialog = FileDialog.new()
+	browser_export_dialog.title = "Экспорт сохранения Shards of the Rift"
+	browser_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	browser_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	browser_export_dialog.filters = PackedStringArray(["*.json ; Browser save (*.json)"])
+	browser_export_dialog.current_file = "shards-of-the-rift-save.json"
+	browser_export_dialog.file_selected.connect(_on_browser_export_selected)
+	add_child(browser_export_dialog)
+
+
+func _open_browser_import_dialog() -> void:
+	browser_import_dialog.popup_centered_ratio(0.8)
+
+
+func _open_browser_export_dialog() -> void:
+	var payload := WorldStateRepositoryScript.to_browser_payload(world)
+	if payload.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(payload):
+		status_label.text = "Экспорт недоступен: сначала импортируйте совместимое браузерное сохранение v18."
+		return
+	browser_export_dialog.popup_centered_ratio(0.8)
+
+
+func _on_browser_import_selected(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		status_label.text = "Не удалось открыть файл сохранения: %s" % error_string(FileAccess.get_open_error())
+		return
+	var serialized := file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(serialized)
+	if not parsed is Dictionary or not SaveRepositoryScript.is_browser_v18_payload(parsed):
+		status_label.text = "Импорт отменён: файл не соответствует формату браузерного сохранения v18."
+		return
+	var imported: Dictionary = WorldStateRepositoryScript.from_browser_payload(parsed)
+	if imported.is_empty():
+		status_label.text = "Импорт отменён: не удалось преобразовать данные сохранения."
+		return
+	var save_error: Error = WorldStateRepositoryScript.save_world(imported)
+	if save_error != OK:
+		status_label.text = "Не удалось сохранить импортированные данные: %s" % error_string(save_error)
+		return
+	world = imported
+	DailyQuestScript.get_quests(world)
+	_refresh_exploration()
+	status_label.text = "Браузерное сохранение v18 успешно импортировано."
+
+
+func _on_browser_export_selected(path: String) -> void:
+	var payload := WorldStateRepositoryScript.to_browser_payload(world)
+	if payload.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(payload):
+		status_label.text = "Экспорт отменён: текущее состояние не прошло проверку формата v18."
+		return
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		status_label.text = "Не удалось создать файл экспорта: %s" % error_string(FileAccess.get_open_error())
+		return
+	file.store_string(JSON.stringify(payload, "\t"))
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	if write_error != OK:
+		status_label.text = "Ошибка записи файла экспорта: %s" % error_string(write_error)
+		return
+	status_label.text = "Сохранение браузерного формата v18 экспортировано: %s" % path
 
 
 func _insert_before_spacer(node: Control) -> void:
