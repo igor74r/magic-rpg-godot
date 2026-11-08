@@ -72,6 +72,11 @@ func _initialize() -> void:
 	var invalid_job_claim := Npc.collect_crafting_jobs(invalid_job_world, 2)
 	if not invalid_job_claim.is_empty() or invalid_job_world.hero.craftingJobs.size() != 1:
 		failures.append("malformed or quest-item crafting orders must never grant restricted rewards")
+	if Npc.SHOP_STOCK.size() != 51:
+		failures.append("native merchant stock must match all 51 canonical browser shop entries")
+	for shop_item_id in Npc.SHOP_STOCK:
+		if preload("res://godot/scripts/world_item_catalog.gd").get_item(str(shop_item_id)).is_empty() or Npc.get_buy_price(trader_world, str(shop_item_id)) <= 0:
+			failures.append("canonical shop item must have a valid native definition and purchasable price: %s" % str(shop_item_id))
 	var trader_world := WorldState.create(20261110)
 	trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
 	trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
