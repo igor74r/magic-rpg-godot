@@ -162,7 +162,7 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var enemy: Dictionary = combat.get("enemy", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)))
-	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, "melee")))
+	var damage := maxi(1, int(floor(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, "melee"))))
 	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
 	var crit_chance := critical_chance(hero, cat_luck_bonus)
 	var attack_index := int(combat.get("playerAttackCount", 0))
