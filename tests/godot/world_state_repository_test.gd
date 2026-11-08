@@ -52,7 +52,7 @@ func _run() -> void:
 			"unlockedRoutes": [], "currentRegionId": "forest",
 			"browserWorldExtension": {"keep": 77}
 		},
-		"factions": {"reputation": {"wardens": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
+		"factions": {"reputation": {"hub-guardians": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
 		"browserRootExtension": {"opaque": "preserve"}
 	}
 	var native_world := Repository.from_browser_payload(browser_payload)
@@ -66,7 +66,7 @@ func _run() -> void:
 			failures.append("browser world seed and exploration position must map into native world")
 		if str(native_world.get("location", "")) != "camp" or native_world.get("hero", {}).get("craftingJobs", []).size() != 1:
 			failures.append("camp location and pending crafting orders must survive browser save import")
-		if int(native_world.get("factions", {}).get("reputation", {}).get("wardens", 0)) != 35:
+		if int(native_world.get("factions", {}).get("reputation", {}).get("hub-guardians", 0)) != 35:
 			failures.append("browser faction reputation must remain available in native state")
 		if not bool(native_world.get("storyShards", {}).get("flame", false)):
 			failures.append("browser story shard progress must map into native state")
