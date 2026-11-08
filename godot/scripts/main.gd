@@ -1177,11 +1177,11 @@ func _add_chronicle_section(title: String, parent: VBoxContainer) -> VBoxContain
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 9)
 	panel.add_child(body)
-	toggle.toggled.connect(_set_chronicle_section.bind(body, panel, toggle, title))
+	toggle.toggled.connect(_set_chronicle_section.bind(panel, toggle, title))
 	return body
 
 
-func _set_chronicle_section(expanded: bool, body: VBoxContainer, panel: PanelContainer, toggle: Button, title: String) -> void:
+func _set_chronicle_section(expanded: bool, panel: PanelContainer, toggle: Button, title: String) -> void:
 	panel.visible = expanded
 	toggle.text = ("▼  " if expanded else "▶  ") + title
 
