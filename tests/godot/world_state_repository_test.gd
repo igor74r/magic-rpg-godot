@@ -14,7 +14,7 @@ func _run() -> void:
 	var path: String = Repository.WORLD_PATH
 	var backup_path := path + ".bak"
 	var temporary_path := path + ".tmp"
-	for candidate in [path, backup_path, temporary_path]:
+	for candidate in [path, backup_path, temporary_path, "user://shards_browser_export_test.json", "user://shards_browser_export_test.json.bak", "user://shards_browser_export_test.json.tmp"]:
 		if FileAccess.file_exists(candidate):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(candidate))
 
@@ -107,6 +107,21 @@ func _run() -> void:
 		failures.append("a new native-first game must export as a valid browser v18 save")
 	elif str(native_first_export.get("player", {}).get("name", "")) != "New native hero":
 		failures.append("native-first export must preserve the current hero identity")
+	var export_path := "user://shards_browser_export_test.json"
+	if Repository.export_browser_payload(export_path, native_first_world) != OK:
+		failures.append("browser export must write through the atomic repository path")
+	else:
+		var export_file := FileAccess.open(export_path, FileAccess.READ)
+		var exported_text := export_file.get_as_text() if export_file != null else ""
+		if export_file != null:
+			export_file.close()
+		var disk_export: Variant = JSON.parse_string(exported_text)
+		if not disk_export is Dictionary or not SaveRepository.is_browser_v18_payload(disk_export):
+			failures.append("atomic browser export must produce a complete valid v18 file")
+		if disk_export is Dictionary and str(disk_export.get("player", {}).get("name", "")) != "New native hero":
+			failures.append("atomic browser export must preserve the native hero")
+	if Repository.export_browser_payload("", native_first_world) != ERR_INVALID_PARAMETER:
+		failures.append("browser export must reject an empty destination path")
 	var invalid_browser := browser_payload.duplicate(true)
 	invalid_browser.world.erase("unlockedRoutes")
 	if not Repository.from_browser_payload(invalid_browser).is_empty():

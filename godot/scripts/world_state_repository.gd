@@ -84,6 +84,16 @@ static func to_browser_payload(world: Dictionary) -> Dictionary:
 	return payload if SaveRepositoryScript.is_browser_v18_payload(payload) else {}
 
 
+# Export through the same crash-safe writer used by native world saves.
+static func export_browser_payload(path: String, world: Dictionary) -> Error:
+	if path.is_empty():
+		return ERR_INVALID_PARAMETER
+	var payload := to_browser_payload(world)
+	if payload.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(payload):
+		return ERR_INVALID_DATA
+	return _write_json_atomically(path, JSON.stringify(payload, "\t"))
+
+
 static func _write_json_atomically(path: String, serialized: String) -> Error:
 	var temporary_path := path + ".tmp"
 	var backup_path := path + ".bak"

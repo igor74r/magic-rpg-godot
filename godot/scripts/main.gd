@@ -210,20 +210,9 @@ func _on_browser_import_selected(path: String) -> void:
 
 
 func _on_browser_export_selected(path: String) -> void:
-	var payload := WorldStateRepositoryScript.to_browser_payload(world)
-	if payload.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(payload):
-		status_label.text = "Экспорт отменён: текущее состояние не прошло проверку формата v18."
-		return
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		status_label.text = "Не удалось создать файл экспорта: %s" % error_string(FileAccess.get_open_error())
-		return
-	file.store_string(JSON.stringify(payload, "\t"))
-	file.flush()
-	var write_error := file.get_error()
-	file.close()
+	var write_error: Error = WorldStateRepositoryScript.export_browser_payload(path, world)
 	if write_error != OK:
-		status_label.text = "Ошибка записи файла экспорта: %s" % error_string(write_error)
+		status_label.text = "Не удалось безопасно экспортировать сохранение: %s" % error_string(write_error)
 		return
 	status_label.text = "Сохранение браузерного формата v18 экспортировано: %s" % path
 
