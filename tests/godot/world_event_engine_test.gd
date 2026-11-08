@@ -79,6 +79,21 @@ func _initialize() -> void:
 	if expiry.finished.size() != 1 or expiry.finished[0].get("status") != "failed" or Factions.get_reputation(failed_world, "hub-guardians") != -5:
 		failures.append("accepted event expiry applies the failure reputation penalty")
 
+	var discovery_world := WorldState.create(6677)
+	discovery_world.events.active.append({"id":"event-discovery","templateId":"frontier-survey","name":"Разведка","regionId":"village","status":"active","accepted":true,"objectiveType":"region-discovery","targetRegionId":"forest","targetCount":1,"progress":0,"phase":0,"factionId":"free-traders","reputationReward":10,"failureReputationDelta":-4,"reward":{"gold":55}})
+	if not EventEngine.record_discovery(discovery_world, "shadow").is_empty():
+		failures.append("discovery objective must ignore a different region")
+	var discovery_result := EventEngine.record_discovery(discovery_world, "forest")
+	if discovery_result.size() != 1 or Factions.get_reputation(discovery_world, "free-traders") != 10:
+		failures.append("discovering the target region completes the survey and grants trader reputation")
+
+	var campaign_world := WorldState.create(6688)
+	campaign_world["factionCampaigns"] = {"ash-nomad-warband":{"status":"active","stage":1}}
+	campaign_world.events.active.append({"id":"event-campaign","templateId":"ash-warband-scouting","name":"Разведчики","regionId":"wasteland","status":"active","accepted":true,"objectiveType":"elite-kill","targetCount":1,"progress":0,"phase":0,"factionId":"ash-nomads","campaignId":"ash-nomad-warband","campaignStage":1,"reputationReward":8,"failureReputationDelta":-4,"reward":{"gold":50}})
+	var campaign_result := EventEngine.record_kill(campaign_world, "wasteland", {"elite":true,"boss":false})
+	if campaign_result.size() != 1 or int(campaign_world.factionCampaigns["ash-nomad-warband"].get("stage", 0)) != 2:
+		failures.append("completed first faction campaign event unlocks its second stage")
+
 	var malformed_world := WorldState.create(77)
 	malformed_world.events.active = ["invalid", null, 42]
 	malformed_world.events.history = ["invalid", null]
