@@ -250,9 +250,9 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 		if not adaptation_message.is_empty():
 			lines.append(adaptation_message)
-		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
 		var turn_count := int(enemy.get("turnCount", 0)) + 1
 		enemy["turnCount"] = turn_count
+		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
 		var special: Dictionary = enemy.get("special", {})
 		var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
 		var special_ready := not special.is_empty() and turn_count % every == 0
