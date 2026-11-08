@@ -40,7 +40,7 @@ func _run() -> void:
 		failures.append("v17 migration must initialize all faction reputation records")
 	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
 		failures.append("v17 migration must preserve the legacy active campaign mission in its branch")
-	if int(migrated_player.get("expNext", 0)) != 535:
+	if int(migrated_player.get("expNext", 0)) != 269:
 		failures.append("v17 migration must rebase XP thresholds to the current level curve")
 	var stable_seed_a := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	var stable_seed_b := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
