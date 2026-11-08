@@ -96,7 +96,8 @@ static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float
 	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
 	var class_combat: Dictionary = class_data.get("combat", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-	var chance := float(class_combat.get("critChance", 0.1)) + float(passive_bonus.get("critChance", 0.0)) + extra_bonus
+	var chance := float(class_combat.get("critChance", 0.05)) + float(passive_bonus.get("critChance", 0.0)) + extra_bonus
+	var effective_dex := float(hero.get("dex", 0.0)) + float(passive_bonus.get("dexFlat", 0.0))
 	var equipped: Dictionary = hero.get("equipped", {})
 	for instance in equipped.values():
 		if instance == null:
@@ -105,14 +106,19 @@ static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float
 		var item: Dictionary = ItemCatalog.get_item(item_id)
 		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
 		if instance is Dictionary:
+			# Browser getEffStats merges instance bonuses over catalog defaults;
+			# it does not add the same base item bonus a second time.
 			for key in instance.get("bonus", {}):
-				bonus[key] = float(bonus.get(key, 0.0)) + float(instance.bonus[key])
+				bonus[key] = instance.bonus[key]
 			for rune_id in instance.get("runes", []):
 				var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
 				for key in rune.get("runeBonus", {}):
 					bonus[key] = float(bonus.get(key, 0.0)) + float(rune.runeBonus[key])
 		chance += float(bonus.get("critChance", 0.0))
-	return clampf(chance, 0.0, 0.75)
+		effective_dex += float(bonus.get("dex", 0.0))
+	# Browser stats add one tenth of a percentage point per Dexterity point.
+	chance += effective_dex * 0.001
+	return clampf(maxf(0.01, chance), 0.0, 0.75)
 
 
 static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
