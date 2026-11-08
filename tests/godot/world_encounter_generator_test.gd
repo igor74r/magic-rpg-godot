@@ -31,6 +31,10 @@ func _initialize() -> void:
 		failures.append("Ash Nomad reputation must apply its browser-aligned ten percent loot bonus")
 	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}, {"factions":{"reputation":{"ash-nomads":90}}}), 0.575):
 		failures.append("maximum Ash Nomad reputation must apply its fifteen percent loot bonus")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}, {"factions":{"reputation":{"ash-nomads":29.6}}}), 0.525):
+		failures.append("faction reputation must round like the browser save normalizer before applying loot thresholds")
+	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0}, {"factions":{"reputation":{"ash-nomads":69.6}}}), 0.55):
+		failures.append("rounded faction reputation must cross the next loot threshold consistently")
 	if not is_equal_approx(Encounter.loot_drop_chance(0.5, {"luck":0.0,"reputationModifier":-2.0}), 0.05):
 		failures.append("negative loot reputation must clamp to the browser minimum multiplier")
 

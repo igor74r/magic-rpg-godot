@@ -53,7 +53,7 @@ static func loot_drop_chance(base_chance: float, hero: Dictionary, world: Dictio
 	if factions is Dictionary:
 		var reputation: Variant = factions.get("reputation", {})
 		if reputation is Dictionary:
-			var ash_nomads := int(reputation.get("ash-nomads", 0))
+			var ash_nomads := int(round(float(reputation.get("ash-nomads", 0))))
 			faction_bonus = 0.15 if ash_nomads >= 90 else 0.10 if ash_nomads >= 70 else 0.05 if ash_nomads >= 30 else 0.0
 	return clampf(base * (1.0 + luck * 0.005) * (1.0 + reputation_modifier) * (1.0 + faction_bonus), 0.0, 1.0)
 
