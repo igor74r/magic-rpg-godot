@@ -1,31 +1,31 @@
-# Native Godot foundation
+# Native Godot 4 project
 
-This directory is the first native Godot 4 project shell. The browser game at the repository root remains the reference implementation and is not replaced.
+The browser game at the repository root remains the canonical feature, balance, and content reference. The native Godot project is an active port, not a replacement for the browser implementation and not yet feature-complete.
 
-## Current scope
+## Current native implementation
 
-- Root `project.godot` opens the native shell scene.
-- `godot/scenes/main.tscn` provides a minimal responsive Control-based entry screen.
-- `godot/scripts/save_repository.gd` is an initial three-slot JSON persistence adapter using `user://`.
-- `godot/scripts/world_state_repository.gd` stores native exploration state separately from browser v18 character saves.
-- `godot/scripts/main.gd` now provides a minimal playable region-travel loop: open routes, visit counters, discovery and local persistence.
-- `godot/scripts/world_graph.gd` ports the canonical 16-region, bidirectional world graph from the browser reference.
-- `godot/scripts/world_map_generator.gd` adds seeded generic region maps, central safe roads, tile collision rules, and free-cell selection. The hand-authored village layout remains a temporary simplified hub.
-- `tests/godot/save_repository_test.gd` checks slot bounds, schema-version rejection, and JSON round-trip behavior.
-- `tests/godot/world_graph_test.gd` checks region count, route symmetry, starting exits, and graph connectivity.
-- `.github/workflows/godot-ci.yml` imports the project, runs both headless data tests, and boots the main scene with Godot 4.4.1.
+- Root `project.godot` opens the native shell and responsive exploration UI.
+- `godot/scripts/world_graph.gd` contains the canonical 16-region bidirectional graph.
+- `godot/scripts/world_map_generator.gd` creates deterministic region maps with collision and free-cell rules; the village hub remains a simplified hand-authored layout.
+- `godot/scripts/world_state.gd` and `world_state_repository.gd` manage persistent exploration state, discovery, routes, visits, and world events.
+- `godot/scripts/world_event_engine.gd` implements deterministic regional event spawning, cooldowns, expiry, accepted kill/elite/boss/discovery/defense objectives, faction reputation and campaign progress, and one-time reward claims.
+- `godot/scripts/world_combat_engine.gd` provides native turn-based combat, enemy rewards, item drops, and the Ash Nomad loot modifier; Guardian reputation reduces incoming combat damage.
+- `godot/scripts/world_faction_engine.gd` stores bounded faction reputation and exposes trade, damage, loot, and event-gold bonus tiers. The NPC shop applies the Free Traders discount.
+- `godot/scripts/world_chronicles_catalog.gd` and the native UI expose the four-chapter chronicle archive, lore factions, and side stories.
+- Native progression also includes campaign, daily-quest, passive/talent, Rift, Tower, merchant, and crafting systems in varying degrees of parity.
+- `godot/scripts/save_repository.gd` validates native character saves, migrates supported legacy versions through v18, and writes slots atomically with backup recovery. `world_state_repository.gd` persists native exploration state separately.
 
-## Important compatibility boundary
+## Validation
 
-The browser save format is version 18, but the initial adapter only accepts version 18 dictionaries. It does **not** yet reproduce the browser validator, migrations v1–v18, transactional rollback, item schemas, or world-state invariants. The world graph is static reference data only; per-save discovery, unlocked routes, region visits, events, and procedural generation have not yet been ported. Do not use this adapter to overwrite browser saves.
+All browser and native validation jobs are defined in the single `.github/workflows/ci.yml` workflow:
 
-## Next migration slices
+- `Verify (syntax + imports + smoke load)` runs the browser checks.
+- `Validate native Godot project` imports the project, runs every `tests/godot/*_test.gd` regression script, and smoke-boots the main scene using Godot 4.4.1.
 
-1. Extract and specify the browser v18 JSON contract and fixtures.
-2. Port save validation and migration tests before enabling writes.
-3. Port deterministic world seeds and region generation.
-4. Port per-save discovery, route unlocking, and persistent region state.
-5. Add Godot scenes for the village, regions, actors, combat, inventory, and campaign.
-6. Compare native behavior against the browser reference.
+A queued or in-progress run is not a pass. Treat the workflow result for the exact commit SHA as the verification source of truth. Godot runtime tests must not be described as passing until the native CI job completes successfully.
 
-This is a growing native foundation, not gameplay parity or a completed Godot port.
+## Remaining parity work
+
+The port is still incomplete. The remaining work requires continued browser/native comparison across legacy-save fixtures and lossless round-tripping, all gameplay paths and edge cases, UI/visual behavior, map and encounter parity, NPC behavior, and campaign/content progression. Existing native catalogs or bonus helpers do not by themselves prove complete behavioral parity.
+
+Do not use the native save adapter as a replacement for browser saves. Preserve the browser implementation and its save format as the compatibility baseline.
