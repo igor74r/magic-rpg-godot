@@ -216,7 +216,11 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 	while events.history.size() > HISTORY_LIMIT:
 		var remove_index := -1
 		for index in range(events.history.size()):
-			var old: Dictionary = events.history[index]
+			var old_value: Variant = events.history[index]
+			if not old_value is Dictionary:
+				remove_index = index
+				break
+			var old: Dictionary = old_value
 			if old.get("status") != "completed" or bool(old.get("rewardClaimed", false)):
 				remove_index = index
 				break
