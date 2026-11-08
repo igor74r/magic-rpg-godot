@@ -149,6 +149,14 @@ func _initialize() -> void:
 	Combat.player_attack(world, loss_fight)
 	if loss_fight.result != "defeat" or int(world.hero.hp) != 1 or bool(strong.dead):
 		failures.append("defeat must leave enemy alive and hero at one HP")
+	# Enemy damage-over-time effects tick after a player action, before the retaliation.
+	var dot_world := WorldState.create(11201)
+	Combat.select_class(dot_world, "warrior")
+	var dot_enemy := {"name":"Горящий враг","enemyId":"goblin","persistentId":"player-action-dot","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":12,"effects":[{"id":"burn","duration":2}]}
+	var dot_fight := Combat.begin(dot_enemy)
+	Combat.player_attack(dot_world, dot_fight)
+	if int(dot_enemy.effects[0].duration) != 1 or int(dot_enemy.hp) >= 1000 - 8:
+		failures.append("enemy burn must tick once after a successful player attack before retaliation")
 	var poisoned := {"hp": 50, "effects": []}
 	Combat.apply_effect(poisoned, "poison")
 	var poison_tick := Combat.tick_effects(poisoned)

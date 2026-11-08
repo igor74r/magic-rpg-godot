@@ -252,13 +252,14 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		combat["result"] = "victory"
 		combat["turn"] = "over"
 	else:
-		combat["turn"] = "enemy"
-		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-		if not adaptation_message.is_empty():
-			lines.append(adaptation_message)
-		var response_lines: Array[String] = []
-		_resolve_enemy_response(world, combat, hero, enemy, response_lines)
-		lines.append_array(response_lines)
+		if not _tick_enemy_effects(world, combat, enemy, lines):
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				lines.append(adaptation_message)
+			var response_lines: Array[String] = []
+			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+			lines.append_array(response_lines)
 	world["hero"] = hero
 	combat["enemy"] = enemy
 	combat["log"] = "\n".join(lines)
@@ -631,11 +632,12 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
 			"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
 		var buff_lines: Array[String] = [buff_message]
-		combat["turn"] = "enemy"
-		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-		if not adaptation_message.is_empty():
-			buff_lines.append(adaptation_message)
-		_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+		if not _tick_enemy_effects(world, combat, enemy, buff_lines):
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
 		combat["log"] = "\n".join(buff_lines)
 		world["hero"] = hero
 		return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -668,14 +670,17 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		enemy["state"] = "dead"
 		combat["log"] += "\n" + _award_victory(world, enemy)
 	else:
-		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-		if not adaptation_message.is_empty():
-			combat["log"] += "\n" + adaptation_message
-		combat["turn"] = "enemy"
-		var response_lines: Array[String] = []
-		_resolve_enemy_response(world, combat, hero, enemy, response_lines)
-		if not response_lines.is_empty():
-			combat["log"] += "\n" + "\n".join(response_lines)
+		var tick_lines: Array[String] = []
+		if not _tick_enemy_effects(world, combat, enemy, tick_lines):
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				tick_lines.append(adaptation_message)
+			combat["turn"] = "enemy"
+			var response_lines: Array[String] = []
+			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+			tick_lines.append_array(response_lines)
+		if not tick_lines.is_empty():
+			combat["log"] += "\n" + "\n".join(tick_lines)
 	combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -754,17 +759,19 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			combat["result"] = "victory"
 			lines.append(_award_victory(world, enemy))
 		else:
+			if not _tick_enemy_effects(world, combat, enemy, lines):
+				var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+				if not adaptation_message.is_empty():
+					lines.append(adaptation_message)
+				combat["turn"] = "enemy"
+				_resolve_enemy_response(world, combat, hero, enemy, lines)
+	if non_damage_spell:
+		if not _tick_enemy_effects(world, combat, enemy, lines):
+			combat["turn"] = "enemy"
 			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 			if not adaptation_message.is_empty():
 				lines.append(adaptation_message)
-			combat["turn"] = "enemy"
 			_resolve_enemy_response(world, combat, hero, enemy, lines)
-	if non_damage_spell:
-		combat["turn"] = "enemy"
-		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-		if not adaptation_message.is_empty():
-			lines.append(adaptation_message)
-		_resolve_enemy_response(world, combat, hero, enemy, lines)
 	combat["log"] = "\n".join(lines)
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -803,6 +810,23 @@ static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming:
 			enemy["hp"] = int(enemy.get("hp", 0)) + maxi(0, healed)
 			return "Враг восстанавливает %d HP." % healed if healed > 0 else ""
 	return ""
+
+
+static func _tick_enemy_effects(world: Dictionary, combat: Dictionary, enemy: Dictionary, lines: Array[String]) -> bool:
+	var effect_tick := tick_effects(enemy)
+	if int(effect_tick.damage) > 0:
+		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - int(effect_tick.damage))
+		lines.append("Эффекты наносят противнику %d урона." % int(effect_tick.damage))
+	if int(enemy.get("hp", 0)) <= 0:
+		enemy["hp"] = 0
+		enemy["dead"] = true
+		enemy["state"] = "dead"
+		lines.append(_award_victory(world, enemy))
+		combat["over"] = true
+		combat["result"] = "victory"
+		combat["turn"] = "over"
+		return true
+	return false
 
 
 static func _decrease_cooldowns(hero: Dictionary) -> void:
