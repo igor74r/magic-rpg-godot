@@ -34,15 +34,15 @@ static func get_visible(world: Dictionary, region_id: String) -> Array:
 	for event_value in events.get("active", []):
 		if not event_value is Dictionary:
 			continue
-		var event: Dictionary = event_value
-		if str(event.get("regionId", "")) == region_id and event.get("status") == "active":
-			result.append(event)
+		var active_event: Dictionary = event_value
+		if str(active_event.get("regionId", "")) == region_id and active_event.get("status") == "active":
+			result.append(active_event)
 	for event_value in events.get("history", []):
 		if not event_value is Dictionary:
 			continue
-		var event: Dictionary = event_value
-		if str(event.get("regionId", "")) == region_id and event.get("status") == "completed" and not bool(event.get("rewardClaimed", false)):
-			result.append(event)
+		var history_event: Dictionary = event_value
+		if str(history_event.get("regionId", "")) == region_id and history_event.get("status") == "completed" and not bool(history_event.get("rewardClaimed", false)):
+			result.append(history_event)
 	return result
 
 
