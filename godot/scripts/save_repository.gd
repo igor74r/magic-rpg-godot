@@ -363,7 +363,7 @@ static func _is_safe_integer(value: Variant) -> bool:
 
 static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
 	var source := "%d|%s|%s|%s" % [
-		int(hero.get("createdAt", 0)) if hero.get("createdAt", 0) is int else 0,
+		int(hero.get("createdAt", 0)) if _is_safe_integer(hero.get("createdAt", 0)) else 0,
 		str(hero.get("name", "")) if hero.get("name", "") is String else "",
 		str(hero.get("class", "")) if hero.get("class", "") is String else "",
 		location if not location.is_empty() else "village"
