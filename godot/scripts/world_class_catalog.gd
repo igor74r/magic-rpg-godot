@@ -52,7 +52,7 @@ const SPELLS := {
 	"shield":{"name":"Щит","cost":15,"selfEffect":"defBuff"},
 	"sacrifice":{"name":"Жертва","cost":0,"selfDamagePct":0.2,"restoreMp":50},
 	"arcane-surge":{"name":"Арканный импульс","cost":30,"damage":55},
-	"frost-nova":{"name":"Ледяная нова","cost":26,"damage":34,"effect":"stun"},
+	"frost-nova":{"name":"Ледяная нова","cost":26,"damage":34,"element":"ice","effect":"stun"},
 	"radiant-aegis":{"name":"Эгида рассвета","cost":24,"selfEffect":"defBuff"},
 	"shadow-lance":{"name":"Копьё тени","cost":36,"damage":68,"effect":"bleed"},
 	"renewal":{"name":"Возобновление","cost":32,"heal":95}
