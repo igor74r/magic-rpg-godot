@@ -71,6 +71,8 @@ func _initialize() -> void:
 	var defense: Dictionary = defense_tick.started[0] if not defense_tick.started.is_empty() else {}
 	if defense.get("objectiveType") != "defend-region":
 		failures.append("defense template spawns in eligible region")
+	if not str(defense.get("objectiveText", "")).contains("Если покинете регион, оборона приостановится"):
+		failures.append("defense objective explains that leaving the region pauses progress")
 	EventEngine.accept_event(defend_world, str(defense.get("id", "")))
 	var defense_result: Dictionary = {"finished":[]}
 	for _minute_step in range(12):
