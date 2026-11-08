@@ -104,6 +104,18 @@ func _run() -> void:
 			failures.append("loaded save lost the player level")
 		if int(loaded.get("worldSeed", 0)) != 123456:
 			failures.append("loaded save lost the world seed")
+		var replacement := payload.duplicate(true)
+		replacement.player.name = "Replacement hero"
+		if SaveRepo.save_slot(TEST_SLOT, replacement) != OK:
+			failures.append("valid replacement save must succeed")
+		var replaced := SaveRepo.load_slot(TEST_SLOT)
+		if str(replaced.get("player", {}).get("name", "")) != "Replacement hero":
+			failures.append("atomic replacement must expose the complete new save")
+		if SaveRepo.save_slot(TEST_SLOT, {"version": 18}) != ERR_INVALID_DATA:
+			failures.append("invalid replacement must be rejected")
+		var preserved := SaveRepo.load_slot(TEST_SLOT)
+		if str(preserved.get("player", {}).get("name", "")) != "Replacement hero":
+			failures.append("rejected replacement must leave the previous healthy slot intact")
 
 	if FileAccess.file_exists(TEST_PATH):
 		var absolute_path := ProjectSettings.globalize_path(TEST_PATH)

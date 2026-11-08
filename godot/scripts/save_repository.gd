@@ -15,12 +15,45 @@ static func save_slot(slot: int, payload: Dictionary) -> Error:
 	if normalized.is_empty():
 		return ERR_INVALID_DATA
 
-	var file := FileAccess.open(SLOT_PATH_TEMPLATE % slot, FileAccess.WRITE)
-	if file == null:
-		return FileAccess.get_open_error()
+	return _write_json_atomically(SLOT_PATH_TEMPLATE % slot, JSON.stringify(normalized))
 
-	file.store_string(JSON.stringify(normalized))
-	return file.get_error()
+
+static func _write_json_atomically(path: String, serialized: String) -> Error:
+	var temporary_path := path + ".tmp"
+	var backup_path := path + ".bak"
+	var temporary_file := FileAccess.open(temporary_path, FileAccess.WRITE)
+	if temporary_file == null:
+		return FileAccess.get_open_error()
+	temporary_file.store_string(serialized)
+	temporary_file.flush()
+	var write_error := temporary_file.get_error()
+	temporary_file.close()
+	if write_error != OK:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary_path))
+		return write_error
+
+	var absolute_path := ProjectSettings.globalize_path(path)
+	var absolute_temporary := ProjectSettings.globalize_path(temporary_path)
+	var absolute_backup := ProjectSettings.globalize_path(backup_path)
+	var had_previous := FileAccess.file_exists(path)
+	if FileAccess.file_exists(backup_path):
+		DirAccess.remove_absolute(absolute_backup)
+	if had_previous:
+		var backup_error := DirAccess.rename_absolute(absolute_path, absolute_backup)
+		if backup_error != OK:
+			DirAccess.remove_absolute(absolute_temporary)
+			return backup_error
+
+	var replace_error := DirAccess.rename_absolute(absolute_temporary, absolute_path)
+	if replace_error != OK:
+		if had_previous:
+			DirAccess.rename_absolute(absolute_backup, absolute_path)
+		DirAccess.remove_absolute(absolute_temporary)
+		return replace_error
+
+	if had_previous and FileAccess.file_exists(backup_path):
+		DirAccess.remove_absolute(absolute_backup)
+	return OK
 
 
 static func load_slot(slot: int) -> Dictionary:
