@@ -64,6 +64,28 @@ func _initialize() -> void:
 	var expected_guarded := maxi(1, int(floor(float(expected_raw) * 0.85)))
 	if guarded_damage != expected_guarded:
 		failures.append("allied Hub Guardians must reduce incoming native combat damage by 15 percent")
+
+	var guarded_ability_world := WorldState.create(99121)
+	guarded_ability_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	var guarded_ability_hero := Combat.ensure_hero(guarded_ability_world)
+	var guarded_ability_enemy := {"name":"Удар по способности","persistentId":"enemy-ability-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var guarded_ability_fight := Combat.begin(guarded_ability_enemy)
+	var guarded_ability_hp := int(guarded_ability_hero.hp)
+	Combat.use_ability(guarded_ability_world, guarded_ability_fight, "shield-bash")
+	var ability_raw := maxi(1, int(round(40.0 * float(guarded_ability_enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(guarded_ability_hero.defense) / 2.0)))
+	if guarded_ability_hp - int(guarded_ability_hero.hp) != maxi(1, int(floor(float(ability_raw) * 0.85))):
+		failures.append("allied Hub Guardians must reduce counterattacks after damaging abilities")
+	var guarded_spell_world := WorldState.create(99122)
+	guarded_spell_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	guarded_spell_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
+	var guarded_spell_hero := Combat.ensure_hero(guarded_spell_world)
+	var guarded_spell_enemy := {"name":"Удар по заклинанию","persistentId":"enemy-spell-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var guarded_spell_fight := Combat.begin(guarded_spell_enemy)
+	var guarded_spell_hp := int(guarded_spell_hero.hp)
+	Combat.cast_spell(guarded_spell_world, guarded_spell_fight, "fireball")
+	var spell_raw := maxi(1, 40 - int(floor(float(guarded_spell_hero.defense) / 2.0)))
+	if guarded_spell_hp - int(guarded_spell_hero.hp) != maxi(1, int(floor(float(spell_raw) * 0.85))):
+		failures.append("allied Hub Guardians must reduce counterattacks after damaging spells")
 	var strong := {"name": "Сильный враг", "persistentId": "enemy-strong", "hp": 100, "maxHp": 100, "attack": 999, "defense": 0, "exp": 1, "gold": 1, "boss": false, "dead": false}
 	var loss_fight := Combat.begin(strong)
 	var hp_before := int(world.hero.hp)
