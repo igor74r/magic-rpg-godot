@@ -83,17 +83,28 @@ static func heal(world: Dictionary) -> Dictionary:
 	hero["mp"]=int(hero.maxMp)
 	world["hero"]=hero
 	return {"ok":true,"message":"Лекарь Мирра восстановила здоровье и ресурс за 8 золота."}
-static func use_well(world: Dictionary,now: int=-1) -> Dictionary:
-	var hero:=hero_for(world)
-	var current:=int(Time.get_unix_time_from_system()) if now<0 else now
-	var last:=maxi(0,int(hero.get("lastWellUse",0)))
-	if current-last<86400: return {"ok":false,"message":"Колодец снова исцелит через 24 часа."}
-	if int(hero.hp)>=int(hero.maxHp) and (str(hero.get("class",""))=="warrior" or int(hero.mp)>=int(hero.maxMp)): return {"ok":false,"message":"Вы уже полностью здоровы."}
-	hero["hp"]=int(hero.maxHp)
-	if str(hero.get("class",""))!="warrior": hero["mp"]=int(hero.maxMp)
-	hero["lastWellUse"]=current
-	world["hero"]=hero
-	return {"ok":true,"message":"Древний колодец полностью восстановил ваши силы."}
+static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
+	var hero := hero_for(world)
+	var current_ms := int(Time.get_unix_time_from_system() * 1000.0) if now_ms < 0 else now_ms
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	# Browser saves use hero.stats.lastWellUse in Unix milliseconds. Read the
+	# previous native seconds field once for backwards compatibility with saves
+	# written before this parity fix, then persist only the canonical browser key.
+	var last_ms := maxi(0, int(stats.get("lastWellUse", 0)))
+	if last_ms == 0 and int(hero.get("lastWellUse", 0)) > 0:
+		last_ms = int(hero.get("lastWellUse", 0)) * 1000
+	if current_ms - last_ms <= 86400000:
+		return {"ok": false, "message": "Колодец снова исцелит через 24 часа."}
+	if int(hero.hp) >= int(hero.maxHp) and (str(hero.get("class", "")) == "warrior" or int(hero.mp) >= int(hero.maxMp)):
+		return {"ok": false, "message": "Вы уже полностью здоровы."}
+	hero["hp"] = int(hero.maxHp)
+	if str(hero.get("class", "")) != "warrior":
+		hero["mp"] = int(hero.maxMp)
+	stats["lastWellUse"] = current_ms
+	hero["stats"] = stats
+	hero.erase("lastWellUse")
+	world["hero"] = hero
+	return {"ok": true, "message": "Древний колодец полностью восстановил ваши силы."}
 static func pay_bard(world: Dictionary) -> Dictionary:
 	var hero:=hero_for(world)
 	if has_entry(hero,"bardBuff"): return {"ok":false,"message":"Песня барда уже действует."}
