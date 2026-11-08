@@ -180,8 +180,8 @@ func _initialize() -> void:
 	var spell_enemy := {"name":"Тестовый враг","persistentId":"enemy-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
 	var spell_fight := Combat.begin(spell_enemy)
 	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
-	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) >= 100:
-		failures.append("mage must cast known spells and spend mana")
+	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) != 65:
+		failures.append("fireball damage must add half effective Intelligence, matching the browser formula, and spend mana")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}

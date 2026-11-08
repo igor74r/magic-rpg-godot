@@ -532,7 +532,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-		var raw_damage := int(spell.get("damage", 0)) + effective_stat(hero, "magic") - int(floor(float(enemy_armor) / 2.0))
+		var raw_damage := int(spell.get("damage", 0)) + int(floor(float(effective_stat(hero, "magic")) / 2.0)) - int(floor(float(enemy_armor) / 2.0))
 		var damage := maxi(1, int(round(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)))))
 		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
 			damage = int(round(float(damage) * 1.2))
