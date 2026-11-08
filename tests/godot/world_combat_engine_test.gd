@@ -57,8 +57,11 @@ func _initialize() -> void:
 	var base_crit := Combat.critical_chance(crit_hero)
 	crit_hero["buffs"] = [{"id":"catLuck","duration":1}]
 	var cat_crit := Combat.critical_chance(crit_hero, 0.05)
-	if not is_equal_approx(base_crit, 0.08) or not is_equal_approx(cat_crit, 0.13):
-		failures.append("warrior critical chance must match browser base and receive the cat's five-point bonus")
+	if not is_equal_approx(base_crit, 0.086) or not is_equal_approx(cat_crit, 0.136):
+		failures.append("warrior critical chance must include browser Dexterity scaling and the cat's five-point bonus")
+	var archer_crit_hero := {"class":"archer","dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
+	if not is_equal_approx(Combat.critical_chance(archer_crit_hero), 0.23):
+		failures.append("equipped item base bonuses must be overridden, not double-counted, while Dexterity and critChance both contribute")
 	var crit_seed := 1
 	var found_cat_roll := false
 	for candidate_seed in range(1, 100000):
