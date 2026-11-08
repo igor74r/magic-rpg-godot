@@ -5,6 +5,8 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	if Combat.mitigate_incoming_damage(100.0, 20.0) != 76 or Combat.mitigate_incoming_damage(100.0, 0.0) != 100 or Combat.mitigate_incoming_damage(100.0, -20.0) != 100:
+		failures.append("incoming damage mitigation must match the browser 100 / (100 + defense * 1.5) formula and clamp negative defense")
 	var rarity_hero := {"inventory":[{"id":"root-fiber","qty":2}]}
 	if not Combat.add_item(rarity_hero,"root-fiber",1,"rare") or rarity_hero.inventory.size()!=2 or str(rarity_hero.inventory[1].get("rarity",""))!="rare":
 		failures.append("rarity-bearing stack must not merge into an unrarified material stack")
@@ -113,7 +115,7 @@ func _initialize() -> void:
 	var guarded_hp_before := int(guarded_hero.hp)
 	Combat.player_attack(guarded_world, guarded_fight)
 	var guarded_damage := guarded_hp_before - int(guarded_hero.hp)
-	var expected_raw := maxi(1, 20 - int(floor(float(Combat.effective_stat(guarded_hero, "defense")) / 2.0)))
+	var expected_raw := Combat._calculate_incoming_damage(guarded_world, guarded_hero, guarded_enemy, 1)
 	var expected_guarded := maxi(1, int(floor(float(expected_raw) * 0.85)))
 	if guarded_damage != expected_guarded:
 		failures.append("allied Hub Guardians must reduce incoming native combat damage by 15 percent")
@@ -125,7 +127,7 @@ func _initialize() -> void:
 	var guarded_ability_fight := Combat.begin(guarded_ability_enemy)
 	var guarded_ability_hp := int(guarded_ability_hero.hp)
 	Combat.use_ability(guarded_ability_world, guarded_ability_fight, "shield-bash")
-	var ability_raw := maxi(1, int(round(40.0 * float(guarded_ability_enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(guarded_ability_hero.defense) / 2.0)))
+	var ability_raw := Combat._calculate_incoming_damage(guarded_ability_world, guarded_ability_hero, guarded_ability_enemy, 1)
 	if guarded_ability_hp - int(guarded_ability_hero.hp) != maxi(1, int(floor(float(ability_raw) * 0.85))):
 		failures.append("allied Hub Guardians must reduce counterattacks after damaging abilities")
 	var guarded_spell_world := WorldState.create(99122)
@@ -136,7 +138,7 @@ func _initialize() -> void:
 	var guarded_spell_fight := Combat.begin(guarded_spell_enemy)
 	var guarded_spell_hp := int(guarded_spell_hero.hp)
 	Combat.cast_spell(guarded_spell_world, guarded_spell_fight, "fireball")
-	var spell_raw := maxi(1, 40 - int(floor(float(guarded_spell_hero.defense) / 2.0)))
+	var spell_raw := Combat._calculate_incoming_damage(guarded_spell_world, guarded_spell_hero, guarded_spell_enemy, 1)
 	if guarded_spell_hp - int(guarded_spell_hero.hp) != maxi(1, int(floor(float(spell_raw) * 0.85))):
 		failures.append("allied Hub Guardians must reduce counterattacks after damaging spells")
 	var strong := {"name": "Сильный враг", "persistentId": "enemy-strong", "hp": 100, "maxHp": 100, "attack": 999, "defense": 0, "exp": 1, "gold": 1, "boss": false, "dead": false}
