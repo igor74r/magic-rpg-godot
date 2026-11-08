@@ -229,8 +229,35 @@ func _initialize() -> void:
 	quest_sale_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"old-archive-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
 	if bool(Npc.sell_item(quest_sale_world,0).get("ok",true)):
 		failures.append("quest items must remain unsellable")
+	var reforge_world := WorldState.create(20261132)
+	reforge_world["hero"] = {"level":1,"gold":0,"inventory":[
+		{"id":"iron-sword","qty":1,"rarity":"rare","bonus":{"attack":20},"sockets":2,"runes":["rune-ember"],"forgeLevel":2,"upgradePercent":0.1},
+		{"id":"ember-core","qty":1}
+	],"equipped":{}}
+	var reforge_check := Npc.can_reforge_item(reforge_world, 0)
+	if not bool(reforge_check.get("ok", false)) or int(reforge_check.get("tier", 0)) != 3 or str(reforge_check.get("cost", {}).get("id", "")) != "ember-core":
+		failures.append("rare equipment reforge must require one Ember Core")
+	var reforge_result := Npc.reforge_item(reforge_world, 0)
+	var reforged_inventory: Array = reforge_world.hero.inventory
+	if not bool(reforge_result.get("ok", false)) or reforged_inventory.size() != 1 or str(reforged_inventory[0].get("id", "")) != "iron-sword":
+		failures.append("successful reforge must replace the original equipment without changing its inventory slot")
+	else:
+		var reforged: Dictionary = reforged_inventory[0]
+		if str(reforged.get("rarity", "")) != "rare" or int(reforged.get("sockets", 0)) != 2 or reforged.get("runes", []) != ["rune-ember"] or int(reforged.get("forgeLevel", 0)) != 2 or not is_equal_approx(float(reforged.get("upgradePercent", 0.0)), 0.1):
+			failures.append("reforge must preserve rarity, sockets, runes, forge level and upgrade percentage")
+		if int(reforged.get("bonus", {}).get("attack", 0)) != 9:
+			failures.append("reforge must recreate canonical item bonuses and reapply the preserved upgrade percentage")
+	var insufficient_reforge := WorldState.create(20261133)
+	insufficient_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
+	var insufficient_snapshot: Array = insufficient_reforge.hero.inventory.duplicate(true)
+	if bool(Npc.reforge_item(insufficient_reforge, 0).get("ok", true)) or insufficient_reforge.hero.inventory != insufficient_snapshot:
+		failures.append("reforge without the required Frost Essence must not mutate inventory")
+	var mythic_reforge := WorldState.create(20261134)
+	mythic_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"mythic"}],"equipped":{}}
+	if bool(Npc.can_reforge_item(mythic_reforge, 0).get("ok", true)):
+		failures.append("mythic equipment must remain excluded from reforge")
 	if failures.is_empty():
-		print("PASS: NPC crafting validation, rarity and rollback")
+		print("PASS: NPC crafting, reforge, rarity and rollback")
 		quit(0)
 	else:
 		for failure in failures: push_error(failure)

@@ -942,6 +942,38 @@ func _show_npc_alchemy() -> void:
 	_refresh_crafting_jobs()
 	for recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
 		_add_recipe_button(recipe_id, "alchemist")
+	var hero := CombatEngineScript.ensure_hero(world)
+	var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+	var heading := Label.new()
+	heading.text = "ПЕРЕКОВКА ЭКИПИРОВКИ"
+	npc_container.add_child(heading)
+	var found_equipment := false
+	for index in range(inventory.size()):
+		var instance: Variant = inventory[index]
+		if not instance is Dictionary:
+			continue
+		var item_id := str(instance.get("id", ""))
+		if not WorldItemCatalogScript.is_equipment(item_id):
+			continue
+		found_equipment = true
+		var item := WorldItemCatalogScript.get_item(item_id)
+		var check: Dictionary = NpcEngineScript.can_reforge_item(world, index)
+		var button := Button.new()
+		button.name = "NpcAction"
+		var cost: Dictionary = check.get("cost", {})
+		if cost.is_empty():
+			button.text = "Перековать: %s — %s" % [str(item.get("name", item_id)), str(check.get("message", "Недоступно"))]
+		else:
+			var material := WorldItemCatalogScript.get_item(str(cost.get("id", "")))
+			button.text = "Перековать: %s · %s ×%d" % [str(item.get("name", item_id)), str(material.get("name", cost.get("id", ""))), int(cost.get("qty", 0))]
+		button.disabled = not bool(check.get("ok", false))
+		button.tooltip_text = str(check.get("message", "Сохранит руны, гнёзда и уровень ковки."))
+		button.pressed.connect(_reforge_npc_item.bind(index))
+		npc_container.add_child(button)
+	if not found_equipment:
+		var empty := Label.new()
+		empty.text = "В сумке нет экипировки для перековки."
+		npc_container.add_child(empty)
 
 
 func _show_npc_forge() -> void:
@@ -992,6 +1024,19 @@ func _craft_npc_recipe(recipe_id: String, station: String) -> void:
 		_show_npc_alchemy()
 	else:
 		_show_npc_forge()
+
+
+func _reforge_npc_item(index: int) -> void:
+	var previous_world := world.duplicate(true)
+	var result: Dictionary = NpcEngineScript.reforge_item(world, index)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		var save_error := WorldStateRepositoryScript.save_world(world)
+		if save_error != OK:
+			world = previous_world
+			status_label.text = "Перековка отменена: не удалось сохранить изменения (%s)." % error_string(save_error)
+	_refresh_inventory()
+	_show_npc_alchemy()
 
 
 func _upgrade_npc_equipment(slot: String) -> void:

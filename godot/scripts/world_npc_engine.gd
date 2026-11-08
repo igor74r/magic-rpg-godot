@@ -584,6 +584,97 @@ static func craft(world: Dictionary, recipe_id: String, station: String = "", no
  world["hero"] = hero
  return {"ok":true,"message":"Создано: %s ×%d." % [str(result_definition.get("name", result_id)), quantity]}
 
+static func can_reforge_item(world: Dictionary, index: int) -> Dictionary:
+	var hero := hero_for(world)
+	var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+	if index < 0 or index >= inventory.size() or not inventory[index] is Dictionary:
+		return {"ok":false,"message":"Перековать можно только экипировку из сумки."}
+	var instance: Dictionary = inventory[index]
+	var item_id := str(instance.get("id", ""))
+	var item := CatalogItem.get_item(item_id)
+	if item.is_empty() or not CatalogItem.is_equipment(item_id):
+		return {"ok":false,"message":"Перековать можно только экипировку из сумки."}
+	var rarity := str(instance.get("rarity", "common"))
+	if bool(item.get("storyShard", false)) or str(item.get("type", "")) == "quest" or rarity == "mythic":
+		return {"ok":false,"message":"Этот предмет нельзя перековать."}
+	var rarity_tiers := {"common":1,"uncommon":2,"rare":3,"epic":4,"legendary":5}
+	var tier := int(rarity_tiers.get(rarity, 1))
+	var costs := {
+		1: {"id":"root-fiber","qty":1},
+		2: {"id":"grave-salt","qty":1},
+		3: {"id":"ember-core","qty":1},
+		4: {"id":"frost-essence","qty":2},
+		5: {"id":"void-dust","qty":2}
+	}
+	var cost: Dictionary = costs[tier]
+	var have := 0
+	for entry in inventory:
+		if entry is Dictionary and str(entry.get("id", "")) == str(cost.id):
+			var raw_qty: Variant = entry.get("qty", 1)
+			have += int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
+	if have < int(cost.qty):
+		var material := CatalogItem.get_item(str(cost.id))
+		return {"ok":false,"message":"Для перековки нужно: %s ×%d (есть %d)." % [str(material.get("name", cost.id)), int(cost.qty), have]}
+	return {"ok":true,"cost":cost.duplicate(true),"tier":tier,"itemId":item_id}
+
+
+static func reforge_item(world: Dictionary, index: int) -> Dictionary:
+	var check := can_reforge_item(world, index)
+	if not bool(check.get("ok", false)):
+		return check
+	var hero := hero_for(world)
+	var inventory: Array = hero.get("inventory", [])
+	var snapshot: Array = inventory.duplicate(true)
+	var old: Dictionary = inventory[index]
+	var item_id := str(old.get("id", ""))
+	var rarity := str(old.get("rarity", "common"))
+	var preserved_sockets: Variant = old.get("sockets", CatalogItem.get_item(item_id).get("sockets", 0))
+	var preserved_runes: Array = old.get("runes", []).duplicate(true) if old.get("runes", []) is Array else []
+	var preserved_forge_level := maxi(0, int(old.get("forgeLevel", 0)))
+	var preserved_upgrade_percent := maxf(0.0, float(old.get("upgradePercent", 0.0)))
+	var cost: Dictionary = check.cost
+	if not Combat.remove_item(hero, str(cost.id), int(cost.qty)):
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Не удалось списать эссенцию; предметы не изменены."}
+	inventory = hero.get("inventory", [])
+	if index < 0 or index >= inventory.size() or str(inventory[index].get("id", "")) != item_id:
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Предмет не найден; материалы возвращены."}
+	inventory.remove_at(index)
+	hero["inventory"] = inventory
+	if not Combat.add_item(hero, item_id, 1, rarity):
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Перековка не удалась; материалы возвращены."}
+	inventory = hero.get("inventory", [])
+	var reforged_index := inventory.size() - 1
+	if reforged_index < 0 or not inventory[reforged_index] is Dictionary:
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Не удалось создать предмет; материалы возвращены."}
+	var reforged: Dictionary = inventory[reforged_index]
+	reforged["sockets"] = preserved_sockets
+	reforged["runes"] = preserved_runes
+	reforged["forgeLevel"] = preserved_forge_level
+	reforged["upgradePercent"] = preserved_upgrade_percent
+	if preserved_upgrade_percent > 0.0:
+		var bonus: Dictionary = reforged.get("bonus", {}).duplicate(true) if reforged.get("bonus", {}) is Dictionary else {}
+		for key in bonus:
+			var value: Variant = bonus[key]
+			if value is int or value is float:
+				var scaled := float(value) * (1.0 + preserved_upgrade_percent)
+				bonus[key] = snappedf(scaled, 0.0001) if str(key) in ["dodgeChance","blockChance","blockPower","critChance"] else int(floor(scaled + 0.5))
+		reforged["bonus"] = bonus
+		inventory[reforged_index] = reforged
+	inventory.remove_at(reforged_index)
+	inventory.insert(mini(index, inventory.size()), reforged)
+	hero["inventory"] = inventory
+	world["hero"] = hero
+	return {"ok":true,"message":"Перековано: %s." % str(CatalogItem.get_item(item_id).get("name", item_id))}
+
+
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
  var hero:=hero_for(world)
  var equipped: Dictionary=hero.get("equipped",{})
