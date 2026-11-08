@@ -321,7 +321,7 @@ static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
 
 static func _is_safe_integer(value: Variant) -> bool:
-	return value is int and abs(int(value)) <= 9007199254740991
+	return value is int and int(value) >= -9007199254740991 and int(value) <= 9007199254740991
 
 
 static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
