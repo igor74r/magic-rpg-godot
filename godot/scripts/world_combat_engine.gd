@@ -637,7 +637,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 			if not adaptation_message.is_empty():
 				buff_lines.append(adaptation_message)
-				_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
 		combat["log"] = "\n".join(buff_lines)
 		world["hero"] = hero
 		return {"ok":true,"message":combat.log,"result":combat.get("result","")}
