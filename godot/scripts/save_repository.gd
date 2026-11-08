@@ -145,6 +145,30 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	if not hero_value is Dictionary:
 		return {}
 	if version == SAVE_VERSION:
+		# Browser v18 saves still pass through the runtime normalizers on every
+		# load. Do the same here: an existing v18 payload is not a reason to
+		# skip world, faction, campaign-branch, XP, or NG+ normalization.
+		var current_hero: Dictionary = hero_value
+		var has_world_state := migrated.get("world", null) is Dictionary
+		var seed_candidate: Variant = migrated.get("worldSeed", null)
+		var seed_fallback := int(seed_candidate) if (seed_candidate is int or seed_candidate is float) and is_finite(float(seed_candidate)) else 0
+		if seed_fallback <= 0:
+			var current_world_value: Variant = migrated.get("world", null)
+			if current_world_value is Dictionary:
+				var current_world_seed: Variant = current_world_value.get("seed", null)
+				if (current_world_seed is int or current_world_seed is float) and is_finite(float(current_world_seed)):
+					seed_fallback = int(current_world_seed)
+		if seed_fallback <= 0:
+			var current_location: Variant = migrated.get("location", "village")
+			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
+		var current_world: Dictionary = migrated.world.duplicate(true) if has_world_state else WorldStateScript.create(seed_fallback, true)
+		migrated["world"] = WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
+		WorldFactionEngineScript.ensure_state(migrated)
+		_normalize_campaign_branches(current_hero)
+		_rebase_legacy_experience(current_hero)
+		if not current_hero.get("ngPlus", null) is int or int(current_hero.get("ngPlus", 0)) < 0:
+			current_hero["ngPlus"] = 0
+		migrated[hero_key] = current_hero
 		return migrated
 	if version < 0 or version > PREVIOUS_SAVE_VERSION:
 		return {}

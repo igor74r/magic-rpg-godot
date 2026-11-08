@@ -38,6 +38,41 @@ func _run() -> void:
 		failures.append("v17 migration must initialize legacy world exploration and fast travel")
 	if not migrated.get("factions", {}).get("reputation", {}) is Dictionary or migrated.factions.reputation.get("free-traders", -1) != 0:
 		failures.append("v17 migration must initialize all faction reputation records")
+	# Existing v18 browser saves must receive the same normalization as the
+	# browser runtime, not bypass the migration pipeline merely because their
+	# version marker is current.
+	var current_v18 := {
+		"version":18,
+		"worldSeed":123456,
+		"worldGeneratorVersion":1,
+		"player":{
+			"name":"Current v18 hero","class":"mage","level":12,"exp":150,"expNext":300,"ngPlus":-2,
+			"activeCampaignMission":"a3-m2","activeCampaignByBranch":{"intro":"a1-m1"}
+		},
+		"world":{"seed":123456,"generatorVersion":1,"discoveredRegions":["village"],"unlockedRoutes":[]},
+		"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"bad"},"changeLog":["opaque-v18-entry"]}
+	}
+	var normalized_v18 := SaveRepo.migrate_payload(current_v18)
+	var normalized_v18_player: Dictionary = normalized_v18.get("player", {})
+	var normalized_v18_world: Dictionary = normalized_v18.get("world", {})
+	var normalized_v18_factions: Dictionary = normalized_v18.get("factions", {})
+	if int(normalized_v18_world.get("schemaVersion", 0)) != 1 or bool(normalized_v18_world.get("legacyFastTravel", true)):
+		failures.append("current v18 world state must be normalized without enabling legacy fast travel")
+	if normalized_v18_player.get("activeCampaignByBranch", {}).get("ash", "") != "a3-m2" or normalized_v18_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
+		failures.append("current v18 campaign branches must preserve existing branch state and recover the legacy active mission")
+	if int(normalized_v18_player.get("expNext", 0)) != 259 or int(normalized_v18_player.get("exp", -1)) != 129 or int(normalized_v18_player.get("ngPlus", -1)) != 0:
+		failures.append("current v18 saves must rebase XP and normalize malformed NG+ values")
+	var normalized_v18_reputation: Dictionary = normalized_v18_factions.get("reputation", {})
+	if normalized_v18_reputation.get("hub-guardians", 0) != 13 or normalized_v18_reputation.get("rift-cult", 0) != -1 or normalized_v18_reputation.get("free-traders", 0) != 42 or normalized_v18_reputation.get("ash-nomads", 1) != 0:
+		failures.append("current v18 faction reputation must use browser-compatible normalization")
+	if normalized_v18_factions.get("changeLog", []) != ["opaque-v18-entry"]:
+		failures.append("current v18 faction history must preserve opaque legacy entries")
+	var current_v18_without_world := current_v18.duplicate(true)
+	current_v18_without_world.erase("world")
+	var normalized_v18_without_world := SaveRepo.migrate_payload(current_v18_without_world)
+	if not bool(normalized_v18_without_world.get("world", {}).get("legacyFastTravel", false)):
+		failures.append("current v18 payload without world state must initialize the legacy travel compatibility mode")
+
 	var faction_migration := SaveRepo.migrate_payload({"version":17,"player":{"name":"Faction migration","level":1},"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"not-a-number","unknown":99},"changeLog":[{"factionId":"rift-cult","delta":2},"invalid",{"factionId":"unknown"}]}})
 	var migrated_factions: Dictionary = faction_migration.get("factions", {})
 	var migrated_reputation: Dictionary = migrated_factions.get("reputation", {})
