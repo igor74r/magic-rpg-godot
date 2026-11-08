@@ -779,7 +779,7 @@ func _perform_npc_action(action: String) -> void:
 		"bard": result = NpcEngineScript.pay_bard(world)
 	status_label.text = str(result.get("message", ""))
 	var save_error := WorldStateRepositoryScript.save_world(world)
-	if save_error != OK: status_label.text += "\\nОшибка сохранения: %s" % error_string(save_error)
+	if save_error != OK: status_label.text += "\nОшибка сохранения: %s" % error_string(save_error)
 	_refresh_inventory()
 	_refresh_npcs()
 
@@ -1161,7 +1161,7 @@ func _combat_attack() -> void:
 		if bool(defeated_enemy.get("riftMode", false)):
 			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
 			if bool(rift_result.get("ok", false)):
-				status_label.text += "\\n" + str(rift_result.message)
+				status_label.text += "\n" + str(rift_result.message)
 		elif bool(defeated_enemy.get("towerMode", false)):
 			_complete_tower_victory(defeated_enemy)
 	var error := WorldStateRepositoryScript.save_world(world)
