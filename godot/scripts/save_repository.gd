@@ -162,7 +162,13 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 			var current_location: Variant = migrated.get("location", "village")
 			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
 		var current_world: Dictionary = migrated.world.duplicate(true) if has_world_state else WorldStateScript.create(seed_fallback, true)
-		migrated["world"] = WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
+		var normalized_world := WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
+		migrated["world"] = normalized_world
+		# Browser ensureWorldState always mirrors the normalized world identity
+		# back to the save envelope. Keep v18 exports valid when imported saves
+		# contain stale root-level seed/generator metadata.
+		migrated["worldSeed"] = int(normalized_world.get("seed", seed_fallback))
+		migrated["worldGeneratorVersion"] = int(normalized_world.get("generatorVersion", 1))
 		WorldFactionEngineScript.ensure_state(migrated)
 		_normalize_campaign_branches(current_hero)
 		_rebase_legacy_experience(current_hero)

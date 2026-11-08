@@ -53,6 +53,13 @@ func _run() -> void:
 		"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"bad"},"changeLog":["opaque-v18-entry"]}
 	}
 	var normalized_v18 := SaveRepo.migrate_payload(current_v18)
+	var stale_world_metadata_v18 := SaveRepo.migrate_payload({
+		"version":18,"worldSeed":999,"worldGeneratorVersion":9,
+		"player":{"name":"Stale metadata hero","class":"mage","level":1},
+		"world":{"seed":456789,"generatorVersion":1,"discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if int(stale_world_metadata_v18.get("worldSeed", 0)) != 456789 or int(stale_world_metadata_v18.get("worldGeneratorVersion", 0)) != 1:
+		failures.append("current v18 normalization must synchronize root seed and generator metadata with the normalized world")
 	var normalized_v18_player: Dictionary = normalized_v18.get("player", {})
 	var normalized_v18_world: Dictionary = normalized_v18.get("world", {})
 	var normalized_v18_factions: Dictionary = normalized_v18.get("factions", {})
