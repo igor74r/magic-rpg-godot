@@ -617,44 +617,44 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		combat["log"] = "\n".join(buff_lines)
 		world["hero"] = hero
 		return {"ok":true,"message":combat.log,"result":combat.get("result","")}
-		var ability_style := "magic" if kind == "meteor" else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
-		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
-		var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
-		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
-		consume_enemy_adaptation(enemy, ability_style)
-		record_player_style(combat, ability_style)
-		var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
-		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-		var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
-		var lines := ["%s: %d урона." % [str(ability.name), damage]]
-		if lifesteal_healed > 0:
-			lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
-		lines.append_array(_update_boss_phase(enemy))
-		if kind == "meteor":
-			apply_effect(enemy, "burn")
-		if kind == "poison_strike":
-			lines.append("Противник отравлен.")
-		if kind == "stun":
-			lines.append("Противник оглушён.")
-		combat["enemy"] = enemy
-		combat["log"] = "\n".join(lines)
-		if int(enemy.hp) <= 0:
-			combat["over"] = true
-			combat["turn"] = "over"
-			combat["result"] = "victory"
-			enemy["dead"] = true
-			enemy["state"] = "dead"
-			combat["log"] += "\n" + _award_victory(world, enemy)
-		else:
-			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-			if not adaptation_message.is_empty():
-				combat["log"] += "\n" + adaptation_message
-			combat["turn"] = "enemy"
-			var response_lines: Array[String] = []
-			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
-			if not response_lines.is_empty():
-				combat["log"] += "\n" + "\n".join(response_lines)
-		combat["enemy"] = enemy
+	var ability_style := "magic" if kind == "meteor" else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
+	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
+	var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
+	damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
+	consume_enemy_adaptation(enemy, ability_style)
+	record_player_style(combat, ability_style)
+	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
+	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+	var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
+	var lines := ["%s: %d урона." % [str(ability.name), damage]]
+	if lifesteal_healed > 0:
+		lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
+	lines.append_array(_update_boss_phase(enemy))
+	if kind == "meteor":
+		apply_effect(enemy, "burn")
+	if kind == "poison_strike":
+		lines.append("Противник отравлен.")
+	if kind == "stun":
+		lines.append("Противник оглушён.")
+	combat["enemy"] = enemy
+	combat["log"] = "\n".join(lines)
+	if int(enemy.hp) <= 0:
+		combat["over"] = true
+		combat["turn"] = "over"
+		combat["result"] = "victory"
+		enemy["dead"] = true
+		enemy["state"] = "dead"
+		combat["log"] += "\n" + _award_victory(world, enemy)
+	else:
+		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+		if not adaptation_message.is_empty():
+			combat["log"] += "\n" + adaptation_message
+		combat["turn"] = "enemy"
+		var response_lines: Array[String] = []
+		_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+		if not response_lines.is_empty():
+			combat["log"] += "\n" + "\n".join(response_lines)
+	combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 
