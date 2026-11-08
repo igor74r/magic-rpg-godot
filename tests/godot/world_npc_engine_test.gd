@@ -35,6 +35,36 @@ func _initialize() -> void:
 	var locked := Npc.craft(poor_world,"r5-dragon-blade","blacksmith")
 	if bool(locked.get("ok",true)):
 		failures.append("late-act legendary recipe must remain locked before act five")
+
+	var camp_world := WorldState.create(20261119)
+	camp_world["location"] = "camp"
+	camp_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{},"craftingJobs":[]}
+	var queued := Npc.craft(camp_world, "r-hp", "alchemist", 1000000)
+	if not bool(queued.get("ok", false)) or not bool(queued.get("queued", false)) or int(queued.get("hours", 0)) < 1 or int(queued.get("hours", 0)) > 3:
+		failures.append("camp crafting must queue a persistent order with a one-to-three-hour timer")
+	if camp_world.hero.inventory.size() != 0 or camp_world.hero.craftingJobs.size() != 1:
+		failures.append("camp order must consume ingredients and persist the pending reward instead of granting it immediately")
+	var too_early := Npc.collect_crafting_jobs(camp_world, 1000000 + 3599999)
+	if not too_early.is_empty() or camp_world.hero.craftingJobs.size() != 1:
+		failures.append("camp order must not be claimable before its readyAt timestamp")
+	var ready_at := int(camp_world.hero.craftingJobs[0].readyAt)
+	var claimed_jobs := Npc.collect_crafting_jobs(camp_world, ready_at)
+	if claimed_jobs.size() != 1 or camp_world.hero.craftingJobs.size() != 0 or str(camp_world.hero.inventory[0].id) != "health-potion":
+		failures.append("ready camp order must grant its reward once and remove the claimed job")
+	var city_world := WorldState.create(20261120)
+	city_world["location"] = "village"
+	city_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{}}
+	var city_craft := Npc.craft(city_world, "r-hp", "alchemist", 2000000)
+	if not bool(city_craft.get("ok", false)) or bool(city_craft.get("queued", false)) or str(city_world.hero.inventory[0].id) != "health-potion":
+		failures.append("city crafting must remain immediate and must not create a camp order")
+	var blocked_world := WorldState.create(20261121)
+	blocked_world["location"] = "camp"
+	var blocked_inventory: Array = []
+	for slot in range(30): blocked_inventory.append({"id":"iron-sword","qty":1})
+	blocked_world["hero"] = {"level":1,"str":1000,"gold":0,"inventory":blocked_inventory,"campaignClaimed":{},"equipped":{},"craftingJobs":[{"id":"blocked","result":"health-potion","qty":1,"readyAt":1}]}
+	var blocked_claim := Npc.collect_crafting_jobs(blocked_world, 2)
+	if not blocked_claim.is_empty() or blocked_world.hero.craftingJobs.size() != 1:
+		failures.append("ready camp order must remain claimable when inventory capacity is full")
 	var trader_world := WorldState.create(20261110)
 	trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
 	trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}

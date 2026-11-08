@@ -16,6 +16,7 @@ static func from_browser_payload(payload: Dictionary) -> Dictionary:
 		return {}
 	var browser_world_value: Variant = payload.get("world", {})
 	var browser_world: Dictionary = browser_world_value.duplicate(true) if browser_world_value is Dictionary else {}
+	browser_world["location"] = str(payload.get("location", browser_world.get("location", "village")))
 	var player: Dictionary = payload.player.duplicate(true)
 	var source_seed := int(browser_world.get("seed", payload.get("worldSeed", 1)))
 	var source_generator := int(browser_world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))
@@ -68,6 +69,7 @@ static func to_browser_payload(world: Dictionary) -> Dictionary:
 		browser_world.erase(runtime_key)
 	payload["version"] = SaveRepositoryScript.SAVE_VERSION
 	payload["player"] = player
+	payload["location"] = str(world.get("location", payload.get("location", "village")))
 	payload["world"] = browser_world
 	payload["worldSeed"] = int(world.get("seed", payload.get("worldSeed", 1)))
 	payload["worldGeneratorVersion"] = int(world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))

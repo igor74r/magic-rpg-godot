@@ -357,7 +357,63 @@ static func buyback_item(world: Dictionary, index: int, today: String = "") -> D
  world["hero"] = hero
  return {"ok":true,"message":"Предмет выкуплен обратно за %d золота." % price,"price":price}
 
-static func craft(world: Dictionary, recipe_id: String, station: String = "") -> Dictionary:
+static func _is_camp_crafting(world: Dictionary) -> bool:
+ var overworld: Dictionary = world.get("overworld", {}) if world.get("overworld", {}) is Dictionary else {}
+ return str(world.get("location", "")) == "camp" or str(overworld.get("locationId", "")) == "camp" or str(overworld.get("sourceLocationId", "")) == "camp"
+
+static func get_crafting_jobs(world: Dictionary) -> Array:
+ var hero := hero_for(world)
+ var jobs: Variant = hero.get("craftingJobs", [])
+ return jobs.duplicate(true) if jobs is Array else []
+
+# readyAt is Unix time in milliseconds, matching the browser save contract.
+static func collect_crafting_jobs(world: Dictionary, now_ms: int = -1) -> Array:
+ var hero := hero_for(world)
+ var jobs: Variant = hero.get("craftingJobs", [])
+ if not jobs is Array or jobs.is_empty():
+  return []
+ var current_ms := int(Time.get_unix_time_from_system() * 1000.0) if now_ms < 0 else now_ms
+ var inventory_before: Array = hero.get("inventory", []).duplicate(true)
+ var claimed: Array = []
+ var claimed_ids: Array[String] = []
+ for job_value in jobs:
+  if not job_value is Dictionary:
+   continue
+  var job: Dictionary = job_value
+  var ready_value: Variant = job.get("readyAt", null)
+  var quantity_value: Variant = job.get("qty", null)
+  var result_id := str(job.get("result", ""))
+  var quantity := int(quantity_value) if quantity_value is int else 0
+  if not (ready_value is int or ready_value is float) or float(ready_value) > float(current_ms):
+   continue
+  if result_id.is_empty() or quantity < 1 or quantity > 99 or CatalogItem.get_item(result_id).is_empty():
+   continue
+  var rarity := str(job.get("rarity", ""))
+  var capacity := _can_add_item(hero, result_id, quantity, rarity)
+  if not bool(capacity.get("ok", false)):
+   continue
+  if not Combat.add_item(hero, result_id, quantity, rarity):
+   hero["inventory"] = inventory_before
+   return []
+  claimed.append(job.duplicate(true))
+  claimed_ids.append(str(job.get("id", "")))
+ if claimed.is_empty():
+  return []
+ var remaining: Array = []
+ for job_value in jobs:
+  var remove_job := false
+  if job_value is Dictionary:
+   var job_id := str(job_value.get("id", ""))
+   if not job_id.is_empty() and claimed_ids.has(job_id):
+    remove_job = true
+    claimed_ids.erase(job_id)
+  if not remove_job:
+   remaining.append(job_value)
+ hero["craftingJobs"] = remaining
+ world["hero"] = hero
+ return claimed
+
+static func craft(world: Dictionary, recipe_id: String, station: String = "", now_ms: int = -1) -> Dictionary:
  var hero := hero_for(world)
  var recipe: Dictionary = RECIPES.get(recipe_id, {})
  if recipe.is_empty(): return {"ok":false,"message":"Рецепт не найден."}
@@ -406,8 +462,22 @@ static func craft(world: Dictionary, recipe_id: String, station: String = "") ->
   if not Combat.remove_item(hero, str(item_id), int(ingredients[item_id])):
    hero["inventory"] = snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
- # Capacity is checked after ingredient consumption, just like the browser
- # crafting transaction: materials being spent must free their weight/slots.
+ if _is_camp_crafting(world):
+  var hours := int(recipe.get("craftHours", 0))
+  if hours < 1 or hours > 3:
+   var rng := RandomNumberGenerator.new()
+   rng.randomize()
+   hours = rng.randi_range(1, 3)
+  var current_ms := int(Time.get_unix_time_from_system() * 1000.0) if now_ms < 0 else now_ms
+  var jobs: Array = hero.get("craftingJobs", []) if hero.get("craftingJobs", []) is Array else []
+  var job_id := "%s-%d-%d" % [recipe_id, current_ms, jobs.size()]
+  jobs.append({"id":job_id,"result":result_id,"qty":quantity,"rarity":output_rarity,"readyAt":current_ms + hours * 60 * 60 * 1000})
+  hero["craftingJobs"] = jobs
+  if craft_tier >= 4:
+   crafted_by_act[str(act_index)] = int(crafted_by_act.get(str(act_index), 0)) + 1
+   hero["craftedHighTierByAct"] = crafted_by_act
+  world["hero"] = hero
+  return {"ok":true,"queued":true,"hours":hours,"message":"Заказ принят. Готово через %d ч." % hours}
  var output_capacity := _can_add_item(hero, result_id, quantity, output_rarity)
  if not bool(output_capacity.get("ok", false)):
   hero["inventory"] = snapshot
