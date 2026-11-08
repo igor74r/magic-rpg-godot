@@ -100,6 +100,18 @@ func _initialize() -> void:
 	if discovery_result.size() != 1 or Factions.get_reputation(discovery_world, "free-traders") != 10:
 		failures.append("discovering the target region completes the survey and grants trader reputation")
 
+	var malformed_discovery_world := WorldState.create(6689)
+	malformed_discovery_world.events.active = ["invalid", null, 42, {
+		"id":"valid-discovery","status":"active","accepted":true,"objectiveType":"region-discovery",
+		"targetRegionId":"forest","targetCount":1,"progress":0,"phase":0,
+		"factionId":"free-traders","reputationReward":3,"reward":{"gold":5}
+	}]
+	if EventEngine.get_visible(malformed_discovery_world, "forest").size() != 1:
+		failures.append("visible-event lookup must ignore malformed imported entries")
+	var safe_discovery := EventEngine.record_discovery(malformed_discovery_world, "forest")
+	if safe_discovery.size() != 1 or Factions.get_reputation(malformed_discovery_world, "free-traders") != 3:
+		failures.append("discovery progress must ignore malformed imported entries and complete valid objectives")
+
 	var campaign_world := WorldState.create(6688)
 	campaign_world["factionCampaigns"] = {"ash-nomad-warband":{"status":"active","stage":1}}
 	campaign_world.events.active.append({"id":"event-campaign","templateId":"ash-warband-scouting","name":"Разведчики","regionId":"wasteland","status":"active","accepted":true,"objectiveType":"elite-kill","targetCount":1,"progress":0,"phase":0,"factionId":"ash-nomads","campaignId":"ash-nomad-warband","campaignStage":1,"reputationReward":8,"failureReputationDelta":-4,"reward":{"gold":50}})

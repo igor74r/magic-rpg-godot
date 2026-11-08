@@ -31,11 +31,17 @@ const TEMPLATES := [
 static func get_visible(world: Dictionary, region_id: String) -> Array:
 	var events: Dictionary = world.get("events", {})
 	var result: Array = []
-	for event in events.get("active", []):
-		if event is Dictionary and str(event.get("regionId", "")) == region_id and event.get("status") == "active":
+	for event_value in events.get("active", []):
+		if not event_value is Dictionary:
+			continue
+		var event: Dictionary = event_value
+		if str(event.get("regionId", "")) == region_id and event.get("status") == "active":
 			result.append(event)
-	for event in events.get("history", []):
-		if event is Dictionary and str(event.get("regionId", "")) == region_id and event.get("status") == "completed" and not bool(event.get("rewardClaimed", false)):
+	for event_value in events.get("history", []):
+		if not event_value is Dictionary:
+			continue
+		var event: Dictionary = event_value
+		if str(event.get("regionId", "")) == region_id and event.get("status") == "completed" and not bool(event.get("rewardClaimed", false)):
 			result.append(event)
 	return result
 
@@ -165,11 +171,16 @@ static func record_kill(world: Dictionary, region_id: String, enemy: Dictionary)
 static func record_discovery(world: Dictionary, region_id: String) -> Array:
 	if not WorldGraphScript.region_ids().has(region_id): return []
 	var completed: Array = []
-	for event in world.get("events", {}).get("active", []).duplicate():
-		if event.get("status") != "active" or not bool(event.get("accepted", false)) or event.get("objectiveType") != "region-discovery" or str(event.get("targetRegionId", "")) != region_id: continue
+	for event_value in world.get("events", {}).get("active", []).duplicate():
+		if not event_value is Dictionary:
+			continue
+		var event: Dictionary = event_value
+		if event.get("status") != "active" or not bool(event.get("accepted", false)) or event.get("objectiveType") != "region-discovery" or str(event.get("targetRegionId", "")) != region_id:
+			continue
 		event["progress"] = mini(int(event.get("targetCount", 1)), int(event.get("progress", 0)) + 1)
 		event["phase"] = event.progress
-		if int(event.progress) >= int(event.targetCount): completed.append(_finish(world, event, "completed", float(world.get("clockMinutes", 0.0))))
+		if int(event.progress) >= int(event.targetCount):
+			completed.append(_finish(world, event, "completed", float(world.get("clockMinutes", 0.0))))
 	return completed
 
 
