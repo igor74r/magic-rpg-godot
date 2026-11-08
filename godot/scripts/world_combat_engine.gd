@@ -437,6 +437,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 			combat["log"] += "\n" + _award_victory(world, enemy)
 		else:
 			var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(hero.defense) / 2.0)))
+			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
 			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
 			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
@@ -499,6 +500,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			lines.append(_award_victory(world, enemy))
 		else:
 			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
+			incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
 			hero["hp"] = maxi(1, int(hero.hp) - incoming)
 			lines.append("Противник отвечает: %d урона." % incoming)
 			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
