@@ -620,7 +620,7 @@ func _claim_daily_quest(quest_id: String) -> void:
 		return
 	status_label.text = str(result.get("message", "Награда получена."))
 	for achievement in result.get("achievements", []):
-		status_label.text += "\\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
+		status_label.text += "\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
 	_refresh_inventory()
 
 
