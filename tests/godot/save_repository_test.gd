@@ -76,6 +76,26 @@ func _run() -> void:
 	})
 	if int(stale_world_metadata_v18.get("worldSeed", 0)) != 456789 or int(stale_world_metadata_v18.get("worldGeneratorVersion", 0)) != 1:
 		failures.append("current v18 normalization must synchronize root seed and generator metadata with the normalized world")
+	var fractional_root_seed_v18 := SaveRepo.migrate_payload({
+		"version":18,"worldSeed":123.5,
+		"player":{"name":"Fractional root seed hero","class":"mage","level":1}
+	})
+	var missing_root_seed_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"player":{"name":"Fractional root seed hero","class":"mage","level":1}
+	})
+	if int(fractional_root_seed_v18.get("worldSeed", 0)) != int(missing_root_seed_v18.get("worldSeed", -1)):
+		failures.append("current v18 migration must not truncate a fractional root world seed into a valid seed")
+	var unsafe_root_seed_v18 := SaveRepo.migrate_payload({
+		"version":18,"worldSeed":9007199254740992.0,
+		"player":{"name":"Unsafe root seed hero","class":"mage","level":1}
+	})
+	var missing_unsafe_root_seed_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"player":{"name":"Unsafe root seed hero","class":"mage","level":1}
+	})
+	if int(unsafe_root_seed_v18.get("worldSeed", 0)) != int(missing_unsafe_root_seed_v18.get("worldSeed", -1)):
+		failures.append("current v18 migration must reject unsafe root world seeds instead of overflowing integer conversion")
 	var normalized_v18_player: Dictionary = normalized_v18.get("player", {})
 	var normalized_v18_world: Dictionary = normalized_v18.get("world", {})
 	var normalized_v18_factions: Dictionary = normalized_v18.get("factions", {})
