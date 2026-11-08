@@ -100,10 +100,24 @@ static func _read_slot_payload(path: String) -> Dictionary:
 
 static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var migrated: Dictionary = payload.duplicate(true)
-	var version_value: Variant = migrated.get("version", -1)
-	if not version_value is int:
+	var version_value: Variant = migrated.get("version", 0)
+	var version_number := 0.0
+	if version_value is bool:
 		return {}
-	var version := int(version_value)
+	elif version_value is int or version_value is float:
+		version_number = float(version_value)
+	elif version_value is String:
+		var version_text := str(version_value).strip_edges()
+		if not version_text.is_empty():
+			if not version_text.is_valid_float():
+				return {}
+			version_number = version_text.to_float()
+	elif version_value != null:
+		return {}
+	if not is_finite(version_number) or version_number < 0.0 or version_number != floor(version_number) or version_number > 9007199254740991.0:
+		return {}
+	var version := int(version_number)
+	migrated["version"] = version
 	var hero_key := "player" if migrated.get("player", null) is Dictionary else "hero"
 	var hero_value: Variant = migrated.get(hero_key, null)
 	# A version marker alone is not a save. Reject payloads without a valid
