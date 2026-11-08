@@ -33,7 +33,7 @@ The workflow `.github/workflows/ci.yml` has two validation jobs:
 - Browser verification: JavaScript syntax, imports, 75 check scripts, smoke checks, Playwright desktop/mobile, and visual regression.
 - Native Godot verification: project import, every native `*_test.gd`, and main-scene boot.
 
-The native job uses container image `barichello/godot-ci:4.4.1`. The current main run for the audited SHA is queued, not successful. Therefore neither browser nor Godot CI can currently be reported as passing for this SHA.
+The native job uses container image `barichello/godot-ci:4.4.1`. The main run for the audited SHA was queued, not successful. The continuation branch's current run must be checked independently for its exact head SHA. Therefore neither browser nor Godot CI can currently be reported as passing for this SHA.
 
 ### P0 — Version documentation is inconsistent
 
@@ -53,6 +53,10 @@ A concrete browser/Godot contract mismatch was found and fixed on this audit bra
 - A regression case was added to `tests/godot/save_repository_test.gd`.
 
 This is a narrow compatibility fix, not proof of complete save round-trip parity. Runtime execution remains pending CI.
+
+### Implemented during continuation — native map marker safety and input parity
+
+The native map view now validates NPC marker identifiers and cell types before retaining them, checks each marker against the actual row width (not only the first row's width), and safely ignores malformed/empty maps during drawing and hit testing. Mouse-left clicks and screen touches share the same marker activation path; unrelated mouse buttons, releases, out-of-bounds markers, and touches outside the hit radius do not activate NPCs. The regression test covers mouse/touch activation, invalid identifiers and cell values, out-of-bounds cells, ragged rows, and empty maps. This is source-level implementation and test coverage; execution remains pending the native Godot CI job.
 
 ### P0 — Save compatibility needs end-to-end parity proof
 
