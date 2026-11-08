@@ -35,9 +35,35 @@ func _initialize() -> void:
 	if not clicked.is_empty():
 		failures.append("touches outside NPC hit targets must not activate a marker")
 
+	view.set_npcs([
+		{"id":"", "cell":Vector2i(0, 0)},
+		{"id":"invalid-cell", "cell":[0, 0]},
+		{"id":"outside", "cell":Vector2i(8, 8)},
+		{"id":"valid", "cell":Vector2i(1, 1)}
+	])
+	clicked.clear()
+	touch.position = Vector2(75, 75)
+	view._gui_input(touch)
+	if clicked != ["valid"]:
+		failures.append("invalid, unidentified, and out-of-bounds NPC markers must be ignored")
+
+	view.set_map([[0, 0], [0]])
+	view.set_npcs([{"id":"edge", "cell":Vector2i(1, 1)}])
+	clicked.clear()
+	touch.position = Vector2(75, 75)
+	view._gui_input(touch)
+	if clicked != ["edge"]:
+		failures.append("ragged map rows must not crash NPC hit testing")
+
+	view.set_map([])
+	clicked.clear()
+	view._gui_input(touch)
+	if not clicked.is_empty():
+		failures.append("empty maps must safely ignore interaction")
+
 	view.queue_free()
 	if failures.is_empty():
-		print("PASS: map NPC interaction supports mouse and touch input")
+		print("PASS: map NPC interaction supports mouse/touch and rejects malformed markers/maps")
 		quit(0)
 	else:
 		for failure in failures:
