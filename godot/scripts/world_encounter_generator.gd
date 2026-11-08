@@ -54,8 +54,7 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 	var spawn_roster := roster.slice(0, count)
 	while spawn_roster.size() < count:
 		spawn_roster.append(roster[region_rng.next_int(roster.size())])
-	var chance_by_difficulty := {"easy": 0.15, "normal": 0.20, "hard": 0.35}
-	var elite_chance := minf(0.5, float(chance_by_difficulty.get(difficulty, 0.20)) + clampi(security_threat, 0, 3) * 0.05)
+	var elite_roll_chance := elite_chance(difficulty, security_threat)
 	var used_cells: Array[Vector2i] = []
 	var enemies: Array = []
 	var boss_occurrences := {}
@@ -73,7 +72,7 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 		if is_boss:
 			occurrence = int(boss_occurrences.get(enemy_id, 0)) + 1
 			boss_occurrences[enemy_id] = occurrence
-		var elite := not is_boss and region_rng.next_float() < elite_chance
+		var elite := not is_boss and region_rng.next_float() < elite_roll_chance
 		var modifier_id := ""
 		if not is_boss and not elite and region_rng.next_float() < MODIFIER_CHANCE:
 			var modifier_keys: Array = MODIFIERS.keys()
