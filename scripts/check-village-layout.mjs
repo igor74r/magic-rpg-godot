@@ -72,16 +72,14 @@ assert.ok(plazaProps.some(item => item.propStyle === 'planter'), 'central square
 assert.ok(plazaProps.every(item => item.decorative || ['world-portal', 'tower-portal'].includes(item.id)),
   'only portals may intercept interactions among plaza props');
 const northCourtyard = village.statics.filter(item => item.id.startsWith('aurora-north-garden-'));
-assert.equal(northCourtyard.length, 4, 'northern courtyard must have a four-piece ornamental planting group');
-assert.deepEqual(northCourtyard.map(item => item.natureStyle), ['flowerbed', 'bush', 'flowerbed', 'hedge'],
-  'northern courtyard must combine flowerbeds, shrubs and a low hedge');
+assert.equal(northCourtyard.length, 0, 'minimal Aurora must not retain the decorative northern courtyard cluster');
 
 const colliders = getVillageBuildingColliders();
 const propColliders = getVillagePropColliders();
 const natureColliders = getVillageNatureColliders();
-assert.ok(propColliders.length >= 8, 'solid service props must have collision footprints');
+assert.equal(propColliders.length, 1, 'minimal Aurora keeps only the central fountain as a solid decorative prop');
 assert.ok(propColliders.every(rect => rect.width > 0 && rect.height > 0), 'solid prop colliders must have positive dimensions');
-assert.equal(natureColliders.length, 12, 'all large trees, rocks, stumps, hedges and fences must have ground-footprint colliders');
+assert.equal(natureColliders.length, 11, 'all remaining large trees, rocks, stumps, hedges and fences must have ground-footprint colliders');
 assert.ok(natureColliders.every(rect => rect.width > 0 && rect.height > 0), 'nature colliders must have positive dimensions');
 for (const [id, x, y] of [
   ['aurora-oak-nw', 3, 3], ['aurora-pine-ne', 34, 3],
@@ -190,6 +188,21 @@ for (let i = 0; i < queue.length; i++) {
 for (const target of targets) {
   assert.ok(visited.has(`${target.x},${target.y}`),
     `${target.id}: must be reachable from the village entrance`);
+}
+
+const interactionTargets = [
+  ...village.npcs.filter(item => !item.ambient).map(item => ({ ...item, interactionRadius: 65 })),
+  ...village.statics.filter(item => !item.decorative).map(item => ({ ...item, interactionRadius: Number(item.interactionRadius) || 65 }))
+];
+for (const target of interactionTargets) {
+  const approaches = [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy]) => ({
+    x: target.x + dx, y: target.y + dy
+  })).filter(cell =>
+    visited.has(`${cell.x},${cell.y}`) &&
+    Math.hypot((cell.x - target.x) * 48, (cell.y - target.y) * 48) <= target.interactionRadius &&
+    !isVillagePositionBlocked(cell.x * 48 + 24, cell.y * 48 + 24, 9)
+  );
+  assert.ok(approaches.length > 0, `${target.id}: player must have a collision-free reachable interaction position`);
 }
 assert.ok(map.flat().includes(4), 'village must retain small garden/hedge areas');
 const gardenCells = [];
