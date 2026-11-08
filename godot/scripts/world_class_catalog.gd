@@ -6,6 +6,7 @@ const CLASSES := {
 	"warrior": {
 		"name": "Воин", "emoji": "⚔️", "maxHp": 170, "maxMp": 100,
 		"attack": 22, "defense": 16, "str":18, "int":4, "wis":7, "con":16, "dex":6, "resourceName": "Ярость",
+		"combat": {"critChance":0.08},
 		"spells": [], "startingItems": ["iron-sword","tower-shield","health-potion"],
 		"abilities": [
 			{"id":"charge","name":"Сокрушительный рывок","cost":20,"cooldown":2,"kind":"next_double"},
@@ -17,6 +18,7 @@ const CLASSES := {
 	"mage": {
 		"name": "Маг", "emoji": "🧙", "maxHp": 105, "maxMp": 180,
 		"attack": 12, "defense": 7, "str":4, "int":20, "wis":14, "con":7, "dex":8, "resourceName": "Мана",
+		"combat": {"critChance":0.12},
 		"spells": ["fireball","ice-bolt"], "startingItems": ["apprentice-staff","mana-potion","health-potion"],
 		"abilities": [
 			{"id":"mana-shield","name":"Барьер маны","cost":20,"cooldown":3,"kind":"defense_buff"},
@@ -28,6 +30,7 @@ const CLASSES := {
 	"archer": {
 		"name": "Лучник", "emoji": "🏹", "maxHp": 125, "maxMp": 100,
 		"attack": 20, "defense": 10, "str":12, "int":7, "wis":9, "con":10, "dex":18, "resourceName": "Концентрация",
+		"combat": {"critChance":0.18},
 		"spells": ["poison-arrow"], "startingItems": ["hunter-bow","leather-armor","health-potion"],
 		"abilities": [
 			{"id":"aimed-shot","name":"Меткий выстрел","cost":20,"cooldown":2,"kind":"critical"},
