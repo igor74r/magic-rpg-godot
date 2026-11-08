@@ -62,6 +62,12 @@ func _initialize() -> void:
 	var archer_crit_hero := {"class":"archer","dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
 	if not is_equal_approx(Combat.critical_chance(archer_crit_hero), 0.23):
 		failures.append("equipped item base bonuses must be overridden, not double-counted, while Dexterity and critChance both contribute")
+	var equipped_stat_hero := {"class":"warrior","str":18,"int":4,"con":16,"dex":6,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"runes":["rune-ember"]}}}
+	if Combat.effective_stat(equipped_stat_hero, "attack") != 29:
+		failures.append("equipped item bonuses must not be counted twice and rune attack bonuses must be included")
+	var equipped_dex_hero := {"class":"archer","str":12,"int":7,"con":10,"dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
+	if Combat.effective_stat(equipped_dex_hero, "dex") != 20:
+		failures.append("equipped Dexterity must contribute to the effective Dexterity stat")
 	var crit_seed := 1
 	var found_cat_roll := false
 	for candidate_seed in range(1, 100000):
