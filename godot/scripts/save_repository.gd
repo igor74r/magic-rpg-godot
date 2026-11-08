@@ -254,9 +254,15 @@ static func import_browser_save(slot: int, serialized: String) -> Error:
 	if slot < 1 or slot > 3:
 		return ERR_INVALID_PARAMETER
 	var parsed: Variant = JSON.parse_string(serialized)
-	if not parsed is Dictionary or not is_browser_v18_payload(parsed):
+	if not parsed is Dictionary:
 		return ERR_INVALID_DATA
-	return save_slot(slot, parsed)
+	# Import through the same sequential migration pipeline used by native
+	# slots. Older browser saves are accepted only if migration produces a
+	# complete, validated v18 browser contract; unknown fields remain intact.
+	var migrated := migrate_payload(parsed)
+	if migrated.is_empty() or not is_browser_v18_payload(migrated):
+		return ERR_INVALID_DATA
+	return save_slot(slot, migrated)
 
 
 static func export_browser_save(slot: int) -> String:

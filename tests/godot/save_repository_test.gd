@@ -170,6 +170,23 @@ func _run() -> void:
 		failures.append("browser export must preserve extension data")
 	if exported_browser is Dictionary and exported_browser != browser_payload:
 		failures.append("browser import/export must preserve the complete payload, including nested and unknown fields")
+	var legacy_browser_payload := browser_payload.duplicate(true)
+	legacy_browser_payload["version"] = 17
+	legacy_browser_payload.erase("worldSeed")
+	legacy_browser_payload.erase("worldGeneratorVersion")
+	legacy_browser_payload.erase("world")
+	legacy_browser_payload.erase("factions")
+	legacy_browser_payload["extensionData"] = {"legacyQuestFlag":true}
+	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(legacy_browser_payload)) != OK:
+		failures.append("valid legacy browser v17 save must migrate and import through the sequential compatibility pipeline")
+	var migrated_browser_import := SaveRepo.load_slot(TEST_SLOT)
+	if int(migrated_browser_import.get("version", 0)) != 18 or not migrated_browser_import.get("world", {}) is Dictionary or not migrated_browser_import.get("factions", {}).get("reputation", {}) is Dictionary:
+		failures.append("legacy browser import must produce the complete v18 world and faction contract")
+	if migrated_browser_import.get("extensionData", {}).get("legacyQuestFlag", false) != true:
+		failures.append("legacy browser import must preserve unknown extension fields")
+	var migrated_browser_export: Variant = JSON.parse_string(SaveRepo.export_browser_save(TEST_SLOT))
+	if not migrated_browser_export is Dictionary or migrated_browser_export.get("extensionData", {}).get("legacyQuestFlag", false) != true:
+		failures.append("migrated legacy browser save must remain exportable without losing extension data")
 	var interrupted_save := browser_payload.duplicate(true)
 	interrupted_save.player.name = "Recovered browser hero"
 	var backup_path := TEST_PATH + ".bak"
