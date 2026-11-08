@@ -559,6 +559,15 @@ func _initialize() -> void:
 	if dodge_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "dodge"):
 		failures.append("evasion charge must be consumed by the skipped enemy attack")
 
+
+	var heal_world := WorldState.create(1103)
+	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
+	var heal_fight := Combat.begin(heal_enemy)
+	var heal_result: Dictionary = Combat.cast_spell(heal_world,heal_fight,"heal")
+	if not heal_result.ok or int(heal_world.hero.hp) != 80 or str(heal_fight.turn) != "player":
+		failures.append("healing spells must resolve the enemy response before returning the player turn")
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
