@@ -231,10 +231,15 @@ func _on_browser_import_selected(path: String) -> void:
 	var serialized := file.get_as_text()
 	file.close()
 	var parsed: Variant = JSON.parse_string(serialized)
-	if not parsed is Dictionary or not SaveRepositoryScript.is_browser_v18_payload(parsed):
-		status_label.text = "Импорт отменён: файл не соответствует формату браузерного сохранения v18."
+	if not parsed is Dictionary:
+		status_label.text = "Импорт отменён: файл не содержит корректное сохранение."
 		return
-	var imported: Dictionary = WorldStateRepositoryScript.from_browser_payload(parsed)
+	var source_version := int(parsed.get("version", 0))
+	var migrated: Dictionary = SaveRepositoryScript.migrate_payload(parsed)
+	if migrated.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(migrated):
+		status_label.text = "Импорт отменён: сохранение повреждено или его версия не поддерживается."
+		return
+	var imported: Dictionary = WorldStateRepositoryScript.from_browser_payload(migrated)
 	if imported.is_empty():
 		status_label.text = "Импорт отменён: не удалось преобразовать данные сохранения."
 		return
@@ -245,7 +250,7 @@ func _on_browser_import_selected(path: String) -> void:
 	world = imported
 	DailyQuestScript.get_quests(world)
 	_refresh_exploration()
-	status_label.text = "Браузерное сохранение v18 успешно импортировано."
+	status_label.text = "Браузерное сохранение v%d успешно импортировано и обновлено до v18." % source_version
 
 
 func _on_browser_export_selected(path: String) -> void:
