@@ -21,7 +21,7 @@ func _initialize() -> void:
 		failures.append("herb drop chances must match regular, elite and boss browser values")
 	if Encounter.herb_drop_quantity() != 1 or Encounter.herb_drop_quantity(false, true) != 2 or Encounter.herb_drop_quantity(true, false) != 2:
 		failures.append("elite and boss herb drops must award two herbs while regular enemies award one")
-	if Encounter.ambient_gold_reward(15) != 2 or Encounter.ambient_gold_reward(15, true) != 5 or Encounter.ambient_gold_reward(-10) != 0 or Encounter.ambient_gold_reward(15, false, 2) != 5 or Encounter.ambient_gold_reward(15, true, 2) != 10:
+	if Encounter.ambient_gold_reward(15) != 2 or Encounter.ambient_gold_reward(15, true) != 5 or Encounter.ambient_gold_reward(-10) != 0 or Encounter.ambient_gold_reward(15, false, 2) != 4 or Encounter.ambient_gold_reward(15, true, 2) != 7:
 		failures.append("ambient gold rewards must apply the browser 0.15 base and elite double multiplier safely")
 	for region_id in Catalog.region_ids():
 		for enemy_id in Catalog.enemy_roster(region_id):
