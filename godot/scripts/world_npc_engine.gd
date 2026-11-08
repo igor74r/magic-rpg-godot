@@ -363,6 +363,17 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
  if int(recipe.get("act",1))>current_act(hero): return {"ok":false,"message":"Рецепт откроется в акте %d." % int(recipe.act)}
  var result_id := str(recipe.get("result", ""))
  var result_definition := CatalogItem.get_item(result_id)
+ var rarity := str(recipe.get("rarity", ""))
+ var rarity_tiers := {"common":1,"uncommon":2,"rare":3,"epic":4,"legendary":5,"mythic":6}
+ var craft_tier := int(rarity_tiers.get(rarity, 1))
+ if craft_tier >= 6:
+  return {"ok":false,"message":"Предметы T6 нельзя создавать в мастерской."}
+ var act_index := current_act(hero) - 1
+ var crafted_by_act: Dictionary = hero.get("craftedHighTierByAct", {}) if hero.get("craftedHighTierByAct", {}) is Dictionary else {}
+ if craft_tier >= 4 and int(crafted_by_act.get(str(act_index), 0)) >= 1:
+  return {"ok":false,"message":"В этом акте уже создан один предмет T4 или выше."}
+ if craft_tier == 5 and (current_act(hero) != 5 or not recipe_id.begins_with("r5-")):
+  return {"ok":false,"message":"Предметы T5 доступны только в кузнице пятого акта."}
  if result_definition.is_empty() or str(result_definition.get("type", "")) == "quest" or bool(result_definition.get("storyShard", false)) or bool(result_definition.get("bossOnly", false)):
   return {"ok":false,"message":"Этот предмет нельзя создавать по рецепту."}
  var ingredients: Variant = recipe.get("ingredients", {})
@@ -387,10 +398,12 @@ static func craft(world: Dictionary,recipe_id: String) -> Dictionary:
   if not Combat.remove_item(hero,str(item_id),int(ingredients[item_id])):
    hero["inventory"]=snapshot
    return {"ok":false,"message":"Не удалось списать ингредиенты; отменено."}
- var rarity := output_rarity
  if not Combat.add_item(hero,result_id,1,rarity):
   hero["inventory"]=snapshot
   return {"ok":false,"message":"Не удалось создать предмет; ингредиенты возвращены."}
+ if craft_tier >= 4:
+  crafted_by_act[str(act_index)] = int(crafted_by_act.get(str(act_index), 0)) + 1
+  hero["craftedHighTierByAct"] = crafted_by_act
  world["hero"]=hero
  return {"ok":true,"message":"Создано: %s." % str(result_definition.get("name",result_id))}
 

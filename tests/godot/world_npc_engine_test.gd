@@ -69,6 +69,18 @@ func _initialize() -> void:
 	var buyback := Npc.buyback_item(confirmation_world, 0)
 	if not bool(buyback.get("ok", false)) or confirmation_world.hero.inventory.size() != 1 or int(confirmation_world.hero.gold) != 100 + int(confirmed_sale.price) - buyback_price:
 		failures.append("same-day buyback must restore the item and charge the 20 percent markup")
+	var act_five_world := WorldState.create(20261117)
+	var claimed_missions: Dictionary = {}
+	for mission in preload("res://godot/scripts/world_campaign_catalog.gd").all_missions():
+		claimed_missions[str(mission.id)] = true
+	act_five_world["hero"] = {"level":50,"str":100,"gold":0,"inventory":[{"id":"echo-core","qty":1},{"id":"void-dust","qty":5},{"id":"ember-core","qty":3},{"id":"grave-salt","qty":1}],"campaignClaimed":claimed_missions,"equipped":{},"craftedHighTierByAct":{}}
+	var first_high_tier := Npc.craft(act_five_world, "r-echo-prism-amulet")
+	if not bool(first_high_tier.get("ok", false)) or int(act_five_world.hero.craftedHighTierByAct.get("4", 0)) != 1:
+		failures.append("the first T4+ craft in an act must succeed and consume that act's high-tier allowance")
+	var high_tier_before: Array = act_five_world.hero.inventory.duplicate(true)
+	var second_high_tier := Npc.craft(act_five_world, "r5-dragon-blade")
+	if bool(second_high_tier.get("ok", true)) or act_five_world.hero.inventory != high_tier_before:
+		failures.append("a second T4+ craft in the same act must be rejected without consuming ingredients")
 	var full_bag_world := WorldState.create(20261116)
 	var full_inventory: Array = []
 	for slot in range(30): full_inventory.append({"id":"iron-sword","qty":1})
