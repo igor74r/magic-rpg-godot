@@ -34,23 +34,54 @@ static func from_browser_payload(payload: Dictionary) -> Dictionary:
 # by Godot, then overlay the authoritative native hero and progression state.
 static func to_browser_payload(world: Dictionary) -> Dictionary:
 	var source_value: Variant = world.get("_browserSourcePayload", {})
-	if not source_value is Dictionary or source_value.is_empty():
-		return {}
-	var payload: Dictionary = source_value.duplicate(true)
+	var payload: Dictionary = source_value.duplicate(true) if source_value is Dictionary else {}
 	var hero_value: Variant = world.get("hero", {})
 	if not hero_value is Dictionary or hero_value.is_empty():
 		return {}
+	var player: Dictionary = hero_value.duplicate(true)
+	# Native-first games have no browser source document. Build the required
+	# v18 envelope so a new Godot save can still be exported to the browser.
+	player["name"] = str(player.get("name", "Герой"))
+	player["class"] = str(player.get("class", "warrior"))
+	player["level"] = clampi(int(player.get("level", 1)), 1, 100)
+	player["ngPlus"] = maxi(0, int(player.get("ngPlus", 0)))
+	player["gold"] = maxi(0, int(player.get("gold", 0)))
+	player["exp"] = maxi(0, int(player.get("exp", 0)))
+	player["statPoints"] = maxi(0, int(player.get("statPoints", 0)))
+	player["passivePoints"] = maxi(0, int(player.get("passivePoints", 0)))
+	for stat_key in ["hp", "maxHp", "mp", "maxMp", "str", "int", "wis", "con", "dex", "luck"]:
+		if not player.has(stat_key):
+			player[stat_key] = 5 if stat_key == "luck" else (100 if stat_key in ["hp", "maxHp"] else 50 if stat_key in ["mp", "maxMp"] else 10)
+	player["inventory"] = player.get("inventory", []) if player.get("inventory", []) is Array else []
+	player["spells"] = player.get("spells", []) if player.get("spells", []) is Array else []
+	player["equipped"] = player.get("equipped", {}) if player.get("equipped", {}) is Dictionary else {}
+	player["stats"] = player.get("stats", {}) if player.get("stats", {}) is Dictionary else {}
+	if not player.stats.get("kills", null) is Dictionary:
+		player.stats["kills"] = {}
+	for key in ["campaignKills", "campaignClaimed", "activeCampaignByBranch"]:
+		if not player.get(key, {}) is Dictionary:
+			player[key] = {}
+	if not player.has("activeCampaignMission"):
+		player["activeCampaignMission"] = null
 	var browser_world: Dictionary = world.duplicate(true)
 	for runtime_key in ["hero", "factions", "storyShards", "storyDragons", "_browserSourcePayload"]:
 		browser_world.erase(runtime_key)
-	payload["player"] = hero_value.duplicate(true)
+	payload["version"] = SaveRepositoryScript.SAVE_VERSION
+	payload["player"] = player
 	payload["world"] = browser_world
 	payload["worldSeed"] = int(world.get("seed", payload.get("worldSeed", 1)))
 	payload["worldGeneratorVersion"] = int(world.get("generatorVersion", payload.get("worldGeneratorVersion", 1)))
-	payload["factions"] = world.get("factions", payload.get("factions", {})).duplicate(true)
-	payload["storyShards"] = world.get("storyShards", payload.get("storyShards", {})).duplicate(true)
-	payload["storyDragons"] = world.get("storyDragons", payload.get("storyDragons", {})).duplicate(true)
-	return payload
+	var factions_value: Variant = world.get("factions", payload.get("factions", {}))
+	payload["factions"] = factions_value.duplicate(true) if factions_value is Dictionary else {}
+	if not payload.factions.has("reputation") or not payload.factions.reputation is Dictionary:
+		payload.factions["reputation"] = {}
+	if not payload.factions.has("changeLog") or not payload.factions.changeLog is Array:
+		payload.factions["changeLog"] = []
+	var shards_value: Variant = world.get("storyShards", payload.get("storyShards", {}))
+	payload["storyShards"] = shards_value.duplicate(true) if shards_value is Dictionary else {}
+	var dragons_value: Variant = world.get("storyDragons", payload.get("storyDragons", {}))
+	payload["storyDragons"] = dragons_value.duplicate(true) if dragons_value is Dictionary else {}
+	return payload if SaveRepositoryScript.is_browser_v18_payload(payload) else {}
 
 
 static func _write_json_atomically(path: String, serialized: String) -> Error:

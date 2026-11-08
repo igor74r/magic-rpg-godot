@@ -2,6 +2,7 @@ extends SceneTree
 
 const Repository = preload("res://godot/scripts/world_state_repository.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
+const SaveRepository = preload("res://godot/scripts/save_repository.gd")
 
 
 func _initialize() -> void:
@@ -79,6 +80,33 @@ func _run() -> void:
 			failures.append("unknown browser world fields must survive native round-trip")
 		if int(exported.get("world", {}).get("clockMinutes", 0)) != 210:
 			failures.append("native world changes must be reflected in browser export")
+		if Repository.save_world(native_world) != OK:
+			failures.append("browser-imported native state must persist to the world repository")
+		else:
+			var persisted_world := Repository.load_world()
+			var persisted_export := Repository.to_browser_payload(persisted_world)
+			if not SaveRepository.is_browser_v18_payload(persisted_export):
+				failures.append("browser payload must remain valid after native disk save/load")
+			if persisted_export.get("browserRootExtension", {}).get("opaque", "") != "preserve":
+				failures.append("unknown browser fields must survive native disk save/load")
+			if int(persisted_export.get("player", {}).get("gold", 0)) != 10001:
+				failures.append("native hero progression must survive disk save/load and browser export")
+
+	var native_first_world := WorldState.create(8675309)
+	native_first_world["hero"] = {
+		"name": "New native hero", "class": "warrior", "level": 1, "ngPlus": 0, "gold": 25,
+		"hp": 120, "maxHp": 120, "mp": 30, "maxMp": 30,
+		"str": 12, "int": 5, "wis": 5, "con": 12, "dex": 7, "luck": 5,
+		"exp": 0, "statPoints": 0, "passivePoints": 0,
+		"inventory": [], "spells": [], "equipped": {}, "stats": {"kills": {}},
+		"campaignKills": {}, "campaignClaimed": {}, "activeCampaignByBranch": {},
+		"activeCampaignMission": null
+	}
+	var native_first_export := Repository.to_browser_payload(native_first_world)
+	if not SaveRepository.is_browser_v18_payload(native_first_export):
+		failures.append("a new native-first game must export as a valid browser v18 save")
+	elif str(native_first_export.get("player", {}).get("name", "")) != "New native hero":
+		failures.append("native-first export must preserve the current hero identity")
 	var invalid_browser := browser_payload.duplicate(true)
 	invalid_browser.world.erase("unlockedRoutes")
 	if not Repository.from_browser_payload(invalid_browser).is_empty():
