@@ -2,6 +2,8 @@
 class_name WorldCombatEngine
 extends RefCounted
 
+const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
+
 const WorldState = preload("res://godot/scripts/world_state.gd")
 const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
 const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
