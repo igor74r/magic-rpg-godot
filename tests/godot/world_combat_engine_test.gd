@@ -585,6 +585,22 @@ func _initialize() -> void:
 	if not charge_result.ok or int(charge_enemy.hp) > 80 or charge_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "double_next"):
 		failures.append("charge must double the next basic attack and consume its one-use buff")
 
+
+	var fire_world := WorldState.create(1106)
+	fire_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["fireball"],"buffs":[],"effects":[],"cooldowns":{}}
+	var fire_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"fire-reaction-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":6,"effects":[{"id":"slow","duration":2}]}
+	var fire_fight := Combat.begin(fire_enemy)
+	var fire_result: Dictionary = Combat.cast_spell(fire_world,fire_fight,"fireball")
+	if not fire_result.ok or Combat._has_effect(fire_enemy,"slow") or not Combat._has_effect(fire_enemy,"burn"):
+		failures.append("fireball must consume slow and apply burn according to its fire element")
+	var ice_world := WorldState.create(1107)
+	ice_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["ice-bolt"],"buffs":[],"effects":[],"cooldowns":{}}
+	var ice_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"ice-reaction-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":7,"effects":[{"id":"burn","duration":2}]}
+	var ice_fight := Combat.begin(ice_enemy)
+	var ice_result: Dictionary = Combat.cast_spell(ice_world,ice_fight,"ice-bolt")
+	if not ice_result.ok or Combat._has_effect(ice_enemy,"burn") or not Combat._has_effect(ice_enemy,"slow"):
+		failures.append("ice bolt must consume burn and apply slow according to its ice element")
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
