@@ -566,14 +566,14 @@ func _initialize() -> void:
 	var stun_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-ability-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":8}
 	var stun_fight := Combat.begin(stun_enemy)
 	var stun_result: Dictionary = Combat.use_ability(stun_world,stun_fight,"shield-bash")
-	if not stun_result.ok or int(stun_world.hero.hp) != 100 or str(stun_fight.turn) != "player" or Combat._has_effect(stun_enemy,"stun"):
+	if not stun_result.ok or int(stun_enemy.hp) >= 100 or int(stun_world.hero.hp) != 100 or str(stun_fight.turn) != "player" or Combat._has_effect(stun_enemy,"stun"):
 		failures.append("shield bash must stun the enemy, consume its response, and clear the one-turn stun")
 	var nova_world := WorldState.create(1109)
 	nova_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["frost-nova"],"buffs":[],"effects":[],"cooldowns":{}}
 	var nova_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-spell-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":9}
 	var nova_fight := Combat.begin(nova_enemy)
 	var nova_result: Dictionary = Combat.cast_spell(nova_world,nova_fight,"frost-nova")
-	if not nova_result.ok or int(nova_world.hero.hp) != 100 or str(nova_fight.turn) != "player" or Combat._has_effect(nova_enemy,"stun"):
+	if not nova_result.ok or int(nova_enemy.hp) >= 100 or int(nova_world.hero.hp) != 100 or str(nova_fight.turn) != "player" or Combat._has_effect(nova_enemy,"stun"):
 		failures.append("frost nova must stun the enemy and prevent its response for that turn")
 
 	var heal_world := WorldState.create(1103)
