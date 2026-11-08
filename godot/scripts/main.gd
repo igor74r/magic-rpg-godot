@@ -23,8 +23,8 @@ const NpcCatalogScript = preload("res://godot/scripts/world_npc_catalog.gd")
 const NpcEngineScript = preload("res://godot/scripts/world_npc_engine.gd")
 const SaveRepositoryScript = preload("res://godot/scripts/save_repository.gd")
 
-@onready var content: VBoxContainer = $MarginContainer/Content
-@onready var status_label: Label = $MarginContainer/Content/StatusLabel
+@onready var content: VBoxContainer = $MarginContainer/ScrollContainer/Content
+@onready var status_label: Label = $MarginContainer/ScrollContainer/Content/StatusLabel
 
 var world: Dictionary = {}
 var routes_container: GridContainer
