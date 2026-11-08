@@ -32,6 +32,11 @@ func _initialize() -> void:
 		failures.append("legacy fractional reputation must use browser-compatible Math.round semantics")
 	if normalized_factions.reputation["free-traders"] != 42 or normalized_factions.reputation["ash-nomads"] != 0:
 		failures.append("legacy numeric strings and invalid reputation must normalize like browser Number()")
+	var radix_world := World.create(81)
+	radix_world["factions"] = {"reputation":{"hub-guardians":"0x10", "rift-cult":"0b101", "free-traders":"0o12", "ash-nomads":"   "}, "changeLog":[]}
+	var radix_state := Factions.ensure_state(radix_world)
+	if int(radix_state.reputation["hub-guardians"]) != 16 or int(radix_state.reputation["rift-cult"]) != 5 or int(radix_state.reputation["free-traders"]) != 10 or int(radix_state.reputation["ash-nomads"]) != 0:
+		failures.append("legacy radix-prefixed and whitespace reputation strings must match browser Number() coercion")
 	if normalized_factions.changeLog.size() != 3 or normalized_factions.changeLog[1] != "legacy-opaque-entry":
 		failures.append("legacy faction change-log entries must be preserved exactly like browser saves")
 	legacy_world["factions"]["reputation"]["hub-guardians"] = true

@@ -25,8 +25,8 @@ static func _normalize_reputation(value: Variant) -> int:
 		numeric = 1.0 if value else 0.0
 	elif value is int or value is float:
 		numeric = float(value)
-	elif value is String and str(value).is_valid_float():
-		numeric = str(value).to_float()
+	elif value is String:
+		numeric = _number_from_string(str(value))
 	elif value == null:
 		numeric = 0.0
 	if not is_finite(numeric):
@@ -34,6 +34,39 @@ static func _normalize_reputation(value: Variant) -> int:
 	var bounded := clampf(numeric, float(MIN_REPUTATION), float(MAX_REPUTATION))
 	# JavaScript Math.round(-1.5) is -1 (ties move toward +infinity).
 	return int(floor(bounded + 0.5))
+
+# Match JavaScript Number(string), including whitespace and radix-prefixed
+# integer forms used by legacy browser saves.
+static func _number_from_string(value: String) -> float:
+	var text := value.strip_edges()
+	if text.is_empty():
+		return 0.0
+	var radix := 0
+	if text.begins_with("0x") or text.begins_with("0X"):
+		radix = 16
+	elif text.begins_with("0b") or text.begins_with("0B"):
+		radix = 2
+	elif text.begins_with("0o") or text.begins_with("0O"):
+		radix = 8
+	if radix > 0:
+		if text.length() <= 2:
+			return NAN
+		var result := 0.0
+		for index in range(2, text.length()):
+			var codepoint := text.unicode_at(index)
+			var digit := -1
+			if codepoint >= 48 and codepoint <= 57:
+				digit = codepoint - 48
+			elif codepoint >= 65 and codepoint <= 70:
+				digit = codepoint - 55
+			elif codepoint >= 97 and codepoint <= 102:
+				digit = codepoint - 87
+			if digit < 0 or digit >= radix:
+				return NAN
+			result = result * float(radix) + float(digit)
+		return result
+	return text.to_float() if text.is_valid_float() else NAN
+
 
 
 static func ensure_state(world: Dictionary) -> Dictionary:
