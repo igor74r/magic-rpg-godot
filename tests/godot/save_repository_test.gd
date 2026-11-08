@@ -57,6 +57,7 @@ func _run() -> void:
 	integral_float_experience_v18.player.level = 12.0
 	integral_float_experience_v18.player.exp = 150.0
 	integral_float_experience_v18.player.expNext = 300.0
+	integral_float_experience_v18.player.ngPlus = 2.0
 	var normalized_integral_float_experience_v18 := SaveRepo.migrate_payload(integral_float_experience_v18)
 	var stale_world_metadata_v18 := SaveRepo.migrate_payload({
 		"version":18,"worldSeed":999,"worldGeneratorVersion":9,
@@ -77,6 +78,8 @@ func _run() -> void:
 	var normalized_float_experience_player: Dictionary = normalized_integral_float_experience_v18.get("player", {})
 	if int(normalized_float_experience_player.get("expNext", 0)) != 259 or int(normalized_float_experience_player.get("exp", -1)) != 129:
 		failures.append("current v18 migration must rebase browser-safe integral float level, exp, and expNext values")
+	if int(normalized_float_experience_player.get("ngPlus", -1)) != 2:
+		failures.append("current v18 migration must preserve browser-safe integral float NG+ values")
 	var normalized_v18_reputation: Dictionary = normalized_v18_factions.get("reputation", {})
 	if normalized_v18_reputation.get("hub-guardians", 0) != 13 or normalized_v18_reputation.get("rift-cult", 0) != -1 or normalized_v18_reputation.get("free-traders", 0) != 42 or normalized_v18_reputation.get("ash-nomads", 1) != 0:
 		failures.append("current v18 faction reputation must use browser-compatible normalization")
