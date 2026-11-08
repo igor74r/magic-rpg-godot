@@ -22,7 +22,7 @@ func _initialize() -> void:
 	if not inventory.is_empty() and (inventory.any(func(item): return str(item.get("id","")) in ["root-court-seal","root-fiber"])):
 		failures.append("successful craft must consume all required ingredients")
 	var capacity_world := WorldState.create(20261118)
-	capacity_world["hero"] = {"level":1,"str":1,"gold":0,"inventory":[{"id":"iron-sword","qty":1},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
+	capacity_world["hero"] = {"level":1,"str":1,"gold":0,"inventory":[{"id":"iron-sword","qty":1},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{},"inventoryInitialized":true}
 	var capacity_craft := Npc.craft(capacity_world, "r-briar-court-mantle", "blacksmith")
 	if not bool(capacity_craft.get("ok", false)) or capacity_world.hero.inventory.size() != 2:
 		failures.append("crafting must account for the weight freed by consumed ingredients before rejecting the output")
@@ -38,7 +38,7 @@ func _initialize() -> void:
 
 	var camp_world := WorldState.create(20261119)
 	camp_world["location"] = "camp"
-	camp_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{},"craftingJobs":[]}
+	camp_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{},"craftingJobs":[],"inventoryInitialized":true}
 	var queued := Npc.craft(camp_world, "r-hp", "alchemist", 1000000)
 	if not bool(queued.get("ok", false)) or not bool(queued.get("queued", false)) or int(queued.get("hours", 0)) < 1 or int(queued.get("hours", 0)) > 3:
 		failures.append("camp crafting must queue a persistent order with a one-to-three-hour timer")
@@ -61,7 +61,7 @@ func _initialize() -> void:
 	blocked_world["location"] = "camp"
 	var blocked_inventory: Array = []
 	for slot in range(30): blocked_inventory.append({"id":"iron-sword","qty":1})
-	blocked_world["hero"] = {"level":1,"str":1000,"gold":0,"inventory":blocked_inventory,"campaignClaimed":{},"equipped":{},"craftingJobs":[{"id":"blocked","result":"health-potion","qty":1,"readyAt":1}]}
+	blocked_world["hero"] = {"level":1,"str":1000,"gold":0,"inventory":blocked_inventory,"campaignClaimed":{},"equipped":{},"craftingJobs":[{"id":"blocked","result":"health-potion","qty":1,"readyAt":1}],"inventoryInitialized":true}
 	var blocked_claim := Npc.collect_crafting_jobs(blocked_world, 2)
 	if not blocked_claim.is_empty() or blocked_world.hero.craftingJobs.size() != 1:
 		failures.append("ready camp order must remain claimable when inventory capacity is full")
