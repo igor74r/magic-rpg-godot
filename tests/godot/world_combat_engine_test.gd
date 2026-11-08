@@ -52,6 +52,18 @@ func _initialize() -> void:
 	Combat.player_attack(world, boss_fight)
 	if not world.regions.forest.defeatedBosses.has("boss-test"):
 		failures.append("boss victory must be persisted permanently")
+	var guarded_world := WorldState.create(9912)
+	guarded_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	var guarded_hero := Combat.ensure_hero(guarded_world)
+	var guarded_enemy := {"name":"Проверка удара","persistentId":"enemy-guarded","hp":1000,"maxHp":1000,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var guarded_fight := Combat.begin(guarded_enemy)
+	var guarded_hp_before := int(guarded_hero.hp)
+	Combat.player_attack(guarded_world, guarded_fight)
+	var guarded_damage := guarded_hp_before - int(guarded_hero.hp)
+	var expected_raw := maxi(1, 20 - int(floor(float(Combat.effective_stat(guarded_hero, "defense")) / 2.0)))
+	var expected_guarded := maxi(1, int(floor(float(expected_raw) * 0.85)))
+	if guarded_damage != expected_guarded:
+		failures.append("allied Hub Guardians must reduce incoming native combat damage by 15 percent")
 	var strong := {"name": "Сильный враг", "persistentId": "enemy-strong", "hp": 100, "maxHp": 100, "attack": 999, "defense": 0, "exp": 1, "gold": 1, "boss": false, "dead": false}
 	var loss_fight := Combat.begin(strong)
 	var hp_before := int(world.hero.hp)
