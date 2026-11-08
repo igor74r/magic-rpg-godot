@@ -181,8 +181,12 @@ static func claim_reward(world: Dictionary, event_id: String) -> Dictionary:
 		event["rewardClaimed"] = true
 		var reward: Dictionary = event.get("reward", {}).duplicate(true)
 		var faction_id := str(event.get("factionId", ""))
-		if int(reward.get("gold", 0)) > 0 and not faction_id.is_empty():
-			reward["gold"] = maxi(1, roundi(float(reward.gold) * (1.0 + FactionEngineScript.get_event_gold_bonus(world, faction_id))))
+		var reward_gold: Variant = reward.get("gold", 0)
+		# Browser claimWorldEventReward applies faction scaling only to positive
+		# Number.isSafeInteger values; preserve imported fractional/unsafe rewards.
+		var safe_integer_gold := (reward_gold is int or reward_gold is float) and is_finite(float(reward_gold)) and floor(float(reward_gold)) == float(reward_gold) and abs(float(reward_gold)) <= 9007199254740991.0
+		if safe_integer_gold and float(reward_gold) > 0.0 and not faction_id.is_empty():
+			reward["gold"] = maxi(1, roundi(float(reward_gold) * (1.0 + FactionEngineScript.get_event_gold_bonus(world, faction_id))))
 		return reward
 	return {}
 
