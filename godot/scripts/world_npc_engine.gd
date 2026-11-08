@@ -633,17 +633,15 @@ static func reforge_item(world: Dictionary, index: int) -> Dictionary:
 	var preserved_forge_level := maxi(0, int(old.get("forgeLevel", 0)))
 	var preserved_upgrade_percent := maxf(0.0, float(old.get("upgradePercent", 0.0)))
 	var cost: Dictionary = check.cost
+	# Remove the selected equipment before consuming materials. This keeps
+	# the selected index stable even when the essence stack precedes it.
+	inventory.remove_at(index)
+	hero["inventory"] = inventory
 	if not Combat.remove_item(hero, str(cost.id), int(cost.qty)):
 		hero["inventory"] = snapshot
 		world["hero"] = hero
 		return {"ok":false,"message":"Не удалось списать эссенцию; предметы не изменены."}
 	inventory = hero.get("inventory", [])
-	if index < 0 or index >= inventory.size() or str(inventory[index].get("id", "")) != item_id:
-		hero["inventory"] = snapshot
-		world["hero"] = hero
-		return {"ok":false,"message":"Предмет не найден; материалы возвращены."}
-	inventory.remove_at(index)
-	hero["inventory"] = inventory
 	if not Combat.add_item(hero, item_id, 1, rarity):
 		hero["inventory"] = snapshot
 		world["hero"] = hero

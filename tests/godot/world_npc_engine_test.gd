@@ -247,6 +247,14 @@ func _initialize() -> void:
 			failures.append("reforge must preserve rarity, sockets, runes, forge level and upgrade percentage")
 		if int(reforged.get("bonus", {}).get("attack", 0)) != 9:
 			failures.append("reforge must recreate canonical item bonuses and reapply the preserved upgrade percentage")
+	var material_before_equipment := WorldState.create(20261135)
+	material_before_equipment["hero"] = {"level":1,"inventory":[
+		{"id":"ember-core","qty":1},
+		{"id":"iron-sword","qty":1,"rarity":"rare"}
+	],"equipped":{}}
+	var material_first_result := Npc.reforge_item(material_before_equipment, 1)
+	if not bool(material_first_result.get("ok", false)) or material_before_equipment.hero.inventory.size() != 1 or str(material_before_equipment.hero.inventory[0].get("id", "")) != "iron-sword":
+		failures.append("reforge must preserve the selected equipment when its essence stack appears earlier in the bag")
 	var insufficient_reforge := WorldState.create(20261133)
 	insufficient_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
 	var insufficient_snapshot: Array = insufficient_reforge.hero.inventory.duplicate(true)
