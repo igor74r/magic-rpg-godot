@@ -1097,6 +1097,11 @@ func _refresh_chronicles() -> void:
 	intro.text = "%s — %s" % [ChroniclesCatalogScript.TITLE, ChroniclesCatalogScript.SUBTITLE]
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chronicles_container.add_child(intro)
+	var archive_note := Label.new()
+	archive_note.text = ChroniclesCatalogScript.NOTE
+	archive_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	archive_note.modulate = Color(0.78, 0.78, 0.72)
+	chronicles_container.add_child(archive_note)
 	for chapter in ChroniclesCatalogScript.CHAPTERS:
 		var heading := Label.new()
 		heading.text = "ГЛАВА %s · %s · %s" % [str(chapter.id), str(chapter.title), str(chapter.period)]
