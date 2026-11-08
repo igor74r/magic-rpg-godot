@@ -5,7 +5,8 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 static func _is_cell_reachable(grid: Array, start: Vector2i, target: Vector2i) -> bool:
 	var pending: Array[Vector2i] = [start]
-	var visited: Dictionary = {start: true}
+	var visited: Dictionary = {}
+	visited[start] = true
 	while not pending.is_empty():
 		var current: Vector2i = pending.pop_front()
 		if current == target:
