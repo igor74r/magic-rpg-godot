@@ -261,6 +261,15 @@ func _on_browser_export_selected(path: String) -> void:
 	status_label.text = "Сохранение браузерного формата v18 экспортировано: %s" % path
 
 
+func _save_world_or_restore(snapshot: Dictionary, failure_prefix: String) -> bool:
+	var save_error: Error = WorldStateRepositoryScript.save_world(world)
+	if save_error == OK:
+		return true
+	world = snapshot
+	status_label.text = "%s: %s" % [failure_prefix, error_string(save_error)]
+	return false
+
+
 func _insert_before_spacer(node: Control) -> void:
 	content.add_child(node)
 	var spacer := content.get_node("Spacer")
@@ -601,11 +610,18 @@ func _format_duration(milliseconds: int) -> String:
 
 
 func _claim_daily_quest(quest_id: String) -> void:
-	var result: Dictionary = DailyQuestScript.claim(world,quest_id)
-	status_label.text = str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var snapshot := world.duplicate(true)
+	var result: Dictionary = DailyQuestScript.claim(world, quest_id)
+	if not bool(result.get("ok", false)):
+		status_label.text = str(result.get("message", "Награда недоступна."))
+		return
+	if not _save_world_or_restore(snapshot, "Получение ежедневной награды отменено"):
+		_refresh_inventory()
+		return
+	status_label.text = str(result.get("message", "Награда получена."))
+	for achievement in result.get("achievements", []):
+		status_label.text += "\\n🏆 %s (+%d золота)." % [str(achievement.get("name", "")), int(achievement.get("reward", 0))]
 	_refresh_inventory()
-
 
 
 func _refresh_campaign() -> void:
@@ -660,27 +676,39 @@ func _refresh_campaign() -> void:
 
 
 func _accept_campaign_mission(mission_id: String) -> void:
+	var snapshot := world.duplicate(true)
 	var hero := CombatEngineScript.ensure_hero(world)
-	var accepted := CampaignScript.accept(hero,mission_id)
-	status_label.text = "Сюжетное задание принято." if accepted else "Нельзя принять это задание."
-	WorldStateRepositoryScript.save_world(world)
+	var accepted := CampaignScript.accept(hero, mission_id)
+	if not accepted:
+		status_label.text = "Нельзя принять это задание."
+		return
+	if not _save_world_or_restore(snapshot, "Принятие задания отменено"):
+		_refresh_inventory()
+		return
+	status_label.text = "Сюжетное задание принято."
 	_refresh_inventory()
 
 
 func _claim_campaign_mission() -> void:
+	var snapshot := world.duplicate(true)
 	var hero := CombatEngineScript.ensure_hero(world)
 	var result: Dictionary = CampaignScript.claim(hero)
-	if not bool(result.get("ok",false)):
-		status_label.text = str(result.get("message",""))
+	if not bool(result.get("ok", false)):
+		status_label.text = str(result.get("message", ""))
 		return
 	var reward: Dictionary = result.reward
-	hero["gold"]=mini(2147483647,int(hero.get("gold",0))+int(reward.gold))
-	CombatEngineScript.grant_experience(hero,int(reward.exp))
-	CombatEngineScript.add_item(hero,str(reward.itemId),1)
-	status_label.text = "%s · +%d золота, +%d опыта, материал: %s" % [str(result.message),int(reward.gold),int(reward.exp),str(reward.itemId)]
-	WorldStateRepositoryScript.save_world(world)
+	if not CombatEngineScript.add_item(hero, str(reward.itemId), 1):
+		world = snapshot
+		status_label.text = "Награда не получена: освободите место в инвентаре."
+		return
+	hero["gold"] = mini(2147483647, int(hero.get("gold", 0)) + int(reward.gold))
+	CombatEngineScript.grant_experience(hero, int(reward.exp))
+	world["hero"] = hero
+	if not _save_world_or_restore(snapshot, "Получение сюжетной награды отменено"):
+		_refresh_inventory()
+		return
+	status_label.text = "%s · +%d золота, +%d опыта, материал: %s" % [str(result.message), int(reward.gold), int(reward.exp), str(reward.itemId)]
 	_refresh_inventory()
-
 
 
 func _refresh_npcs() -> void:
@@ -1358,36 +1386,52 @@ func _refresh_passives() -> void:
 
 
 func _allocate_passive(node_id: String) -> void:
+	var snapshot := world.duplicate(true)
 	var result: Dictionary = PassiveEngineScript.allocate(CombatEngineScript.ensure_hero(world), node_id)
 	status_label.text = str(result.get("message", ""))
-	WorldStateRepositoryScript.save_world(world)
+	if bool(result.get("ok", false)) and not _save_world_or_restore(snapshot, "Изучение навыка отменено"):
+		_refresh_inventory()
+		return
 	_refresh_inventory()
 
 
 func _reset_passives() -> void:
+	var snapshot := world.duplicate(true)
 	var result: Dictionary = PassiveEngineScript.reset(CombatEngineScript.ensure_hero(world))
 	status_label.text = str(result.get("message", "Пассивки сброшены."))
-	WorldStateRepositoryScript.save_world(world)
+	if bool(result.get("ok", false)) and not _save_world_or_restore(snapshot, "Сброс пассивных навыков отменён"):
+		_refresh_inventory()
+		return
 	_refresh_inventory()
-
 
 
 func _take_class_talent(talent_id: String) -> void:
-	var result: Dictionary = PassiveEngineScript.take_talent(CombatEngineScript.ensure_hero(world),talent_id)
-	status_label.text = str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var snapshot := world.duplicate(true)
+	var result: Dictionary = PassiveEngineScript.take_talent(CombatEngineScript.ensure_hero(world), talent_id)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)) and not _save_world_or_restore(snapshot, "Выбор таланта отменён"):
+		_refresh_inventory()
+		return
 	_refresh_inventory()
+
 
 func _reset_class_talents() -> void:
+	var snapshot := world.duplicate(true)
 	var result: Dictionary = PassiveEngineScript.reset_talents(CombatEngineScript.ensure_hero(world))
-	status_label.text = str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)) and not _save_world_or_restore(snapshot, "Сброс талантов отменён"):
+		_refresh_inventory()
+		return
 	_refresh_inventory()
 
+
 func _select_hero_class(class_id: String) -> void:
-	var result := CombatEngineScript.select_class(world,class_id)
-	status_label.text = str(result.get("message",""))
-	WorldStateRepositoryScript.save_world(world)
+	var snapshot := world.duplicate(true)
+	var result := CombatEngineScript.select_class(world, class_id)
+	status_label.text = str(result.get("message", ""))
+	if bool(result.get("ok", false)) and not _save_world_or_restore(snapshot, "Выбор класса отменён"):
+		_refresh_inventory()
+		return
 	_refresh_inventory()
 
 
