@@ -29,8 +29,10 @@ func _run() -> void:
 	var migrated := SaveRepo.migrate_payload(legacy_payload)
 	var migrated_player: Dictionary = migrated.get("player", {})
 	var integral_float_timestamp := legacy_payload.duplicate(true)
+	integral_float_timestamp.erase("worldSeed")
 	integral_float_timestamp.player.createdAt = 1700000000000.0
 	var integer_timestamp := legacy_payload.duplicate(true)
+	integer_timestamp.erase("worldSeed")
 	integer_timestamp.player.createdAt = 1700000000000
 	var float_timestamp_migration := SaveRepo.migrate_payload(integral_float_timestamp)
 	var integer_timestamp_migration := SaveRepo.migrate_payload(integer_timestamp)
