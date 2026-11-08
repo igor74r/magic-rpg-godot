@@ -5,6 +5,49 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	# Full NPC dialogue contract: every authored identity is reachable, greetings
+	# cycle deterministically across the catalog, and invalid actions are side-effect free.
+	const NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
+	var dialogue_world := WorldState.create(20261140)
+	var expected_npc_ids := ["blacksmith", "healer", "alchemist", "merchant", "elder", "well", "bard", "guard", "cat", "kids", "herald", "questBoard"]
+	var actual_npc_ids: Array = NpcCatalog.ids()
+	for expected_id in expected_npc_ids:
+		if not actual_npc_ids.has(expected_id):
+			failures.append("native NPC catalog is missing browser-authored identity: %s" % expected_id)
+	if actual_npc_ids.size() != expected_npc_ids.size():
+		failures.append("native NPC catalog must not expose duplicate or extra identities")
+	for npc_id in expected_npc_ids:
+		var definition := NpcCatalog.get_npc(npc_id)
+		var greetings: Array = definition.get("greetings", [])
+		if definition.get("id", "") != npc_id or str(definition.get("name", "")).is_empty() or greetings.is_empty():
+			failures.append("NPC %s must have a complete identity and at least one greeting" % npc_id)
+			continue
+		for greeting_index in range(greetings.size()):
+			var dialogue := Npc.talk(dialogue_world, npc_id)
+			if not bool(dialogue.get("ok", false)) or dialogue.get("npc", {}).get("id", "") != npc_id:
+				failures.append("NPC %s must open a valid dialogue" % npc_id)
+				break
+			if not str(dialogue.get("message", "")).ends_with("«%s»" % str(greetings[greeting_index])):
+				failures.append("NPC %s greeting sequence must preserve authored browser order" % npc_id)
+				break
+		var repeated_dialogue := Npc.talk(dialogue_world, npc_id)
+		if not str(repeated_dialogue.get("message", "")).ends_with("«%s»" % str(greetings[0])):
+			failures.append("NPC %s greeting sequence must wrap without skipping its first line" % npc_id)
+	var unknown_dialogue_count: Dictionary = dialogue_world.get("npcDialogueCounts", {}).duplicate(true)
+	var unknown_dialogue := Npc.talk(dialogue_world, "missing-npc")
+	if bool(unknown_dialogue.get("ok", true)) or dialogue_world.get("npcDialogueCounts", {}) != unknown_dialogue_count:
+		failures.append("unknown NPC dialogue must fail without mutating persisted greeting counts")
+	var invalid_choice_world := WorldState.create(20261141)
+	var invalid_choice := Npc.choose_dialogue(invalid_choice_world, "guard", "not-a-real-topic")
+	if bool(invalid_choice.get("ok", true)) or invalid_choice_world.has("npcDialogueFlags"):
+		failures.append("unknown dialogue choices must not create persisted dialogue flags")
+	var guard_choice := Npc.choose_dialogue(invalid_choice_world, "guard", "forest")
+	if not bool(guard_choice.get("ok", false)) or not str(guard_choice.get("message", "")).contains("Гоблины") or invalid_choice_world.get("npcDialogueFlags", {}).get("guard:forest", false) != true:
+		failures.append("valid guard dialogue choices must return authored text and persist their selection flag")
+	var isolated_npc_definition := NpcCatalog.get_npc("guard")
+	isolated_npc_definition["name"] = "Mutated copy"
+	if NpcCatalog.get_npc("guard").get("name", "") == "Mutated copy":
+		failures.append("NPC catalog lookups must return isolated copies rather than mutable shared definitions")
 	# Browser parity: well cooldown is stored in hero.stats in milliseconds
 	# and becomes available only after strictly more than 24 hours.
 	var well_world := WorldState.create(20261127)
