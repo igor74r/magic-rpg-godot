@@ -237,7 +237,10 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 # envelope. Keep this validator explicit so a minimal native save is never
 # mistaken for a losslessly importable browser save.
 static func is_browser_v18_payload(payload: Dictionary) -> bool:
-	if payload.get("version", null) is not int or int(payload.version) != SAVE_VERSION:
+	# JavaScript Number.isSafeInteger accepts JSON 18 and 18.0 equally.
+	# Godot may decode the latter as float, so validate the numeric contract
+	# rather than requiring the parser's concrete integer Variant type.
+	if not _is_safe_integer(payload.get("version", null)) or int(payload.version) != SAVE_VERSION:
 		return false
 	var player_value: Variant = payload.get("player", null)
 	var world_value: Variant = payload.get("world", null)
