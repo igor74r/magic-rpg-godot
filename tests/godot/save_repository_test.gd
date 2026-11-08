@@ -134,6 +134,12 @@ func _run() -> void:
 	var hexadecimal_version := SaveRepo.migrate_payload({"version":"0x11","player":{"name":"Hexadecimal version","level":1}})
 	if int(hexadecimal_version.get("version", -1)) != 18:
 		failures.append("legacy migration must accept hexadecimal numeric strings like browser Number()")
+	var binary_version := SaveRepo.migrate_payload({"version":"0b10001","player":{"name":"Binary version","level":1}})
+	var octal_version := SaveRepo.migrate_payload({"version":"0o21","player":{"name":"Octal version","level":1}})
+	if int(binary_version.get("version", -1)) != 18 or int(octal_version.get("version", -1)) != 18:
+		failures.append("legacy migration must accept binary and octal numeric strings like browser Number()")
+	if not SaveRepo.migrate_payload({"version":"0b102","player":{"name":"Invalid binary version","level":1}}).is_empty() or not SaveRepo.migrate_payload({"version":"0o18","player":{"name":"Invalid octal version","level":1}}).is_empty():
+		failures.append("legacy migration must reject invalid binary and octal version digits")
 	var empty_string_version := SaveRepo.migrate_payload({"version":"","player":{"name":"Empty string version","level":1}})
 	var whitespace_version := SaveRepo.migrate_payload({"version":"  ","player":{"name":"Whitespace version","level":1}})
 	var null_version := SaveRepo.migrate_payload({"version":null,"player":{"name":"Null version","level":1}})
