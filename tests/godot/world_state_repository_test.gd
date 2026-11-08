@@ -42,7 +42,8 @@ func _run() -> void:
 			"stats": {"kills": {"wolf": 12}, "deaths": 2},
 			"campaignKills": {"wolf": 8}, "campaignClaimed": {"chapter-1": true},
 			"activeCampaignByBranch": {"main": "chapter-2"}, "activeCampaignMission": "chapter-2",
-			"browserOnlyPlayerFlag": {"keep": true}
+			"browserOnlyPlayerFlag": {"keep": true},
+			"craftingJobs": [{"id": "pending-camp-order", "result": "health-potion", "qty": 2, "readyAt": 987654321}]
 		},
 		"storyShards": {"flame": true, "ice": false, "blood": false},
 		"storyDragons": {"ash-herald": true},
