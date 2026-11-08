@@ -643,14 +643,16 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 		"dex":
 			total = int(hero.get("dex", total)) + int(passive_bonus.get("dexFlat", 0))
 	var equipped: Dictionary = hero.get("equipped", {})
-	for instance in equipped.values():
+	for slot in equipped:
+		var instance: Variant = equipped[slot]
 		if instance == null:
 			continue
 		var item_id := str(instance if instance is String else instance.get("id", ""))
 		var item: Dictionary = ItemCatalog.get_item(item_id)
+		if item.is_empty():
+			continue
 		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
 		if instance is Dictionary:
-			# Match browser getEffStats: instance values override catalog defaults.
 			var instance_bonus: Variant = instance.get("bonus", {})
 			if instance_bonus is Dictionary:
 				for key in instance_bonus:
@@ -663,29 +665,28 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 					if rune_bonus is Dictionary:
 						for key in rune_bonus:
 							bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
-		if stat == "defense":
-			total += int(bonus.get("defense", bonus.get("armor", 0)))
-		elif stat == "attack":
-			total += int(bonus.get("attack", 0))
-		elif stat == "magic":
-			total += int(bonus.get("magic", 0))
-		elif stat == "dex":
-			total += int(bonus.get("dex", 0))
+		match stat:
+			"attack":
+				total += int(bonus.get("attack", 0))
+			"magic":
+				total += int(bonus.get("magic", 0))
+			"defense":
+				total += int(bonus.get("defense", bonus.get("armor", 0)))
+			"dex":
+				total += int(bonus.get("dex", 0))
 		var forge_level := clampi(int(instance.get("forgeLevel", 0)) if instance is Dictionary else 0, 0, FORGE_BONUS.size() - 1)
 		var forge_bonus := int(FORGE_BONUS[forge_level])
 		if forge_bonus > 0:
-			if str(key) == "defense" and stat == "defense":
-				pass
-			if stat == "attack" and str(instance.get("id", "") if instance is Dictionary else instance) != "":
-				if not item.get("bonus", {}).has("magic"):
-					total += forge_bonus
-			elif stat == "magic" and item.get("bonus", {}).has("magic"):
+			if str(slot) == "weapon" and stat == "attack" and not item.get("bonus", {}).has("magic"):
 				total += forge_bonus
-			elif stat == "defense" and str(equipped.keys()[equipped.values().find(instance)]) == "chest":
+			elif str(slot) == "weapon" and stat == "magic" and item.get("bonus", {}).has("magic"):
+				total += forge_bonus
+			elif str(slot) == "chest" and stat == "defense":
 				total += forge_bonus
 	if stat == "defense":
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
+
 
 static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> bool:
 	var item := ItemCatalog.get_item(item_id)
