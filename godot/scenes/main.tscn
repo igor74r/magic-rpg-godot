@@ -27,34 +27,41 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 48
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 48
-theme_override_constants/margin_bottom = 40
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
 
-[node name="Content" type="VBoxContainer" parent="MarginContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer"]
 layout_mode = 2
+size_flags_vertical = 3
+size_flags_horizontal = 3
+horizontal_scroll_mode = 2
+
+[node name="Content" type="VBoxContainer" parent="MarginContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 18
 
-[node name="Title" type="Label" parent="MarginContainer/Content"]
+[node name="Title" type="Label" parent="MarginContainer/ScrollContainer/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 38
 text = "ОСКОЛКИ РАЗЛОМА"
 
-[node name="Subtitle" type="Label" parent="MarginContainer/Content"]
+[node name="Subtitle" type="Label" parent="MarginContainer/ScrollContainer/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Новая нативная версия на Godot"
 
-[node name="Spacer" type="Control" parent="MarginContainer/Content"]
+[node name="Spacer" type="Control" parent="MarginContainer/ScrollContainer/Content"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="StatusLabel" type="Label" parent="MarginContainer/Content"]
+[node name="StatusLabel" type="Label" parent="MarginContainer/ScrollContainer/Content"]
 layout_mode = 2
 text = "Godot foundation загружен. Игровые системы будут подключаться поэтапно."
 
-[node name="Footer" type="Label" parent="MarginContainer/Content"]
+[node name="Footer" type="Label" parent="MarginContainer/ScrollContainer/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "Браузерная версия и её сохранения остаются отдельной рабочей базой."

@@ -5,6 +5,7 @@ extends RefCounted
 const Catalog = preload("res://godot/scripts/world_region_catalog.gd")
 const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
 const RandomScript = preload("res://godot/scripts/world_random.gd")
+const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
 const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
 const TILE_SIZE := 32
 const ELITE_HP_MULT := 1.5
@@ -48,13 +49,7 @@ static func loot_drop_chance(base_chance: float, hero: Dictionary, world: Dictio
 	if personal_reputation is Dictionary:
 		reputation_modifier = float(personal_reputation.get("lootModifier", reputation_modifier))
 	reputation_modifier = clampf(reputation_modifier, -0.9, 1.0)
-	var faction_bonus := 0.0
-	var factions: Variant = world.get("factions", {})
-	if factions is Dictionary:
-		var reputation: Variant = factions.get("reputation", {})
-		if reputation is Dictionary:
-			var ash_nomads := int(round(float(reputation.get("ash-nomads", 0))))
-			faction_bonus = 0.15 if ash_nomads >= 90 else 0.10 if ash_nomads >= 70 else 0.05 if ash_nomads >= 30 else 0.0
+	var faction_bonus := FactionEngine.get_loot_bonus(world)
 	return clampf(base * (1.0 + luck * 0.005) * (1.0 + reputation_modifier) * (1.0 + faction_bonus), 0.0, 1.0)
 
 

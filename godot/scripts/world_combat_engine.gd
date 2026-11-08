@@ -10,6 +10,88 @@ const ItemCatalog = preload("res://godot/scripts/world_item_catalog.gd")
 const EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const RandomScript = preload("res://godot/scripts/world_random.gd")
 const EncounterGenerator = preload("res://godot/scripts/world_encounter_generator.gd")
+const FORGE_BONUS := [0, 2, 4, 7]
+const MAGIC_WEAK_ENEMIES := ["skeleton", "skeleton-archer", "dark-knight", "magma-golem", "grave-king"]
+const MAGIC_RESIST_ENEMIES := ["ghost", "wraith", "shadow-mage"]
+const PHYSICAL_WEAK_ENEMIES := ["ghost", "wraith", "shadow-mage", "fire-elemental", "flame-lord"]
+const PHYSICAL_RESIST_ENEMIES := ["magma-golem", "dark-knight", "grave-king"]
+
+static func enemy_damage_multiplier(enemy: Dictionary, style: String) -> float:
+	var enemy_id := str(enemy.get("enemyId", ""))
+	if enemy_id.is_empty() or not ["melee", "ranged", "magic"].has(style):
+		return 1.0
+	var weak := false
+	var resistant := false
+	if style == "melee" or style == "ranged":
+		weak = PHYSICAL_WEAK_ENEMIES.has(enemy_id)
+		resistant = PHYSICAL_RESIST_ENEMIES.has(enemy_id)
+	else:
+		weak = MAGIC_WEAK_ENEMIES.has(enemy_id)
+		resistant = MAGIC_RESIST_ENEMIES.has(enemy_id)
+	if weak and resistant:
+		return 1.0
+	return 1.25 if weak else (0.8 if resistant else 1.0)
+
+
+static func enemy_defense_for_style(enemy: Dictionary, armor_pen: float = 0.0, style: String = "melee") -> int:
+	var safe_armor_pen := maxf(0.0, armor_pen)
+	var penetration := clampf(safe_armor_pen * 0.025, 0.0, 0.75)
+	var base := maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - safe_armor_pen * 0.5)))
+	var counter: Variant = enemy.get("adaptiveCounter", null)
+	if not counter is Dictionary or str(counter.get("style", "")) != style or int(counter.get("remaining", 0)) <= 0:
+		return base
+	var reduction := 0.12 if bool(enemy.get("boss", false)) else 0.20
+	return base + int(floor(float(maxi(1, base)) * reduction))
+
+
+static func record_player_style(combat: Dictionary, style: String) -> void:
+	if not ["melee", "ranged", "magic"].has(style):
+		return
+	var history: Array = combat.get("playerStyleHistory", []) if combat.get("playerStyleHistory", []) is Array else []
+	history.append(style)
+	if history.size() > 4:
+		history.pop_front()
+	combat["playerStyleHistory"] = history
+
+
+static func consume_enemy_adaptation(enemy: Dictionary, style: String) -> bool:
+	var counter: Variant = enemy.get("adaptiveCounter", null)
+	if not counter is Dictionary or str(counter.get("style", "")) != style or int(counter.get("remaining", 0)) <= 0:
+		return false
+	counter["remaining"] = int(counter.get("remaining", 0)) - 1
+	if int(counter.remaining) <= 0:
+		enemy["adaptiveCounter"] = null
+	else:
+		enemy["adaptiveCounter"] = counter
+	return true
+
+
+static func prepare_enemy_adaptation(combat: Dictionary, enemy: Dictionary) -> String:
+	var history: Variant = combat.get("playerStyleHistory", [])
+	if not history is Array or history.size() < 3:
+		return ""
+	var recent: Array = history.slice(maxi(0, history.size() - 3))
+	var selected_style := ""
+	for candidate in ["melee", "ranged", "magic"]:
+		var count := 0
+		for recorded_style in recent:
+			if recorded_style == candidate:
+				count += 1
+		if count >= 2:
+			selected_style = candidate
+			break
+	if selected_style.is_empty():
+		return ""
+	var existing: Variant = enemy.get("adaptiveCounter", null)
+	if existing is Dictionary and int(existing.get("remaining", 0)) > 0:
+		return ""
+	enemy["adaptiveCounter"] = {"style": selected_style, "remaining": 2 if bool(enemy.get("boss", false)) else 1}
+	var label := "ближнему бою" if selected_style == "melee" else ("дальним атакам" if selected_style == "ranged" else "магии")
+	var message := "🧠 Противник приспособился к вашему стилю (%s)!" % label
+	if bool(enemy.get("boss", false)):
+		message += " Босс изучает ваши действия, но его защита слабее."
+	return message
+
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -57,6 +139,12 @@ const EFFECTS := {
 	"poison": {"damage": 5, "duration": 3, "name": "Отравление"},
 	"burn": {"damage": 8, "duration": 2, "name": "Ожог"},
 	"bleed": {"damage": 6, "duration": 3, "name": "Кровотечение"},
+	"slow": {"atkMult": 0.75, "duration": 2, "name": "Замедление"},
+	"atkBuff": {"atkMult": 1.3, "duration": 2, "name": "Боевой клич"},
+	"defBuff": {"defMult": 1.5, "duration": 2, "name": "Щит маны"},
+	"lifesteal": {"lifestealPct": 0.5, "duration": 2, "name": "Кровожадность"},
+	"strength": {"atkFlat": 5, "duration": 3, "name": "Эликсир силы"},
+	"manaShield": {"duration": 2, "name": "Эликсир маны"},
 	"stun": {"skipTurn": true, "duration": 1, "name": "Оглушение"}
 }
 
@@ -90,7 +178,36 @@ static func tick_effects(target: Dictionary) -> Dictionary:
 static func begin(enemy: Dictionary) -> Dictionary:
 	if enemy.is_empty() or bool(enemy.get("dead", false)) or int(enemy.get("hp", 0)) <= 0:
 		return {}
-	return {"enemy": enemy, "turn": "player", "over": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
+	return {"enemy": enemy, "turn": "player", "over": false, "blocking": false, "playerResurrectionUsed": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
+
+static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float:
+	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var class_combat: Dictionary = class_data.get("combat", {})
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var chance := float(class_combat.get("critChance", 0.05)) + float(passive_bonus.get("critChance", 0.0)) + extra_bonus
+	var effective_dex := float(hero.get("dex", 0.0)) + float(passive_bonus.get("dexFlat", 0.0))
+	var equipped: Dictionary = hero.get("equipped", {})
+	for instance in equipped.values():
+		if instance == null:
+			continue
+		var item_id := str(instance if instance is String else instance.get("id", ""))
+		var item: Dictionary = ItemCatalog.get_item(item_id)
+		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
+		if instance is Dictionary:
+			# Browser getEffStats merges instance bonuses over catalog defaults;
+			# it does not add the same base item bonus a second time.
+			for key in instance.get("bonus", {}):
+				bonus[key] = instance.bonus[key]
+			for rune_id in instance.get("runes", []):
+				var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+				for key in rune.get("runeBonus", {}):
+					bonus[key] = float(bonus.get(key, 0.0)) + float(rune.runeBonus[key])
+		chance += float(bonus.get("critChance", 0.0))
+		effective_dex += float(bonus.get("dex", 0.0))
+	# Browser stats add one tenth of a percentage point per Dexterity point.
+	chance += effective_dex * 0.001
+	return clampf(maxf(0.01, chance), 0.0, 0.75)
+
 
 static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
@@ -98,10 +215,33 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var hero := ensure_hero(world)
 	var enemy: Dictionary = combat.get("enemy", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-	var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-	var damage := maxi(1, int(round(float(effective_stat(hero, "attack") - int(floor(float(enemy_armor) / 2.0))) * float(passive_bonus.get("dmgMult", 1.0))))
+	var attack_style := "ranged" if str(hero.get("class", "")) == "archer" else "melee"
+	var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), attack_style)
+	var charge_multiplier := 2.0 if _consume_combat_effect(hero, "double_next", "buffs") else 1.0
+	var attack_index := int(combat.get("playerAttackCount", 0))
+	combat["playerAttackCount"] = attack_index + 1
+	var damage_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-damage", enemy.get("persistentId", ""), attack_index])
+	var damage_rng := RandomScript.new(damage_seed)
+	var damage_roll := damage_rng.next_int(5)
+	var raw_damage := effective_stat(hero, "attack") + damage_roll - int(floor(float(enemy_armor) / 2.0))
+	var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("dmgMult", 1.0)) * _effect_multiplier(hero, "atkMult") * enemy_damage_multiplier(enemy, attack_style))))
+	consume_enemy_adaptation(enemy, attack_style)
+	record_player_style(combat, attack_style)
+	var cat_luck_bonus := 0.05 if _has_combat_effect(hero, "catLuck", "buffs") else 0.0
+	var crit_chance := critical_chance(hero, cat_luck_bonus)
+	var crit_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-crit", enemy.get("persistentId", ""), attack_index])
+	var crit_rng := RandomScript.new(crit_seed)
+	var is_critical := crit_rng.next_float() < crit_chance
+	if is_critical:
+		damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
+	if charge_multiplier > 1.0:
+		damage = int(floor(float(damage) * charge_multiplier))
+	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-	var lines: Array[String] = ["Вы нанесли %d урона." % damage]
+	var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
+	var lines: Array[String] = ["Вы нанесли %d урона.%s" % [damage, " КРИТ!" if is_critical else ""]]
+	if lifesteal_healed > 0:
+		lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
 	lines.append_array(_update_boss_phase(enemy))
 	if int(enemy.hp) <= 0:
 		enemy["dead"] = true
@@ -112,47 +252,14 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		combat["result"] = "victory"
 		combat["turn"] = "over"
 	else:
-		combat["turn"] = "enemy"
-		var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(effective_stat(hero, "defense")) / 2.0)))
-		var turn_count := int(enemy.get("turnCount", 0)) + 1
-		enemy["turnCount"] = turn_count
-		var special: Dictionary = enemy.get("special", {})
-		var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
-		var special_ready := not special.is_empty() and turn_count % every == 0
-		var special_type := str(special.get("type", ""))
-		if special_ready and special_type == "snipe":
-			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
-		elif special_ready and special_type == "double":
-			incoming = maxi(1, int(floor(float(incoming) * 0.6))) * 2
-		var faction_reduction := FactionEngine.get_damage_reduction(world)
-		incoming = maxi(1, int(floor(float(incoming) * (1.0 - faction_reduction))))
-		hero["hp"] = maxi(0, int(hero.hp) - incoming)
-		lines.append("%s наносит вам %d урона." % [str(enemy.get("name", "Противник")), incoming])
-		if special_ready:
-			lines.append("Особый приём: %s!" % str(special.get("name", "Атака")))
-			var effect_id := str(special.get("effect", ""))
-			if not effect_id.is_empty() and EFFECTS.has(effect_id):
-				apply_effect(hero, effect_id)
-				lines.append("Наложен эффект: %s." % str(EFFECTS[effect_id].name))
-		if special_ready and special_type == "drain":
-			var healed := mini(incoming, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
-			enemy["hp"] = int(enemy.hp) + maxi(0, healed)
-			lines.append("Противник восстановил %d HP." % maxi(0, healed))
-		var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-		if not modifier_message.is_empty():
-			lines.append(modifier_message)
-		var effect_tick := tick_effects(hero)
-		if int(effect_tick.damage) > 0:
-			hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
-			lines.append("Эффекты наносят вам %d урона." % int(effect_tick.damage))
-		if int(hero.hp) <= 0:
-			hero["hp"] = 1
-			combat["over"] = true
-			combat["result"] = "defeat"
-			combat["turn"] = "over"
-			lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
-		else:
-			combat["turn"] = "player"
+		if not _tick_enemy_effects(world, combat, enemy, lines):
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				lines.append(adaptation_message)
+			var response_lines: Array[String] = []
+			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+			lines.append_array(response_lines)
 	world["hero"] = hero
 	combat["enemy"] = enemy
 	combat["log"] = "\n".join(lines)
@@ -238,6 +345,13 @@ static func _consume_combat_effect(hero: Dictionary,effect_id: String,field: Str
 	return found
 
 
+static func _has_combat_effect(hero: Dictionary, effect_id: String, field: String = "buffs") -> bool:
+	for effect in hero.get(field, []):
+		if effect is Dictionary and str(effect.get("id", "")) == effect_id and int(effect.get("duration", 0)) > 0:
+			return true
+	return false
+
+
 static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	var hero := ensure_hero(world)
 	var reward_exp := maxi(0, int(enemy.get("exp", 0)))
@@ -247,6 +361,8 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 	if bool(enemy.get("elite",false)): exp_multiplier *= 1.5
 	if _consume_combat_effect(hero,"elderBlessing","effects"): exp_multiplier *= 1.2
 	if _consume_combat_effect(hero,"bardBuff","buffs"): exp_multiplier *= 1.1
+	# Cat luck lasts for one victorious encounter, matching the browser.
+	_consume_combat_effect(hero, "catLuck", "buffs")
 	reward_exp = int(round(float(reward_exp)*exp_multiplier))
 	var reward_gold := maxi(0, int(enemy.get("gold", 0)))
 	if not bool(enemy.get("riftMode", false)) and not bool(enemy.get("towerMode", false)):
@@ -351,6 +467,213 @@ static func _claim_story_dragon_reward(world: Dictionary, hero: Dictionary, enem
 	return "Получен сюжетный предмет: %s." % str(dragon.name)
 
 
+static func mitigate_incoming_damage(attack: float, defense: float) -> int:
+	var safe_attack := maxf(0.0, attack)
+	var safe_defense := maxf(0.0, defense)
+	return maxi(1, int(floor(safe_attack * (100.0 / (100.0 + safe_defense * 1.5)))))
+
+
+static func _calculate_incoming_damage(world: Dictionary, hero: Dictionary, enemy: Dictionary, turn_count: int) -> int:
+	var attack := maxf(0.0, float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))
+	var damage_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-incoming", enemy.get("persistentId", ""), turn_count])
+	var damage_rng := RandomScript.new(damage_seed)
+	attack += float(damage_rng.next_int(5))
+	var defense := float(effective_stat(hero, "defense"))
+	var base_damage := mitigate_incoming_damage(attack, defense)
+	var difficulty := 0.7 if str(world.get("difficulty", "normal")) == "easy" else (1.4 if str(world.get("difficulty", "normal")) == "hard" else 1.0)
+	base_damage = maxi(1, int(floor(float(base_damage) * difficulty)))
+	var defense_multiplier := _effect_multiplier(hero, "defMult")
+	if defense_multiplier > 1.0:
+		base_damage = maxi(1, int(floor(float(base_damage) / defense_multiplier)))
+	return base_damage
+
+
+static func _combat_defense_stats(hero: Dictionary) -> Dictionary:
+	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var combat_data: Dictionary = class_data.get("combat", {})
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var dodge := float(combat_data.get("dodgeChance", 0.0))
+	var block := float(combat_data.get("blockChance", 0.0))
+	var block_power := float(combat_data.get("blockPower", 0.4))
+	var equipped: Dictionary = hero.get("equipped", {})
+	for slot in equipped:
+		var instance: Variant = equipped[slot]
+		if instance == null:
+			continue
+		var item_id := str(instance if instance is String else instance.get("id", ""))
+		var item: Dictionary = ItemCatalog.get_item(item_id)
+		if item.is_empty():
+			continue
+		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
+		if instance is Dictionary:
+			var instance_bonus: Variant = instance.get("bonus", {})
+			if instance_bonus is Dictionary:
+				for key in instance_bonus:
+					bonus[key] = instance_bonus[key]
+			var runes: Variant = instance.get("runes", [])
+			if runes is Array:
+				for rune_id in runes:
+					var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+					var rune_bonus: Dictionary = rune.get("runeBonus", {})
+					for key in rune_bonus:
+						bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
+		dodge += float(bonus.get("dodgeChance", 0.0))
+		block += float(bonus.get("blockChance", 0.0))
+		block_power += float(bonus.get("blockPower", 0.0))
+	dodge = clampf(dodge + float(effective_stat(hero, "dex")) * 0.002 + float(passive_bonus.get("dodgeChance", 0.0)), 0.0, 0.65)
+	block = clampf(block + float(passive_bonus.get("blockChance", 0.0)), 0.0, 0.6)
+	block_power = clampf(block_power + float(passive_bonus.get("blockPower", 0.0)), 0.3, 0.9)
+	return {"dodgeChance": dodge, "blockChance": block, "blockPower": block_power}
+
+
+static func _try_priest_resurrection(combat: Dictionary, hero: Dictionary, lines: Array[String]) -> bool:
+	if str(hero.get("class", "")) != "priest" or bool(combat.get("playerResurrectionUsed", false)):
+		return false
+	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
+	var restore := ceili(float(hero.get("maxHp", 1)) * float(passive_bonus.get("resurrectPct", 0.3)))
+	hero["hp"] = clampi(restore, 1, int(hero.get("maxHp", 1)))
+	combat["playerResurrectionUsed"] = true
+	combat["over"] = false
+	combat["result"] = ""
+	combat["turn"] = "player"
+	combat["blocking"] = false
+	lines.append("Воскрешение! Вы возвращаетесь в бой с %d HP." % int(hero.hp))
+	return true
+
+
+static func _resolve_enemy_response(world: Dictionary, combat: Dictionary, hero: Dictionary, enemy: Dictionary, lines: Array[String]) -> void:
+	if _has_effect(enemy, "stun"):
+		_remove_effect(enemy, "stun")
+		lines.append("%s оглушён и пропускает ход." % str(enemy.get("name", "Противник")))
+		# A stunned enemy still consumes a complete combat round: both sides'
+		# ongoing effects tick, player cooldowns advance, and turn counters stay aligned.
+		var enemy_tick := tick_effects(enemy)
+		if int(enemy_tick.damage) > 0:
+			enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - int(enemy_tick.damage))
+			lines.append("Эффекты наносят противнику %d урона." % int(enemy_tick.damage))
+		if int(enemy.get("hp", 0)) <= 0:
+			enemy["hp"] = 0
+			enemy["dead"] = true
+			enemy["state"] = "dead"
+			lines.append(_award_victory(world, enemy))
+			combat["over"] = true
+			combat["result"] = "victory"
+			combat["turn"] = "over"
+		else:
+			var hero_tick := tick_effects(hero)
+			if int(hero_tick.damage) > 0:
+				hero["hp"] = maxi(0, int(hero.get("hp", 0)) - int(hero_tick.damage))
+				lines.append("Эффекты наносят вам %d урона." % int(hero_tick.damage))
+			if int(hero.get("hp", 0)) <= 0:
+				if not _try_priest_resurrection(combat, hero, lines):
+					hero["hp"] = 1
+					combat["over"] = true
+					combat["result"] = "defeat"
+					combat["turn"] = "over"
+					lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+			else:
+				_decrease_cooldowns(hero)
+				combat["turn"] = "player"
+				enemy["turnCount"] = int(enemy.get("turnCount", 0)) + 1
+				combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
+		combat["blocking"] = false
+		combat["enemy"] = enemy
+		world["hero"] = hero
+		return
+	var turn_count := int(enemy.get("turnCount", 0)) + 1
+	enemy["turnCount"] = turn_count
+	var special: Dictionary = enemy.get("special", {})
+	var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
+	var special_ready := not special.is_empty() and turn_count % every == 0
+	var special_type := str(special.get("type", ""))
+	var dodge_ready := _consume_combat_effect(hero, "dodge", "buffs")
+	var defense_stats := _combat_defense_stats(hero)
+	var defense_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-defense", enemy.get("persistentId", ""), turn_count])
+	var defense_rng := RandomScript.new(defense_seed)
+	var automatic_dodge := defense_rng.next_float() < float(defense_stats.dodgeChance)
+	var manual_block := bool(combat.get("blocking", false))
+	if dodge_ready or automatic_dodge:
+		lines.append("Вы уклонились от атаки — урон полностью предотвращён.")
+		combat["blocking"] = false
+	else:
+		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
+		var automatic_block := not manual_block and defense_rng.next_float() < float(defense_stats.blockChance)
+		if manual_block or automatic_block:
+			var reduction := maxf(0.5, float(defense_stats.blockPower)) if manual_block else maxf(0.35, float(defense_stats.blockPower))
+			incoming = maxi(1, int(floor(float(incoming) * (1.0 - minf(0.9, reduction)))))
+			lines.append("Вы приняли удар в защитную стойку — урон снижен." if manual_block else "Сработал автоматический блок — урон снижен.")
+			if manual_block and (bool(enemy.get("boss", false)) or bool(enemy.get("elite", false))):
+				var counter_damage := maxi(1, int(floor(float(effective_stat(hero, "attack")) * (0.28 + minf(0.25, float(defense_stats.blockPower) * 0.25)))))
+				enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - counter_damage)
+				lines.append("Контратака из блока: %d урона." % counter_damage)
+				if int(enemy.hp) <= 0:
+					enemy["dead"] = true
+					enemy["state"] = "dead"
+					lines.append(_award_victory(world, enemy))
+					combat["over"] = true
+					combat["result"] = "victory"
+					combat["turn"] = "over"
+					combat["blocking"] = false
+					combat["enemy"] = enemy
+					world["hero"] = hero
+					return
+		if special_ready and special_type == "snipe":
+			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
+		elif special_ready and special_type == "double":
+			incoming = maxi(1, int(floor(float(incoming) * 0.6))) * 2
+		incoming = maxi(1, int(floor(float(incoming) * (1.0 - FactionEngine.get_damage_reduction(world)))))
+		hero["hp"] = maxi(0, int(hero.hp) - incoming)
+		lines.append("%s наносит вам %d урона." % [str(enemy.get("name", "Противник")), incoming])
+		if special_ready:
+			lines.append("Особый приём: %s!" % str(special.get("name", "Атака")))
+			var effect_id := str(special.get("effect", ""))
+			if not effect_id.is_empty() and EFFECTS.has(effect_id):
+				apply_effect(hero, effect_id)
+				lines.append("Наложен эффект: %s." % str(EFFECTS[effect_id].name))
+		if special_ready and special_type == "drain":
+			var healed := mini(incoming, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
+			enemy["hp"] = int(enemy.hp) + maxi(0, healed)
+			lines.append("Противник восстановил %d HP." % maxi(0, healed))
+		var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
+		if not modifier_message.is_empty():
+			lines.append(modifier_message)
+	var effect_tick := tick_effects(hero)
+	if int(effect_tick.damage) > 0:
+		hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
+		lines.append("Эффекты наносят вам %d урона." % int(effect_tick.damage))
+	if int(hero.hp) <= 0:
+		if not _try_priest_resurrection(combat, hero, lines):
+			hero["hp"] = 1
+			combat["over"] = true
+			combat["result"] = "defeat"
+			combat["turn"] = "over"
+			lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
+	else:
+		_decrease_cooldowns(hero)
+		combat["turn"] = "player"
+		combat["turnCount"] = int(combat.get("turnCount", 0)) + 1
+	combat["blocking"] = false
+	combat["enemy"] = enemy
+	world["hero"] = hero
+
+
+static func block(world: Dictionary, combat: Dictionary) -> Dictionary:
+	if combat.is_empty() or bool(combat.get("over", true)) or str(combat.get("turn", "")) != "player":
+		return {"ok": false, "message": "Сейчас нельзя принять защитную стойку."}
+	var hero := ensure_hero(world)
+	var enemy: Dictionary = combat.get("enemy", {})
+	combat["blocking"] = true
+	var lines: Array[String] = ["Вы принимаете защитную стойку."]
+	if not _tick_enemy_effects(world, combat, enemy, lines):
+		combat["turn"] = "enemy"
+		_resolve_enemy_response(world, combat, hero, enemy, lines)
+	combat["blocking"] = false
+	combat["log"] = "\n".join(lines)
+	combat["enemy"] = enemy
+	world["hero"] = hero
+	return {"ok": true, "message": str(combat.log), "result": str(combat.get("result", ""))}
+
+
 static func use_ability(world: Dictionary, combat: Dictionary, ability_id: String) -> Dictionary:
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
 		return {"ok": false, "message": "Сейчас нельзя применить способность."}
@@ -361,8 +684,8 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 		if str(candidate.id) == ability_id:
 			ability = candidate
 			break
-	if ability.is_empty():
-		return {"ok": false, "message": "Эта способность недоступна классу."}
+	if ability.is_empty() or bool(ability.get("passive", false)):
+		return {"ok": false, "message": "Эта способность недоступна для ручного применения."}
 	var cooldowns: Dictionary = hero.get("cooldowns", {})
 	if int(cooldowns.get(ability_id, 0)) > 0:
 		return {"ok": false, "message": "Способность ещё перезаряжается."}
@@ -377,31 +700,24 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var kind := str(ability.get("kind", ""))
 	match kind:
+		"prayer":
+			var heal := int(floor((50.0 + floor(float(effective_stat(hero, "magic")) / 2.0)) * float(passive_bonus.get("prayerMult", 1.0)) * float(passive_bonus.get("healMult", 1.0))))
+			hero["hp"] = mini(int(hero.get("maxHp", 1)), int(hero.get("hp", 0)) + heal)
+			var debuffs: Array = ["burn", "poison", "bleed", "stun", "slow"]
+			var effects: Array = hero.get("effects", [])
+			hero["effects"] = effects.filter(func(effect): return not debuffs.has(str(effect.get("id", ""))))
+		"sanctify":
+			damage = int(floor((25.0 + floor(float(effective_stat(hero, "magic")) / 2.0)) * float(passive_bonus.get("spellMult", 1.0))))
 		"next_double":
 			hero["buffs"].append({"id":"double_next","duration":1})
-			combat["log"] = "Следующая атака будет усилена."
-			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
 		"attack_buff":
-			hero["buffs"].append({"id":"attack_buff","duration":2})
-			combat["log"] = "Боевой клич усиливает атаку на 2 хода."
-			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			apply_effect(hero, "atkBuff")
 		"lifesteal":
-			hero["buffs"].append({"id":"lifesteal","duration":2})
-			combat["log"] = "Кровожадность активна: часть урона вернётся здоровьем."
-			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			apply_effect(hero, "lifesteal")
 		"defense_buff":
-			hero["buffs"].append({"id":"defense_buff","duration":2})
-			combat["log"] = "Магический барьер повышает защиту на 2 хода."
-			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
+			apply_effect(hero, "defBuff")
 		"dodge":
 			hero["buffs"].append({"id":"dodge","duration":1})
-			combat["log"] = "Вы готовы уклониться от следующей атаки."
-			world["hero"] = hero
-			return {"ok":true,"message":combat.log}
 		_:
 			damage = effective_stat(hero, "attack")
 			if kind == "meteor":
@@ -414,35 +730,71 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 				apply_effect(enemy, "poison")
 			elif kind == "stun":
 				apply_effect(enemy, "stun")
-		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-		var ability_multiplier := float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
-		damage = maxi(1, int(round(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier)))
-		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-		var lines := ["%s: %d урона." % [str(ability.name), damage]]
-		lines.append_array(_update_boss_phase(enemy))
-		if kind == "meteor":
-			apply_effect(enemy, "burn")
-		if kind == "poison_strike":
-			lines.append("Противник отравлен.")
-		if kind == "stun":
-			lines.append("Противник оглушён.")
-		combat["enemy"] = enemy
-		combat["log"] = "\n".join(lines)
-		if int(enemy.hp) <= 0:
-			combat["over"] = true
-			combat["turn"] = "over"
-			combat["result"] = "victory"
-			enemy["dead"] = true
-			enemy["state"] = "dead"
-			combat["log"] += "\n" + _award_victory(world, enemy)
-		else:
-			var incoming := maxi(1, int(round(float(enemy.get("attack", 1)) * float(enemy.get("phaseAttackMult", 1.0)))) - int(floor(float(hero.defense) / 2.0)))
-			hero["hp"] = maxi(1, int(hero.hp) - incoming)
-			combat["log"] += "\nПротивник отвечает: %d урона." % incoming
-			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-			if not modifier_message.is_empty():
-				combat["log"] += "\n" + modifier_message
-		combat["enemy"] = enemy
+	if ["next_double", "attack_buff", "lifesteal", "defense_buff", "dodge", "prayer"].has(kind):
+		var buff_message := ""
+		match kind:
+			"next_double": buff_message = "Следующая атака будет усилена."
+			"attack_buff": buff_message = "Боевой клич усиливает атаку на 2 хода."
+			"lifesteal": buff_message = "Кровожадность активна: часть урона вернётся здоровьем."
+			"defense_buff": buff_message = "Магический барьер повышает защиту на 2 хода."
+			"dodge": buff_message = "Вы готовы уклониться от следующей атаки."
+			"prayer": buff_message = "Молитва исцеляет и снимает отрицательные эффекты."
+		var buff_lines: Array[String] = [buff_message]
+		if not _tick_enemy_effects(world, combat, enemy, buff_lines):
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				buff_lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, buff_lines)
+		combat["log"] = "\n".join(buff_lines)
+		world["hero"] = hero
+		return {"ok":true,"message":combat.log,"result":combat.get("result","")}
+	var ability_style := "magic" if kind in ["meteor", "sanctify"] else ("ranged" if str(hero.get("class", "")) == "archer" else "melee")
+	if kind != "sanctify":
+		var enemy_armor := enemy_defense_for_style(enemy, float(passive_bonus.get("armorPen", 0)), ability_style)
+		var ability_multiplier := float(passive_bonus.get("meteorMult", 1.0)) * float(passive_bonus.get("spellMult", 1.0)) if kind == "meteor" else float(passive_bonus.get("dmgMult", 1.0))
+		damage = maxi(1, int(floor(float(damage - int(floor(float(enemy_armor) / 2.0))) * ability_multiplier * enemy_damage_multiplier(enemy, ability_style))))
+	else:
+		apply_effect(enemy, "burn")
+	consume_enemy_adaptation(enemy, ability_style)
+	record_player_style(combat, ability_style)
+	var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
+	enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
+	var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
+	var lines := ["%s: %d урона." % [str(ability.name), damage]]
+	if lifesteal_healed > 0:
+		lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
+	lines.append_array(_update_boss_phase(enemy))
+	if kind == "meteor":
+		apply_effect(enemy, "burn")
+	elif kind == "sanctify":
+		lines.append("Освящение накладывает ожог.")
+	if kind == "poison_strike":
+		lines.append("Противник отравлен.")
+	if kind == "stun":
+		lines.append("Противник оглушён.")
+	combat["enemy"] = enemy
+	combat["log"] = "\n".join(lines)
+	if int(enemy.hp) <= 0:
+		combat["over"] = true
+		combat["turn"] = "over"
+		combat["result"] = "victory"
+		enemy["dead"] = true
+		enemy["state"] = "dead"
+		combat["log"] += "\n" + _award_victory(world, enemy)
+	else:
+		var tick_lines: Array[String] = []
+		if not _tick_enemy_effects(world, combat, enemy, tick_lines):
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				tick_lines.append(adaptation_message)
+			combat["turn"] = "enemy"
+			var response_lines: Array[String] = []
+			_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+			tick_lines.append_array(response_lines)
+		if not tick_lines.is_empty():
+			combat["log"] += "\n" + "\n".join(tick_lines)
+	combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
 
@@ -459,6 +811,7 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 	hero["mp"] = int(hero.mp) - int(spell.get("cost", 0))
 	var enemy: Dictionary = combat.get("enemy", {})
 	var lines: Array[String] = [str(spell.name)]
+	var non_damage_spell := spell.has("heal") or spell.has("selfDamagePct") or spell.has("selfEffect")
 	if spell.has("heal"):
 		var heal_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 		var restored := mini(int(round(float(spell.heal) * float(heal_bonus.get("healMult", 1.0)))), int(hero.maxHp) - int(hero.hp))
@@ -472,18 +825,39 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		hero["mp"] = mini(int(hero.maxMp), int(hero.mp) + int(spell.get("restoreMp", 0)))
 		lines.append("Здоровье обменено на ману.")
 	elif spell.has("selfEffect"):
-		hero["buffs"].append({"id":"defense_buff","duration":2})
+		apply_effect(hero, "defBuff")
 		lines.append("Защита усилена на 2 хода.")
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
-		var raw_damage := int(spell.get("damage", 0)) + effective_stat(hero, "magic") - int(floor(float(enemy_armor) / 2.0))
-		var damage := maxi(1, int(round(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)))))
-		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
-			damage = int(round(float(damage) * 1.2))
+		var armor_pen := float(passive_bonus.get("armorPen", 0))
+		var enemy_armor := enemy_defense_for_style(enemy, armor_pen, "magic")
+		var matchup_multiplier := enemy_damage_multiplier(enemy, "magic")
+		var raw_damage := int(spell.get("damage", 0)) + int(floor(float(effective_stat(hero, "magic")) / 2.0)) - int(floor(float(enemy_armor) / 2.0))
+		var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)) * matchup_multiplier)))
+		consume_enemy_adaptation(enemy, "magic")
+		record_player_style(combat, "magic")
+		var element := str(spell.get("element", ""))
+		if element == "lightning" and _has_effect(enemy, "slow"):
+			damage = int(floor(float(damage) * 1.2))
 			_remove_effect(enemy, "slow")
+		elif element == "fire" and _has_effect(enemy, "slow"):
+			_remove_effect(enemy, "slow")
+		elif element == "ice" and _has_effect(enemy, "burn"):
+			_remove_effect(enemy, "burn")
+		# Browser combat spells share the weapon critical formula.
+		var attack_index := int(combat.get("playerAttackCount", 0))
+		combat["playerAttackCount"] = attack_index + 1
+		var crit_seed := RandomScript.derive_seed([world.get("seed", 1), "combat-crit", enemy.get("persistentId", ""), attack_index])
+		var crit_rng := RandomScript.new(crit_seed)
+		var is_critical := crit_rng.next_float() < critical_chance(hero)
+		if is_critical:
+			damage = int(floor(float(damage) * clampf(float(passive_bonus.get("critMult", 1.5)), 1.25, 2.5)))
+		var actual_damage := mini(maxi(0, int(enemy.get("hp", 0))), damage)
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - damage)
-		lines.append("Нанесено %d урона." % damage)
+		var lifesteal_healed := _apply_lifesteal(hero, actual_damage)
+		lines.append("Нанесено %d урона.%s" % [damage, " КРИТ!" if is_critical else ""])
+		if lifesteal_healed > 0:
+			lines.append("Кровожадность восстанавливает %d HP." % lifesteal_healed)
 		lines.append_array(_update_boss_phase(enemy))
 		var effect_id := str(spell.get("effect", ""))
 		if not effect_id.is_empty():
@@ -498,12 +872,19 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 			combat["result"] = "victory"
 			lines.append(_award_victory(world, enemy))
 		else:
-			var incoming := maxi(1, int(enemy.get("attack", 1)) - int(floor(float(hero.defense) / 2.0)))
-			hero["hp"] = maxi(1, int(hero.hp) - incoming)
-			lines.append("Противник отвечает: %d урона." % incoming)
-			var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-			if not modifier_message.is_empty():
-				lines.append(modifier_message)
+			if not _tick_enemy_effects(world, combat, enemy, lines):
+				var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+				if not adaptation_message.is_empty():
+					lines.append(adaptation_message)
+				combat["turn"] = "enemy"
+				_resolve_enemy_response(world, combat, hero, enemy, lines)
+	if non_damage_spell:
+		if not _tick_enemy_effects(world, combat, enemy, lines):
+			combat["turn"] = "enemy"
+			var adaptation_message := prepare_enemy_adaptation(combat, enemy)
+			if not adaptation_message.is_empty():
+				lines.append(adaptation_message)
+			_resolve_enemy_response(world, combat, hero, enemy, lines)
 	combat["log"] = "\n".join(lines)
 	world["hero"] = hero
 	return {"ok":true,"message":combat.log,"result":combat.get("result","")}
@@ -544,6 +925,30 @@ static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming:
 	return ""
 
 
+static func _tick_enemy_effects(world: Dictionary, combat: Dictionary, enemy: Dictionary, lines: Array[String]) -> bool:
+	var effect_tick := tick_effects(enemy)
+	if int(effect_tick.damage) > 0:
+		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - int(effect_tick.damage))
+		lines.append("Эффекты наносят противнику %d урона." % int(effect_tick.damage))
+	if int(enemy.get("hp", 0)) <= 0:
+		enemy["hp"] = 0
+		enemy["dead"] = true
+		enemy["state"] = "dead"
+		lines.append(_award_victory(world, enemy))
+		combat["over"] = true
+		combat["result"] = "victory"
+		combat["turn"] = "over"
+		return true
+	return false
+
+
+static func _decrease_cooldowns(hero: Dictionary) -> void:
+	var cooldowns: Dictionary = hero.get("cooldowns", {}) if hero.get("cooldowns", {}) is Dictionary else {}
+	for cooldown_id in cooldowns.keys():
+		cooldowns[cooldown_id] = maxi(0, int(cooldowns.get(cooldown_id, 0)) - 1)
+	hero["cooldowns"] = cooldowns
+
+
 static func _has_effect(target: Dictionary, effect_id: String) -> bool:
 	for effect in target.get("effects", []):
 		if str(effect.get("id", "")) == effect_id:
@@ -559,7 +964,7 @@ static func _remove_effect(target: Dictionary, effect_id: String) -> void:
 
 
 static func select_class(world: Dictionary, class_id: String) -> Dictionary:
-	if not ClassCatalog.CLASSES.has(class_id):
+	if not ClassCatalog.CLASSES.has(class_id) or class_id == "priest":
 		return {"ok":false,"message":"Неизвестный класс."}
 	var current: Dictionary = world.get("hero", {})
 	if bool(current.get("classChosen", false)):
@@ -590,22 +995,95 @@ static func effective_stat(hero: Dictionary, stat: String) -> int:
 			total = int(hero.get("int", hero.get("magic", total))) + int(passive_bonus.get("magFlat", 0))
 		"defense":
 			total = int(floor(float(hero.get("con", total * 2)) / 2.0)) + int(passive_bonus.get("defFlat", 0))
+		"dex":
+			total = int(hero.get("dex", total)) + int(passive_bonus.get("dexFlat", 0))
 	var equipped: Dictionary = hero.get("equipped", {})
-	for instance in equipped.values():
+	for slot in equipped:
+		var instance: Variant = equipped[slot]
 		if instance == null:
 			continue
 		var item_id := str(instance if instance is String else instance.get("id", ""))
 		var item: Dictionary = ItemCatalog.get_item(item_id)
+		if item.is_empty():
+			continue
 		var bonus: Dictionary = item.get("bonus", {}).duplicate(true)
 		if instance is Dictionary:
-			for key in instance.get("bonus", {}):
-				bonus[key] = int(bonus.get(key, 0)) + int(instance.bonus[key])
-		for key in bonus:
-			if str(key) == stat:
-				total += int(bonus[key])
+			var instance_bonus: Variant = instance.get("bonus", {})
+			if instance_bonus is Dictionary:
+				for key in instance_bonus:
+					bonus[key] = instance_bonus[key]
+			var rune_ids: Variant = instance.get("runes", [])
+			if rune_ids is Array:
+				for rune_id in rune_ids:
+					var rune: Dictionary = ItemCatalog.get_item(str(rune_id))
+					var rune_bonus: Variant = rune.get("runeBonus", {})
+					if rune_bonus is Dictionary:
+						for key in rune_bonus:
+							bonus[key] = float(bonus.get(key, 0.0)) + float(rune_bonus[key])
+		match stat:
+			"attack":
+				total += int(bonus.get("attack", 0))
+			"magic":
+				total += int(bonus.get("magic", 0))
+			"defense":
+				# Browser stats use `defense || armor || 0`; a zero defense
+				# value must not mask a non-zero legacy armor alias.
+				var defense_bonus := int(bonus.get("defense", 0))
+				if defense_bonus == 0:
+					defense_bonus = int(bonus.get("armor", 0))
+				total += defense_bonus
+			"dex":
+				total += int(bonus.get("dex", 0))
+		var forge_level := clampi(int(instance.get("forgeLevel", 0)) if instance is Dictionary else 0, 0, FORGE_BONUS.size() - 1)
+		var forge_bonus := int(FORGE_BONUS[forge_level])
+		if forge_bonus > 0:
+			if str(slot) == "weapon" and stat == "attack" and not item.get("bonus", {}).has("magic"):
+				total += forge_bonus
+			elif str(slot) == "weapon" and stat == "magic" and item.get("bonus", {}).has("magic"):
+				total += forge_bonus
+			elif str(slot) == "chest" and stat == "defense":
+				total += forge_bonus
+	# Browser getEffStats applies active flat status bonuses once, alongside equipment and passive bonuses.
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary:
+			continue
+		var effect_data: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
+		match stat:
+			"attack":
+				total += int(effect_data.get("atkFlat", 0))
+			"magic":
+				total += int(effect_data.get("magFlat", 0))
+			"defense":
+				total += int(effect_data.get("defFlat", 0))
 	if stat == "defense":
 		total = int(floor(float(total) * float(passive_bonus.get("defMult", 1.0))))
 	return total
+
+
+static func _effect_multiplier(hero: Dictionary, key: String) -> float:
+	var multiplier := 1.0
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary:
+			continue
+		var effect_data: Dictionary = EFFECTS.get(str(effect.get("id", "")), {})
+		if effect_data.has(key):
+			multiplier *= float(effect_data[key])
+	return multiplier
+
+
+static func _apply_lifesteal(hero: Dictionary, actual_damage: int) -> int:
+	if actual_damage <= 0:
+		return 0
+	var healed := 0
+	for effect in hero.get("effects", []):
+		if not effect is Dictionary or str(effect.get("id", "")) != "lifesteal":
+			continue
+		var percentage := clampf(float(EFFECTS.get("lifesteal", {}).get("lifestealPct", 0.0)), 0.0, 1.0)
+		healed = mini(maxi(0, int(hero.get("maxHp", 0)) - int(hero.get("hp", 0))), int(floor(float(actual_damage) * percentage)))
+		hero["hp"] = int(hero.get("hp", 0)) + healed
+		break
+	return healed
+
 
 static func add_item(hero: Dictionary, item_id: String, quantity: int = 1, rarity: String = "") -> bool:
 	var item := ItemCatalog.get_item(item_id)

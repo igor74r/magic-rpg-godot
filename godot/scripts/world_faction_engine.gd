@@ -18,6 +18,57 @@ static func create_state() -> Dictionary:
 		reputation[faction_id] = 0
 	return {"schemaVersion":1,"reputation":reputation,"changeLog":[]}
 
+static func _normalize_reputation(value: Variant) -> int:
+	# Match Number(value) + Math.round() in the browser save normalizer.
+	var numeric := 0.0
+	if value is bool:
+		numeric = 1.0 if value else 0.0
+	elif value is int or value is float:
+		numeric = float(value)
+	elif value is String:
+		numeric = _number_from_string(str(value))
+	elif value == null:
+		numeric = 0.0
+	if not is_finite(numeric):
+		return 0
+	var bounded := clampf(numeric, float(MIN_REPUTATION), float(MAX_REPUTATION))
+	# JavaScript Math.round(-1.5) is -1 (ties move toward +infinity).
+	return int(floor(bounded + 0.5))
+
+# Match JavaScript Number(string), including whitespace and radix-prefixed
+# integer forms used by legacy browser saves.
+static func _number_from_string(value: String) -> float:
+	var text := value.strip_edges()
+	if text.is_empty():
+		return 0.0
+	var radix := 0
+	if text.begins_with("0x") or text.begins_with("0X"):
+		radix = 16
+	elif text.begins_with("0b") or text.begins_with("0B"):
+		radix = 2
+	elif text.begins_with("0o") or text.begins_with("0O"):
+		radix = 8
+	if radix > 0:
+		if text.length() <= 2:
+			return NAN
+		var result := 0.0
+		for index in range(2, text.length()):
+			var codepoint := text.unicode_at(index)
+			var digit := -1
+			if codepoint >= 48 and codepoint <= 57:
+				digit = codepoint - 48
+			elif codepoint >= 65 and codepoint <= 70:
+				digit = codepoint - 55
+			elif codepoint >= 97 and codepoint <= 102:
+				digit = codepoint - 87
+			if digit < 0 or digit >= radix:
+				return NAN
+			result = result * float(radix) + float(digit)
+		return result
+	return text.to_float() if text.is_valid_float() else NAN
+
+
+
 static func ensure_state(world: Dictionary) -> Dictionary:
 	var state: Variant = world.get("factions", {})
 	if not state is Dictionary:
@@ -27,14 +78,13 @@ static func ensure_state(world: Dictionary) -> Dictionary:
 		reputation = {}
 	var clean := {}
 	for faction_id in FACTIONS:
-		clean[faction_id] = clampi(int(reputation.get(faction_id, 0)), MIN_REPUTATION, MAX_REPUTATION)
+		clean[faction_id] = _normalize_reputation(reputation.get(faction_id, 0))
 	var log: Variant = state.get("changeLog", [])
 	if not log is Array:
 		log = []
-	var clean_log: Array = []
-	for entry in log:
-		if entry is Dictionary and FACTIONS.has(str(entry.get("factionId", ""))):
-			clean_log.append(entry.duplicate(true))
+	# Browser ensureFactionState preserves arbitrary legacy log entries and
+	# only trims the history length; keep that lossless behavior here too.
+	var clean_log: Array = log.duplicate(true)
 	if clean_log.size() > LOG_LIMIT:
 		clean_log = clean_log.slice(clean_log.size() - LOG_LIMIT)
 	var normalized := {"schemaVersion":1,"reputation":clean,"changeLog":clean_log}
@@ -54,11 +104,13 @@ static func get_reputation(world: Dictionary, faction_id: String) -> int:
 	if not FACTIONS.has(faction_id): return 0
 	return int(ensure_state(world).reputation.get(faction_id, 0))
 
-static func change_reputation(world: Dictionary, faction_id: String, amount: int, reason: String = "unknown", source: String = "system") -> Dictionary:
-	if not FACTIONS.has(faction_id) or amount == 0: return {}
+static func change_reputation(world: Dictionary, faction_id: String, amount: float, reason: String = "unknown", source: String = "system") -> Dictionary:
+	# Browser changeFactionReputation accepts any finite numeric delta and
+	# rounds the combined reputation with JavaScript Math.round semantics.
+	if not FACTIONS.has(faction_id) or not is_finite(amount) or amount == 0.0: return {}
 	var state := ensure_state(world)
 	var previous := int(state.reputation[faction_id])
-	var value := clampi(previous + amount, MIN_REPUTATION, MAX_REPUTATION)
+	var value := _normalize_reputation(float(previous) + amount)
 	var delta := value - previous
 	if delta != 0:
 		state.reputation[faction_id] = value

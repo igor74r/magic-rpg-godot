@@ -5,6 +5,7 @@ const SAVE_VERSION := 18
 const PREVIOUS_SAVE_VERSION := 17
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const WorldCampaignCatalogScript = preload("res://godot/scripts/world_campaign_catalog.gd")
+const WorldFactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
 const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 
 
@@ -39,7 +40,22 @@ static func _write_json_atomically(path: String, serialized: String) -> Error:
 	var absolute_backup := ProjectSettings.globalize_path(backup_path)
 	var had_previous := FileAccess.file_exists(path)
 	if FileAccess.file_exists(backup_path):
-		DirAccess.remove_absolute(absolute_backup)
+		if not had_previous or _read_slot_payload(path).is_empty():
+			# A previous interrupted write may have left the only valid save in
+			# .bak. Prefer that validated copy when the primary is missing or
+			# malformed; never discard it merely because a primary path exists.
+			if had_previous:
+				var remove_error := DirAccess.remove_absolute(absolute_path)
+				if remove_error != OK:
+					DirAccess.remove_absolute(absolute_temporary)
+					return remove_error
+			var recovery_error := DirAccess.rename_absolute(absolute_backup, absolute_path)
+			if recovery_error != OK:
+				DirAccess.remove_absolute(absolute_temporary)
+				return recovery_error
+			had_previous = true
+		else:
+			DirAccess.remove_absolute(absolute_backup)
 	if had_previous:
 		var backup_error := DirAccess.rename_absolute(absolute_path, absolute_backup)
 		if backup_error != OK:
@@ -99,10 +115,32 @@ static func _read_slot_payload(path: String) -> Dictionary:
 
 static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var migrated: Dictionary = payload.duplicate(true)
-	var version_value: Variant = migrated.get("version", -1)
-	if not version_value is int:
+	var version_value: Variant = migrated.get("version", 0)
+	var version_number := 0.0
+	if version_value is bool:
 		return {}
-	var version := int(version_value)
+	elif version_value is int or version_value is float:
+		version_number = float(version_value)
+	elif version_value is String:
+		var version_text := str(version_value).strip_edges()
+		if not version_text.is_empty():
+			# JavaScript Number() also accepts hexadecimal integer strings.
+			# Preserve that browser behavior before falling back to decimal floats.
+			if version_text.is_valid_hex_number(true):
+				# JavaScript Number("0x11") parses hexadecimal legacy versions.
+				version_number = float(version_text.hex_to_int())
+			elif version_text.is_valid_int():
+				version_number = float(version_text.to_int())
+			elif version_text.is_valid_float():
+				version_number = version_text.to_float()
+			else:
+				return {}
+	elif version_value != null:
+		return {}
+	if not is_finite(version_number) or version_number < 0.0 or version_number != floor(version_number) or version_number > 9007199254740991.0:
+		return {}
+	var version := int(version_number)
+	migrated["version"] = version
 	var hero_key := "player" if migrated.get("player", null) is Dictionary else "hero"
 	var hero_value: Variant = migrated.get(hero_key, null)
 	# A version marker alone is not a save. Reject payloads without a valid
@@ -110,6 +148,36 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	if not hero_value is Dictionary:
 		return {}
 	if version == SAVE_VERSION:
+		# Browser v18 saves still pass through the runtime normalizers on every
+		# load. Do the same here: an existing v18 payload is not a reason to
+		# skip world, faction, campaign-branch, XP, or NG+ normalization.
+		var current_hero: Dictionary = hero_value
+		var has_world_state := migrated.get("world", null) is Dictionary
+		var seed_candidate: Variant = migrated.get("worldSeed", null)
+		var seed_fallback := int(seed_candidate) if (seed_candidate is int or seed_candidate is float) and is_finite(float(seed_candidate)) else 0
+		if seed_fallback <= 0:
+			var current_world_value: Variant = migrated.get("world", null)
+			if current_world_value is Dictionary:
+				var current_world_seed: Variant = current_world_value.get("seed", null)
+				if (current_world_seed is int or current_world_seed is float) and is_finite(float(current_world_seed)):
+					seed_fallback = int(current_world_seed)
+		if seed_fallback <= 0:
+			var current_location: Variant = migrated.get("location", "village")
+			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
+		var current_world: Dictionary = migrated.world.duplicate(true) if has_world_state else WorldStateScript.create(seed_fallback, true)
+		var normalized_world := WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
+		migrated["world"] = normalized_world
+		# Browser ensureWorldState always mirrors the normalized world identity
+		# back to the save envelope. Keep v18 exports valid when imported saves
+		# contain stale root-level seed/generator metadata.
+		migrated["worldSeed"] = int(normalized_world.get("seed", seed_fallback))
+		migrated["worldGeneratorVersion"] = int(normalized_world.get("generatorVersion", 1))
+		WorldFactionEngineScript.ensure_state(migrated)
+		_normalize_campaign_branches(current_hero)
+		_rebase_legacy_experience(current_hero)
+		if not _is_safe_integer(current_hero.get("ngPlus", null)) or int(current_hero.get("ngPlus", 0)) < 0:
+			current_hero["ngPlus"] = 0
+		migrated[hero_key] = current_hero
 		return migrated
 	if version < 0 or version > PREVIOUS_SAVE_VERSION:
 		return {}
@@ -132,38 +200,32 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	if not hero.get("towerBest", 0) is int: hero["towerBest"] = 0
 	if not hero.get("riftBest", 0) is int: hero["riftBest"] = 0
 
-	var source_seed := int(migrated.get("worldSeed", 0))
+	var world_seed_value: Variant = migrated.get("worldSeed", null)
+	# JavaScript JSON numbers have one Number type: an integral 9876.0 is
+	# accepted by Number.isSafeInteger just like 9876. Preserve that identity
+	# when Godot's JSON parser represents the same value as a float.
+	var source_seed := int(world_seed_value) if _is_safe_integer(world_seed_value) else 0
 	if source_seed < 1 or source_seed > 4294967295:
-		source_seed = _derive_legacy_world_seed(hero, str(migrated.get("location", "village")))
+		var location_value: Variant = migrated.get("location", "village")
+		var legacy_location := location_value if location_value is String else "village"
+		source_seed = _derive_legacy_world_seed(hero, legacy_location)
 	migrated["worldSeed"] = source_seed
 	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
-	migrated["worldGeneratorVersion"] = int(generator_value) if generator_value is int and int(generator_value) >= 1 else 1
+	migrated["worldGeneratorVersion"] = int(generator_value) if _is_safe_integer(generator_value) and int(generator_value) >= 1 else 1
 
 	var world_value: Variant = migrated.get("world", null)
 	var world: Dictionary = WorldStateScript.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
 	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
 
-	var factions_value: Variant = migrated.get("factions", null)
-	var factions: Dictionary = factions_value.duplicate(true) if factions_value is Dictionary else {}
-	var reputation_value: Variant = factions.get("reputation", {})
-	var reputation: Dictionary = reputation_value.duplicate(true) if reputation_value is Dictionary else {}
-	for faction_id in ["hub-guardians", "rift-cult", "free-traders", "ash-nomads"]:
-		var reputation_number := float(reputation.get(faction_id, 0))
-		reputation[faction_id] = clampi(roundi(reputation_number), -100, 100) if is_finite(reputation_number) else 0
-	factions["schemaVersion"] = 1
-	factions["reputation"] = reputation
-	var log_value: Variant = factions.get("changeLog", [])
-	var change_log: Array = log_value.duplicate(true) if log_value is Array else []
-	if change_log.size() > 50:
-		change_log = change_log.slice(change_log.size() - 50)
-	factions["changeLog"] = change_log
-	migrated["factions"] = factions
+	# Reuse the runtime normalizer so imported legacy saves and live world state
+	# share Number/Math.round coercion, bounds, and change-log filtering.
+	WorldFactionEngineScript.ensure_state(migrated)
 
 	_normalize_campaign_branches(hero)
 	migrated[hero_key] = hero
 	_rebase_legacy_experience(hero)
-	if not hero.get("ngPlus", null) is int or int(hero.get("ngPlus", 0)) < 0:
+	if not _is_safe_integer(hero.get("ngPlus", null)) or int(hero.get("ngPlus", 0)) < 0:
 		hero["ngPlus"] = 0
 	migrated[hero_key] = hero
 	migrated["version"] = SAVE_VERSION
@@ -193,7 +255,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	if float(player.luck) < 0.0 or float(player.luck) > 100.0:
 		return false
 	for key in ["exp", "statPoints", "passivePoints", "level", "ngPlus", "gold"]:
-		if not player.get(key, null) is int:
+		if not _is_safe_integer(player.get(key, null)):
 			return false
 	if int(player.exp) < 0 or int(player.statPoints) < 0 or int(player.passivePoints) < 0 or int(player.level) < 1 or int(player.level) > 100 or int(player.ngPlus) < 0 or int(player.gold) < 0:
 		return false
@@ -206,7 +268,7 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	for item in player.inventory:
 		if not item is Dictionary or not item.get("id", null) is String or str(item.id).strip_edges().is_empty():
 			return false
-		if item.has("qty") and (not item.qty is int or int(item.qty) <= 0):
+		if item.has("qty") and item.qty != null and (not _is_safe_integer(item.qty) or int(item.qty) <= 0):
 			return false
 	for spell_id in player.spells:
 		if not spell_id is String:
@@ -220,13 +282,13 @@ static func is_browser_v18_payload(payload: Dictionary) -> bool:
 		return false
 	if not payload.get("storyShards", null) is Dictionary or not payload.get("storyDragons", null) is Dictionary:
 		return false
-	if not payload.get("worldSeed", null) is int or int(payload.worldSeed) < 1 or int(payload.worldSeed) > 4294967295:
+	if not _is_safe_integer(payload.get("worldSeed", null)) or int(payload.worldSeed) < 1 or int(payload.worldSeed) > 4294967295:
 		return false
 	if payload.get("worldGeneratorVersion", null) != 1:
 		return false
-	if not world.get("seed", null) is int or int(world.seed) <= 0:
+	if not _is_safe_integer(world.get("seed", null)) or int(world.seed) < 1:
 		return false
-	if not world.get("generatorVersion", null) is int or int(world.generatorVersion) < 0:
+	if not _is_safe_integer(world.get("generatorVersion", null)) or int(world.generatorVersion) < 0:
 		return false
 	if not world.get("discoveredRegions", null) is Array or not world.get("unlockedRoutes", null) is Array:
 		return false
@@ -241,9 +303,15 @@ static func import_browser_save(slot: int, serialized: String) -> Error:
 	if slot < 1 or slot > 3:
 		return ERR_INVALID_PARAMETER
 	var parsed: Variant = JSON.parse_string(serialized)
-	if not parsed is Dictionary or not is_browser_v18_payload(parsed):
+	if not parsed is Dictionary:
 		return ERR_INVALID_DATA
-	return save_slot(slot, parsed)
+	# Import through the same sequential migration pipeline used by native
+	# slots. Older browser saves are accepted only if migration produces a
+	# complete, validated v18 browser contract; unknown fields remain intact.
+	var migrated := migrate_payload(parsed)
+	if migrated.is_empty() or not is_browser_v18_payload(migrated):
+		return ERR_INVALID_DATA
+	return save_slot(slot, migrated)
 
 
 static func export_browser_save(slot: int) -> String:
@@ -256,6 +324,15 @@ static func export_browser_save(slot: int) -> String:
 static func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
 
+static func _is_safe_integer(value: Variant) -> bool:
+	if value is int:
+		return int(value) >= -9007199254740991 and int(value) <= 9007199254740991
+	if value is float:
+		var number := float(value)
+		return is_finite(number) and number >= -9007199254740991.0 and number <= 9007199254740991.0 and floor(number) == number
+	return false
+
+
 static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int:
 	var source := "%d|%s|%s|%s" % [
 		int(hero.get("createdAt", 0)) if hero.get("createdAt", 0) is int else 0,
@@ -264,8 +341,12 @@ static func _derive_legacy_world_seed(hero: Dictionary, location: String) -> int
 		location if not location.is_empty() else "village"
 	]
 	var hash_value: int = 2166136261
-	for index in range(source.length()):
-		hash_value = int((hash_value ^ source.unicode_at(index)) * 16777619) & 0xffffffff
+	# Browser save.js hashes JavaScript UTF-16 code units (charCodeAt), not
+	# Unicode scalar values. Iterate the same 16-bit units so names containing
+	# supplementary characters produce exactly the same world seed in Godot.
+	var utf16 := source.to_utf16_buffer()
+	for byte_offset in range(0, utf16.size(), 2):
+		hash_value = int((hash_value ^ utf16.decode_u16(byte_offset)) * 16777619) & 0xffffffff
 	return hash_value if hash_value != 0 else 1
 
 
@@ -308,15 +389,17 @@ static func _campaign_branch_for_mission(mission_id: String) -> String:
 
 
 static func _rebase_legacy_experience(hero: Dictionary) -> void:
+	# Browser Number.isSafeInteger accepts JSON values such as 12.0; Godot's
+	# JSON parser may expose those as floats, so use the shared parity helper.
 	var level_value: Variant = hero.get("level", null)
-	if not level_value is int or int(level_value) < 1 or int(level_value) >= 100:
+	if not _is_safe_integer(level_value) or int(level_value) < 1 or int(level_value) >= 100:
 		return
 	var level := int(level_value)
 	var next_exp := _experience_to_next_level(level)
 	var previous_next_value: Variant = hero.get("expNext", null)
-	var previous_next := int(previous_next_value) if previous_next_value is int and int(previous_next_value) > 0 else int(floor(100.0 * pow(float(level), 1.6)))
+	var previous_next := int(previous_next_value) if _is_safe_integer(previous_next_value) and int(previous_next_value) > 0 else int(floor(100.0 * pow(float(level), 1.6)))
 	var previous_exp_value: Variant = hero.get("exp", 0)
-	var previous_exp := int(previous_exp_value) if previous_exp_value is int and int(previous_exp_value) >= 0 else 0
+	var previous_exp := int(previous_exp_value) if _is_safe_integer(previous_exp_value) and int(previous_exp_value) >= 0 else 0
 	if previous_next != next_exp:
 		var progress := minf(1.0, float(previous_exp) / float(previous_next)) if previous_next > 0 else 0.0
 		hero["exp"] = mini(next_exp - 1, int(floor(progress * next_exp)))

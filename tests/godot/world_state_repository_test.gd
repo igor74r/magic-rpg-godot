@@ -52,7 +52,7 @@ func _run() -> void:
 			"unlockedRoutes": [], "currentRegionId": "forest",
 			"browserWorldExtension": {"keep": 77}
 		},
-		"factions": {"reputation": {"wardens": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
+		"factions": {"reputation": {"hub-guardians": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
 		"browserRootExtension": {"opaque": "preserve"}
 	}
 	var native_world := Repository.from_browser_payload(browser_payload)
@@ -66,7 +66,7 @@ func _run() -> void:
 			failures.append("browser world seed and exploration position must map into native world")
 		if str(native_world.get("location", "")) != "camp" or native_world.get("hero", {}).get("craftingJobs", []).size() != 1:
 			failures.append("camp location and pending crafting orders must survive browser save import")
-		if int(native_world.get("factions", {}).get("reputation", {}).get("wardens", 0)) != 35:
+		if int(native_world.get("factions", {}).get("reputation", {}).get("hub-guardians", 0)) != 35:
 			failures.append("browser faction reputation must remain available in native state")
 		if not bool(native_world.get("storyShards", {}).get("flame", false)):
 			failures.append("browser story shard progress must map into native state")
@@ -154,6 +154,43 @@ func _run() -> void:
 		failures.append("corrupt primary must recover the last valid backup")
 	if not FileAccess.file_exists(path) or not Repository._read_dictionary(path).has("clockMinutes"):
 		failures.append("recovery must restore a valid primary save")
+
+	# The next atomic save must preserve a backup-only world instead of
+	# deleting the only recoverable copy when rotating the primary file.
+	var backup_only := original.duplicate(true)
+	backup_only["clockMinutes"] = 246
+	var backup_only_file := FileAccess.open(backup_path, FileAccess.WRITE)
+	if backup_only_file != null:
+		backup_only_file.store_string(JSON.stringify(backup_only))
+		backup_only_file.close()
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var replacement_world := WorldState.create(777777)
+	replacement_world["clockMinutes"] = 369
+	if Repository.save_world(replacement_world) != OK:
+		failures.append("world save must replace a backup-only snapshot without losing recoverability")
+	var replaced_backup_only := Repository.load_world()
+	if int(replaced_backup_only.get("seed", 0)) != 777777 or float(replaced_backup_only.get("clockMinutes", -1)) != 369.0:
+		failures.append("world save must install the new snapshot after recovering a backup-only file")
+
+	# A corrupt primary must not cause the last valid backup to be discarded.
+	var corrupt_primary := FileAccess.open(path, FileAccess.WRITE)
+	if corrupt_primary != null:
+		corrupt_primary.store_string("{broken json")
+		corrupt_primary.close()
+	var valid_backup := original.duplicate(true)
+	valid_backup["clockMinutes"] = 492
+	var valid_backup_file := FileAccess.open(backup_path, FileAccess.WRITE)
+	if valid_backup_file != null:
+		valid_backup_file.store_string(JSON.stringify(valid_backup))
+		valid_backup_file.close()
+	var next_world := WorldState.create(888888)
+	next_world["clockMinutes"] = 615
+	if Repository.save_world(next_world) != OK:
+		failures.append("world save must recover a valid backup before replacing a corrupt primary")
+	var replaced_corrupt_primary := Repository.load_world()
+	if int(replaced_corrupt_primary.get("seed", 0)) != 888888 or float(replaced_corrupt_primary.get("clockMinutes", -1)) != 615.0:
+		failures.append("world save must install the new snapshot after recovering from a corrupt primary")
 
 	for candidate in [path, backup_path, temporary_path]:
 		if FileAccess.file_exists(candidate):

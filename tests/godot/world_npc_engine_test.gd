@@ -5,6 +5,42 @@ const WorldState = preload("res://godot/scripts/world_state.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	# Browser parity: well cooldown is stored in hero.stats in milliseconds
+	# and becomes available only after strictly more than 24 hours.
+	var well_world := WorldState.create(20261127)
+	well_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":0,"inventory":[],"stats":{"lastWellUse":1000000}}
+	var exact_cooldown := Npc.use_well(well_world, 1000000 + 86400000)
+	if bool(exact_cooldown.get("ok", true)) or int(well_world.hero.hp) != 10:
+		failures.append("well must remain unavailable at exactly 24 hours, matching the browser's strict greater-than cooldown")
+	var elapsed_cooldown := Npc.use_well(well_world, 1000000 + 86400001)
+	if not bool(elapsed_cooldown.get("ok", false)) or int(well_world.hero.hp) != 100 or int(well_world.hero.mp) != 50:
+		failures.append("well must restore mage health and mana after more than 24 hours")
+	if int(well_world.hero.stats.get("lastWellUse", 0)) != 87400001 or well_world.hero.has("lastWellUse"):
+		failures.append("well use must persist the browser-compatible stats.lastWellUse millisecond timestamp")
+	var legacy_well_world := WorldState.create(20261128)
+	legacy_well_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":0,"inventory":[],"lastWellUse":1000}
+	var legacy_cooldown := Npc.use_well(legacy_well_world, 1000 * 1000 + 86400000)
+	if bool(legacy_cooldown.get("ok", true)):
+		failures.append("legacy native seconds cooldown must be read during migration without granting an early well use")
+	# Browser parity: petting the village cat grants one battle of +5% critical chance.
+	var cat_world := WorldState.create(20261130)
+	cat_world["hero"] = {"level":1,"gold":0,"inventory":[],"buffs":[]}
+	var cat_blessing := Npc.pet_cat(cat_world)
+	if not bool(cat_blessing.get("ok", false)) or cat_world.hero.buffs.size() != 1 or str(cat_world.hero.buffs[0].get("id","")) != "catLuck" or int(cat_world.hero.buffs[0].get("duration",0)) != 1:
+		failures.append("petting the cat must grant the browser-compatible one-battle catLuck buff")
+	var repeated_cat_blessing := Npc.pet_cat(cat_world)
+	if bool(repeated_cat_blessing.get("ok", true)) or cat_world.hero.buffs.size() != 1:
+		failures.append("catLuck must not be stacked by repeatedly petting the cat")
+	var already_lucky_world := WorldState.create(20261131)
+	already_lucky_world["hero"] = {"level":1,"gold":0,"inventory":[],"buffs":[{"id":"catLuck","duration":1}]}
+	if bool(Npc.pet_cat(already_lucky_world).get("ok", true)) or already_lucky_world.hero.buffs.size() != 1:
+		failures.append("an existing active catLuck buff must prevent a duplicate cat blessing")
+
+	var warrior_well_world := WorldState.create(20261129)
+	warrior_well_world["hero"] = {"level":1,"class":"warrior","hp":10,"maxHp":100,"mp":0,"maxMp":50,"gold":0,"inventory":[],"stats":{}}
+	var warrior_well := Npc.use_well(warrior_well_world, 90000001)
+	if not bool(warrior_well.get("ok", false)) or int(warrior_well_world.hero.hp) != 100 or int(warrior_well_world.hero.mp) != 0:
+		failures.append("well must preserve warrior rage instead of restoring mana")
 	var world := WorldState.create(20261108)
 	world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
 	var crafted := Npc.craft(world,"r-briar-court-mantle","blacksmith")
@@ -104,6 +140,19 @@ func _initialize() -> void:
 	preview_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
 	if Npc.get_buy_price(preview_world, "iron-sword") != 38:
 		failures.append("shop preview must include act scaling and allied trader discount")
+
+	var rounded_trader_world := WorldState.create(20261125)
+	rounded_trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
+	rounded_trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":29.6}}
+	var rounded_trader_buy := Npc.buy_item(rounded_trader_world, "iron-sword")
+	if not bool(rounded_trader_buy.get("ok", false)) or not is_equal_approx(float(rounded_trader_buy.get("discount", -1.0)), 0.05) or int(rounded_trader_buy.get("price", 0)) != 43:
+		failures.append("purchase result must use browser-rounded reputation when crossing the +30 trader discount threshold")
+	var next_trader_world := WorldState.create(20261126)
+	next_trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
+	next_trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":69.6}}
+	var next_trader_buy := Npc.buy_item(next_trader_world, "iron-sword")
+	if not bool(next_trader_buy.get("ok", false)) or not is_equal_approx(float(next_trader_buy.get("discount", -1.0)), 0.10) or int(next_trader_buy.get("price", 0)) != 41:
+		failures.append("purchase result must use browser-rounded reputation when crossing the +70 trader discount threshold")
 	var sell_world := WorldState.create(20261111)
 	sell_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var sold := Npc.sell_item(sell_world,0)
@@ -111,6 +160,12 @@ func _initialize() -> void:
 		failures.append("uncommon equipment sale must use rarity price and the 35 percent act-one rate")
 	if int(sell_world.hero.get("gold",0)) != 8 or int(sell_world.hero.get("stats",{}).get("goldEarned",0)) != 8:
 		failures.append("sale must update spendable gold and lifetime-earned gold atomically")
+	var bulk_sell_world := WorldState.create(20261124)
+	bulk_sell_world["hero"] = {"level":1,"gold":20,"inventory":[{"id":"health-potion","qty":1,"rarity":"common"},{"id":"iron-sword","qty":1,"rarity":"common"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
+	var bulk_expected := Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[0]) + Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[1])
+	var bulk_sale := Npc.sell_items(bulk_sell_world, [1,0,1])
+	if not bool(bulk_sale.get("ok",false)) or int(bulk_sale.get("count",0)) != 2 or int(bulk_sale.get("total",0)) != bulk_expected or not bulk_sell_world.hero.inventory.is_empty():
+		failures.append("bulk sale must deduplicate selected indices, process original slots safely, and credit the combined value")
 	var base_item: Dictionary = preload("res://godot/scripts/world_item_catalog.gd").get_item("iron-sword")
 	var legacy_price := Npc.get_sell_price(sell_world, {"id":"iron-sword","qty":1})
 	var expected_legacy_price := int(floor(float(base_item.get("price", 0)) * 0.35))
@@ -136,6 +191,15 @@ func _initialize() -> void:
 	var buyback := Npc.buyback_item(confirmation_world, 0)
 	if not bool(buyback.get("ok", false)) or confirmation_world.hero.inventory.size() != 1 or int(confirmation_world.hero.gold) != 100 + int(confirmed_sale.price) - buyback_price:
 		failures.append("same-day buyback must restore the item and charge the 20 percent markup")
+	var rarity_filter_world := WorldState.create(20261123)
+	rarity_filter_world["hero"] = {"level":1,"gold":1000,"inventory":[],"buyback":[
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"common"}},
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"mythic"}},
+		{"soldAt":"test-day","price":10,"item":{"id":"iron-sword","qty":1,"rarity":"unknown"}}
+	],"campaignClaimed":{},"equipped":{}}
+	var filtered_buybacks := Npc.get_buyback_items(rarity_filter_world, "test-day")
+	if filtered_buybacks.size() != 1 or str(filtered_buybacks[0].item.get("rarity","")) != "common":
+		failures.append("buyback must reject mythic and unknown rarity records just like the browser validator")
 	var act_five_world := WorldState.create(20261117)
 	var claimed_missions: Dictionary = {}
 	for mission in preload("res://godot/scripts/world_campaign_catalog.gd").all_missions():
@@ -165,8 +229,44 @@ func _initialize() -> void:
 	quest_sale_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"old-archive-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
 	if bool(Npc.sell_item(quest_sale_world,0).get("ok",true)):
 		failures.append("quest items must remain unsellable")
+	var reforge_world := WorldState.create(20261132)
+	reforge_world["hero"] = {"level":1,"gold":0,"inventory":[
+		{"id":"iron-sword","qty":1,"rarity":"rare","bonus":{"attack":20},"sockets":2,"runes":["rune-ember"],"forgeLevel":2,"upgradePercent":0.1},
+		{"id":"ember-core","qty":1}
+	],"equipped":{}}
+	var reforge_check := Npc.can_reforge_item(reforge_world, 0)
+	if not bool(reforge_check.get("ok", false)) or int(reforge_check.get("tier", 0)) != 3 or str(reforge_check.get("cost", {}).get("id", "")) != "ember-core":
+		failures.append("rare equipment reforge must require one Ember Core")
+	var reforge_result := Npc.reforge_item(reforge_world, 0)
+	var reforged_inventory: Array = reforge_world.hero.inventory
+	if not bool(reforge_result.get("ok", false)) or reforged_inventory.size() != 1 or str(reforged_inventory[0].get("id", "")) != "iron-sword":
+		failures.append("successful reforge must replace the original equipment without changing its inventory slot")
+	else:
+		var reforged: Dictionary = reforged_inventory[0]
+		if str(reforged.get("rarity", "")) != "rare" or int(reforged.get("sockets", 0)) != 2 or reforged.get("runes", []) != ["rune-ember"] or int(reforged.get("forgeLevel", 0)) != 2 or not is_equal_approx(float(reforged.get("upgradePercent", 0.0)), 0.1):
+			failures.append("reforge must preserve rarity, sockets, runes, forge level and upgrade percentage")
+		if int(reforged.get("bonus", {}).get("attack", 0)) != 9:
+			failures.append("reforge must recreate canonical item bonuses and reapply the preserved upgrade percentage")
+	var material_before_equipment := WorldState.create(20261135)
+	material_before_equipment["hero"] = {"level":1,"inventory":[
+		{"id":"ember-core","qty":1},
+		{"id":"iron-sword","qty":1,"rarity":"rare"},
+		{"id":"mana-potion","qty":1}
+	],"equipped":{}}
+	var material_first_result := Npc.reforge_item(material_before_equipment, 1)
+	if not bool(material_first_result.get("ok", false)) or material_before_equipment.hero.inventory.size() != 2 or str(material_before_equipment.hero.inventory[0].get("id", "")) != "iron-sword" or str(material_before_equipment.hero.inventory[1].get("id", "")) != "mana-potion":
+		failures.append("reforge must preserve the selected equipment and its browser-compatible relative inventory position when essence precedes it")
+	var insufficient_reforge := WorldState.create(20261133)
+	insufficient_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
+	var insufficient_snapshot: Array = insufficient_reforge.hero.inventory.duplicate(true)
+	if bool(Npc.reforge_item(insufficient_reforge, 0).get("ok", true)) or insufficient_reforge.hero.inventory != insufficient_snapshot:
+		failures.append("reforge without the required Frost Essence must not mutate inventory")
+	var mythic_reforge := WorldState.create(20261134)
+	mythic_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"mythic"}],"equipped":{}}
+	if bool(Npc.can_reforge_item(mythic_reforge, 0).get("ok", true)):
+		failures.append("mythic equipment must remain excluded from reforge")
 	if failures.is_empty():
-		print("PASS: NPC crafting validation, rarity and rollback")
+		print("PASS: NPC crafting, reforge, rarity and rollback")
 		quit(0)
 	else:
 		for failure in failures: push_error(failure)

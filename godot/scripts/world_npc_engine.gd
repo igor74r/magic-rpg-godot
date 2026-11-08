@@ -7,6 +7,7 @@ const Catalog = preload("res://godot/scripts/world_npc_catalog.gd")
 const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
 const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
 const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -26,13 +27,8 @@ static func dialogue_choices(npc_id: String, world: Dictionary) -> Array:
 				{"id":"ruins","label":"Что скрывают Руины?","text":"Там бродит нежить. Скелеты уязвимы, но тёмные рыцари опаснее обычных мертвецов."},
 				{"id":"shadow","label":"Расскажи о Пещере теней","text":"Маги теней бьют издали. Подготовь защиту от магии, прежде чем идти туда."}
 			]
-		"cat":
-			return [{"id":"pet","label":"Погладить кошку","text":"Кошка довольно мурлычет и трётся о вашу руку."}]
-		"kids":
-			return [
-				{"id":"heroes","label":"Рассказать о приключениях","text":"Дети слушают, затаив дыхание. Теперь они мечтают стать искателями приключений."},
-				{"id":"coin","label":"Подарить детям 1 золото","text":"Дети радостно благодарят вас за монетку."}
-			]
+		"cat", "kids":
+			return []
 		"herald":
 			return [
 				{"id":"elite","label":"Спросить об элитных врагах","text":"Элитные противники крепче обычных, но их добыча ценнее."},
@@ -56,12 +52,6 @@ static func choose_dialogue(world: Dictionary, npc_id: String, choice_id: String
 	if selected.is_empty(): return {"ok":false,"message":"Такого варианта диалога нет."}
 	var flags: Dictionary=world.get("npcDialogueFlags",{}) if world.get("npcDialogueFlags",{}) is Dictionary else {}
 	var flag_key: String="%s:%s" % [npc_id,choice_id]
-	if npc_id=="kids" and choice_id=="coin":
-		if bool(flags.get(flag_key,false)): return {"ok":false,"message":"Вы уже подарили детям монетку."}
-		var hero:=hero_for(world)
-		if int(hero.get("gold",0))<1: return {"ok":false,"message":"У вас нет даже одной золотой монеты."}
-		hero["gold"]=int(hero.gold)-1
-		world["hero"]=hero
 	flags[flag_key]=true
 	world["npcDialogueFlags"]=flags
 	return {"ok":true,"message":str(selected.get("text",""))}
@@ -82,17 +72,28 @@ static func heal(world: Dictionary) -> Dictionary:
 	hero["mp"]=int(hero.maxMp)
 	world["hero"]=hero
 	return {"ok":true,"message":"Лекарь Мирра восстановила здоровье и ресурс за 8 золота."}
-static func use_well(world: Dictionary,now: int=-1) -> Dictionary:
-	var hero:=hero_for(world)
-	var current:=int(Time.get_unix_time_from_system()) if now<0 else now
-	var last:=maxi(0,int(hero.get("lastWellUse",0)))
-	if current-last<86400: return {"ok":false,"message":"Колодец снова исцелит через 24 часа."}
-	if int(hero.hp)>=int(hero.maxHp) and (str(hero.get("class",""))=="warrior" or int(hero.mp)>=int(hero.maxMp)): return {"ok":false,"message":"Вы уже полностью здоровы."}
-	hero["hp"]=int(hero.maxHp)
-	if str(hero.get("class",""))!="warrior": hero["mp"]=int(hero.maxMp)
-	hero["lastWellUse"]=current
-	world["hero"]=hero
-	return {"ok":true,"message":"Древний колодец полностью восстановил ваши силы."}
+static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
+	var hero := hero_for(world)
+	var current_ms := int(Time.get_unix_time_from_system() * 1000.0) if now_ms < 0 else now_ms
+	var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+	# Browser saves use hero.stats.lastWellUse in Unix milliseconds. Read the
+	# previous native seconds field once for backwards compatibility with saves
+	# written before this parity fix, then persist only the canonical browser key.
+	var last_ms := maxi(0, int(stats.get("lastWellUse", 0)))
+	if last_ms == 0 and int(hero.get("lastWellUse", 0)) > 0:
+		last_ms = int(hero.get("lastWellUse", 0)) * 1000
+	if current_ms - last_ms <= 86400000:
+		return {"ok": false, "message": "Колодец снова исцелит через 24 часа."}
+	if int(hero.hp) >= int(hero.maxHp) and (str(hero.get("class", "")) == "warrior" or int(hero.mp) >= int(hero.maxMp)):
+		return {"ok": false, "message": "Вы уже полностью здоровы."}
+	hero["hp"] = int(hero.maxHp)
+	if str(hero.get("class", "")) != "warrior":
+		hero["mp"] = int(hero.maxMp)
+	stats["lastWellUse"] = current_ms
+	hero["stats"] = stats
+	hero.erase("lastWellUse")
+	world["hero"] = hero
+	return {"ok": true, "message": "Древний колодец полностью восстановил ваши силы."}
 static func pay_bard(world: Dictionary) -> Dictionary:
 	var hero:=hero_for(world)
 	if has_entry(hero,"bardBuff"): return {"ok":false,"message":"Песня барда уже действует."}
@@ -111,6 +112,16 @@ static func take_blessing(world: Dictionary) -> Dictionary:
 	hero["effects"]=effects
 	world["hero"]=hero
 	return {"ok":true,"message":"Благословение старейшины: +20% опыта на 10 побед."}
+
+static func pet_cat(world: Dictionary) -> Dictionary:
+	var hero := hero_for(world)
+	if has_entry(hero, "catLuck"):
+		return {"ok": false, "message": "Кошка уже принесла вам удачу."}
+	var buffs: Array = hero.get("buffs", [])
+	buffs.append({"id": "catLuck", "duration": 1})
+	hero["buffs"] = buffs
+	world["hero"] = hero
+	return {"ok": true, "message": "Кошка мурчит. Удача с вами! (+5% критического шанса на 1 бой)."}
 static func campaign_action(world: Dictionary,claim_reward: bool=false) -> Dictionary:
 	var hero:=hero_for(world)
 	if not claim_reward:
@@ -245,7 +256,10 @@ static func _valid_buyback_records(hero: Dictionary, today: String = "") -> Arra
 		var price_value: Variant = record.get("price", 0)
 		if item.is_empty() or not price_value is int or int(price_value) <= 0 or qty < 1: continue
 		if str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(item.get("bossOnly", false)): continue
-		if rarity == "mythic" or (not _is_stackable(str(item.get("type", ""))) and qty != 1): continue
+		# Match the browser buyback validator: unknown rarities and boss-only tiers
+		# are never eligible, even when a legacy record otherwise looks valid.
+		if rarity not in ["common", "uncommon", "rare", "epic", "legendary"]: continue
+		if not _is_stackable(str(item.get("type", ""))) and qty != 1: continue
 		valid.append({"recordIndex":index,"item":instance.duplicate(true),"price":int(price_value),"soldAt":date_key})
 	return valid
 
@@ -255,10 +269,7 @@ static func get_buy_price(world: Dictionary, item_id: String) -> int:
  if item.is_empty() or str(item.get("type","")) == "quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return 0
  var hero := hero_for(world)
  var multipliers: Array = [1.0, 1.2, 1.4, 1.6, 1.8]
- var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
- var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
- var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
- var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ var discount := FactionEngine.get_trade_discount(world)
  var base_price := int(item.get("price", 0))
  if base_price <= 0: return 0
  return maxi(1, int(round(float(base_price) * multipliers[current_act(hero) - 1] * (1.0 - discount))))
@@ -288,10 +299,8 @@ static func buy_item(world: Dictionary, item_id: String) -> Dictionary:
  var item := CatalogItem.get_item(item_id)
  var price := get_buy_price(world, item_id)
  if price <= 0: return {"ok":false,"message":"Этот предмет нельзя купить у торговца."}
- var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
- var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
- var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
- var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ # Use the canonical browser-compatible reputation normalization and thresholds.
+ var discount := FactionEngine.get_trade_discount(world)
  var balance := int(hero.get("gold", 0))
  if balance < 0 or balance < price: return {"ok":false,"message":"Недостаточно золота: нужно %d." % price}
  var capacity := _can_add_item(hero, item_id, 1)
@@ -339,6 +348,62 @@ static func sell_item(world: Dictionary, index: int, confirmed: bool = false) ->
  hero["buyback"] = buyback
  world["hero"] = hero
  return {"ok":true,"message":"Продано: %s · +%d золота." % [str(item.get("name", "Предмет")), price],"price":price,"buybackPrice":buyback_price}
+
+# Sell several selected inventory entries as one atomic transaction.
+# Indices refer to the original inventory and are processed from highest to lowest.
+static func sell_items(world: Dictionary, indices: Array, confirmed: bool = false) -> Dictionary:
+ var hero := hero_for(world)
+ var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+ var selected: Array[int] = []
+ for value in indices:
+  if not value is int or int(value) < 0 or int(value) >= inventory.size() or selected.has(int(value)):
+   continue
+  selected.append(int(value))
+ selected.sort()
+ selected.reverse()
+ var candidates: Array[Dictionary] = []
+ var total := 0
+ var high_tier := false
+ for index in selected:
+  var value: Variant = inventory[index]
+  if not value is Dictionary:
+   continue
+  var instance: Dictionary = value
+  var item := CatalogItem.get_item(str(instance.get("id", "")))
+  if item.is_empty() or str(item.get("type", "")) == "quest" or bool(item.get("storyShard", false)) or bool(instance.get("storyShard", false)) or bool(item.get("bossOnly", false)):
+   continue
+  var price := get_sell_price(world, instance)
+  if price <= 0 or total > 2147483647 - price:
+   continue
+  total += price
+  var rarity := str(instance.get("rarity", "common"))
+  if rarity in ["epic", "legendary"]:
+   high_tier = true
+  candidates.append({"index":index,"price":price})
+ if candidates.is_empty() or total <= 0:
+  return {"ok":false,"count":0,"total":0,"message":"Нет предметов, доступных для продажи."}
+ if (high_tier or total > 500) and not confirmed:
+  return {"ok":false,"requiresConfirmation":true,"count":candidates.size(),"total":total,"hasHighTier":high_tier}
+ var previous_inventory: Array = inventory.duplicate(true)
+ var previous_gold: Variant = hero.get("gold", 0)
+ var previous_stats: Dictionary = hero.get("stats", {}).duplicate(true) if hero.get("stats", {}) is Dictionary else {}
+ var previous_buyback: Array = hero.get("buyback", []).duplicate(true) if hero.get("buyback", []) is Array else []
+ var sold_count := 0
+ var actual_total := 0
+ for candidate in candidates:
+  var result := sell_item(world, int(candidate.index), true)
+  if not bool(result.get("ok", false)):
+   hero["inventory"] = previous_inventory
+   hero["gold"] = previous_gold
+   hero["stats"] = previous_stats
+   hero["buyback"] = previous_buyback
+   world["hero"] = hero
+   return {"ok":false,"count":0,"total":0,"message":"Продажа отменена: %s" % str(result.get("message", "ошибка операции"))}
+  sold_count += 1
+  actual_total += int(result.get("price", 0))
+ hero = hero_for(world)
+ return {"ok":true,"count":sold_count,"total":actual_total,"message":"Продано предметов: %d · +%d золота." % [sold_count,actual_total]}
+
 
 static func get_buyback_items(world: Dictionary, today: String = "") -> Array:
  return _valid_buyback_records(hero_for(world), today)
@@ -518,6 +583,109 @@ static func craft(world: Dictionary, recipe_id: String, station: String = "", no
   hero["craftedHighTierByAct"] = crafted_by_act
  world["hero"] = hero
  return {"ok":true,"message":"Создано: %s ×%d." % [str(result_definition.get("name", result_id)), quantity]}
+
+static func can_reforge_item(world: Dictionary, index: int) -> Dictionary:
+	var hero := hero_for(world)
+	var inventory: Array = hero.get("inventory", []) if hero.get("inventory", []) is Array else []
+	if index < 0 or index >= inventory.size() or not inventory[index] is Dictionary:
+		return {"ok":false,"message":"Перековать можно только экипировку из сумки."}
+	var instance: Dictionary = inventory[index]
+	var item_id := str(instance.get("id", ""))
+	var item := CatalogItem.get_item(item_id)
+	if item.is_empty() or not CatalogItem.is_equipment(item_id):
+		return {"ok":false,"message":"Перековать можно только экипировку из сумки."}
+	var rarity := str(instance.get("rarity", "common"))
+	if bool(item.get("storyShard", false)) or str(item.get("type", "")) == "quest" or rarity == "mythic":
+		return {"ok":false,"message":"Этот предмет нельзя перековать."}
+	var rarity_tiers := {"common":1,"uncommon":2,"rare":3,"epic":4,"legendary":5}
+	var tier := int(rarity_tiers.get(rarity, 1))
+	var costs := {
+		1: {"id":"root-fiber","qty":1},
+		2: {"id":"grave-salt","qty":1},
+		3: {"id":"ember-core","qty":1},
+		4: {"id":"frost-essence","qty":2},
+		5: {"id":"void-dust","qty":2}
+	}
+	var cost: Dictionary = costs[tier]
+	var have := 0
+	for entry in inventory:
+		if entry is Dictionary and str(entry.get("id", "")) == str(cost.id):
+			var raw_qty: Variant = entry.get("qty", 1)
+			have += int(raw_qty) if raw_qty is int and int(raw_qty) > 0 else 1
+	if have < int(cost.qty):
+		var material := CatalogItem.get_item(str(cost.id))
+		return {"ok":false,"message":"Для перековки нужно: %s ×%d (есть %d)." % [str(material.get("name", cost.id)), int(cost.qty), have]}
+	return {"ok":true,"cost":cost.duplicate(true),"tier":tier,"itemId":item_id}
+
+
+static func reforge_item(world: Dictionary, index: int) -> Dictionary:
+	var check := can_reforge_item(world, index)
+	if not bool(check.get("ok", false)):
+		return check
+	var hero := hero_for(world)
+	var inventory: Array = hero.get("inventory", [])
+	var snapshot: Array = inventory.duplicate(true)
+	var old: Dictionary = inventory[index]
+	var item_id := str(old.get("id", ""))
+	var rarity := str(old.get("rarity", "common"))
+	var preserved_sockets: Variant = old.get("sockets", CatalogItem.get_item(item_id).get("sockets", 0))
+	var preserved_runes: Array = old.get("runes", []).duplicate(true) if old.get("runes", []) is Array else []
+	var preserved_forge_level := maxi(0, int(old.get("forgeLevel", 0)))
+	var preserved_upgrade_percent := maxf(0.0, float(old.get("upgradePercent", 0.0)))
+	var cost: Dictionary = check.cost
+	# Mark the selected instance while the essence is consumed. The browser
+	# removes the material first, then restores the reforged item at its shifted
+	# original index; tracking the instance preserves that exact ordering.
+	var marker := "__native_reforge_selected_7f3a__"
+	old[marker] = true
+	hero["inventory"] = inventory
+	if not Combat.remove_item(hero, str(cost.id), int(cost.qty)):
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Не удалось списать эссенцию; предметы не изменены."}
+	inventory = hero.get("inventory", [])
+	var selected_index := -1
+	for candidate_index in range(inventory.size()):
+		if inventory[candidate_index] is Dictionary and bool(inventory[candidate_index].get(marker, false)):
+			selected_index = candidate_index
+			inventory[candidate_index].erase(marker)
+			break
+	if selected_index < 0:
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Предмет не найден; материалы возвращены."}
+	inventory.remove_at(selected_index)
+	hero["inventory"] = inventory
+	if not Combat.add_item(hero, item_id, 1, rarity):
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Перековка не удалась; материалы возвращены."}
+	inventory = hero.get("inventory", [])
+	var reforged_index := inventory.size() - 1
+	if reforged_index < 0 or not inventory[reforged_index] is Dictionary:
+		hero["inventory"] = snapshot
+		world["hero"] = hero
+		return {"ok":false,"message":"Не удалось создать предмет; материалы возвращены."}
+	var reforged: Dictionary = inventory[reforged_index]
+	reforged["sockets"] = preserved_sockets
+	reforged["runes"] = preserved_runes
+	reforged["forgeLevel"] = preserved_forge_level
+	reforged["upgradePercent"] = preserved_upgrade_percent
+	if preserved_upgrade_percent > 0.0:
+		var bonus: Dictionary = reforged.get("bonus", {}).duplicate(true) if reforged.get("bonus", {}) is Dictionary else {}
+		for key in bonus:
+			var value: Variant = bonus[key]
+			if value is int or value is float:
+				var scaled := float(value) * (1.0 + preserved_upgrade_percent)
+				bonus[key] = snappedf(scaled, 0.0001) if str(key) in ["dodgeChance","blockChance","blockPower","critChance"] else int(floor(scaled + 0.5))
+		reforged["bonus"] = bonus
+		inventory[reforged_index] = reforged
+	inventory.remove_at(reforged_index)
+	inventory.insert(mini(selected_index, inventory.size()), reforged)
+	hero["inventory"] = inventory
+	world["hero"] = hero
+	return {"ok":true,"message":"Перековано: %s." % str(CatalogItem.get_item(item_id).get("name", item_id))}
+
 
 static func upgrade_equipment(world: Dictionary,slot: String) -> Dictionary:
  var hero:=hero_for(world)

@@ -2,9 +2,12 @@ extends SceneTree
 
 const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
+const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	if Combat.mitigate_incoming_damage(100.0, 20.0) != 76 or Combat.mitigate_incoming_damage(100.0, 0.0) != 100 or Combat.mitigate_incoming_damage(100.0, -20.0) != 100:
+		failures.append("incoming damage mitigation must match the browser 100 / (100 + defense * 1.5) formula and clamp negative defense")
 	var rarity_hero := {"inventory":[{"id":"root-fiber","qty":2}]}
 	if not Combat.add_item(rarity_hero,"root-fiber",1,"rare") or rarity_hero.inventory.size()!=2 or str(rarity_hero.inventory[1].get("rarity",""))!="rare":
 		failures.append("rarity-bearing stack must not merge into an unrarified material stack")
@@ -52,6 +55,61 @@ func _initialize() -> void:
 	Combat.player_attack(world, boss_fight)
 	if not world.regions.forest.defeatedBosses.has("boss-test"):
 		failures.append("boss victory must be persisted permanently")
+	# Browser parity: class critical chance and catLuck affect real attack damage.
+	var crit_hero := {"class":"warrior","level":1,"exp":0,"gold":0,"hp":170,"maxHp":170,"mp":0,"maxMp":100,"str":22,"con":16,"dex":6,"inventory":[],"equipped":{},"buffs":[],"effects":[],"passives":["start"],"talents":[]}
+	var base_crit := Combat.critical_chance(crit_hero)
+	crit_hero["buffs"] = [{"id":"catLuck","duration":1}]
+	var cat_crit := Combat.critical_chance(crit_hero, 0.05)
+	if not is_equal_approx(base_crit, 0.086) or not is_equal_approx(cat_crit, 0.136):
+		failures.append("warrior critical chance must include browser Dexterity scaling and the cat's five-point bonus")
+	var archer_crit_hero := {"class":"archer","dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
+	if not is_equal_approx(Combat.critical_chance(archer_crit_hero), 0.23):
+		failures.append("equipped item base bonuses must be overridden, not double-counted, while Dexterity and critChance both contribute")
+	var equipped_stat_hero := {"class":"warrior","str":18,"int":4,"con":16,"dex":6,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"runes":["rune-ember"]}}}
+	if Combat.effective_stat(equipped_stat_hero, "attack") != 29:
+		failures.append("equipped item bonuses must not be counted twice and rune attack bonuses must be included")
+	var equipped_dex_hero := {"class":"archer","str":12,"int":7,"con":10,"dex":18,"passives":["start"],"talents":[],"equipped":{"weapon":{"id":"hunter-bow","bonus":{"attack":9,"dex":2,"critChance":0.03,"armorPen":1},"runes":[]}}}
+	if Combat.effective_stat(equipped_dex_hero, "dex") != 20:
+		failures.append("equipped Dexterity must contribute to the effective Dexterity stat")
+	var forged_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"armor":5},"forgeLevel":2,"runes":[]}}}
+	if Combat.effective_stat(forged_armor_hero, "defense") != 14:
+		failures.append("effective defense must include browser armor aliases and the chest forge bonus")
+	var aliased_armor_hero := {"class":"warrior","con":10,"passives":["start"],"talents":[],"equipped":{"chest":{"id":"leather-armor","bonus":{"defense":0,"armor":5},"forgeLevel":2,"runes":[]}}}
+	if Combat.effective_stat(aliased_armor_hero, "defense") != 14:
+		failures.append("a zero defense override must fall back to the non-zero browser armor alias")
+	var status_effect_hero := {"class":"warrior","str":18,"con":10,"effects":[{"id":"strength"}],"passives":["start"],"talents":[]}
+	if Combat.effective_stat(status_effect_hero, "attack") != 23:
+		failures.append("browser strength status effect must add five effective attack points")
+	status_effect_hero["effects"] = [{"id":"slow"}]
+	if not is_equal_approx(Combat._effect_multiplier(status_effect_hero, "atkMult"), 0.75):
+		failures.append("browser slow status effect must apply its 0.75 attack multiplier")
+	status_effect_hero["effects"] = [{"id":"defBuff"}]
+	if not is_equal_approx(Combat._effect_multiplier(status_effect_hero, "defMult"), 1.5):
+		failures.append("browser defense status effect must apply its 1.5 defense multiplier")
+	var crit_seed := 1
+	var found_cat_roll := false
+	for candidate_seed in range(1, 100000):
+		var candidate_rng := preload("res://godot/scripts/world_random.gd").new(preload("res://godot/scripts/world_random.gd").derive_seed([candidate_seed, "combat-crit", "cat-crit-test", 0]))
+		var candidate_roll := candidate_rng.next_float()
+		if candidate_roll >= base_crit and candidate_roll < cat_crit:
+			crit_seed = candidate_seed
+			found_cat_roll = true
+			break
+	if not found_cat_roll:
+		failures.append("test seed search must find a deterministic roll inside the cat-only critical chance interval")
+	else:
+		var cat_combat_world := WorldState.create(crit_seed)
+		cat_combat_world["hero"] = crit_hero.duplicate(true)
+		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":30,"maxHp":30,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
+		var cat_fight := Combat.begin(cat_enemy)
+		var cat_damage_seed := preload("res://godot/scripts/world_random.gd").derive_seed([crit_seed, "combat-damage", "cat-crit-test", 0])
+		var cat_damage_rng := preload("res://godot/scripts/world_random.gd").new(cat_damage_seed)
+		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack") + cat_damage_rng.next_int(5)
+		Combat.player_attack(cat_combat_world, cat_fight)
+		if int(cat_enemy.hp) != 30 - int(floor(float(cat_base_damage) * 1.5)):
+			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
+		if not cat_combat_world.hero.buffs.is_empty():
+			failures.append("catLuck must be consumed after victorious combat")
 	var guarded_world := WorldState.create(9912)
 	guarded_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
 	var guarded_hero := Combat.ensure_hero(guarded_world)
@@ -60,16 +118,46 @@ func _initialize() -> void:
 	var guarded_hp_before := int(guarded_hero.hp)
 	Combat.player_attack(guarded_world, guarded_fight)
 	var guarded_damage := guarded_hp_before - int(guarded_hero.hp)
-	var expected_raw := maxi(1, 20 - int(floor(float(Combat.effective_stat(guarded_hero, "defense")) / 2.0)))
+	var expected_raw := Combat._calculate_incoming_damage(guarded_world, guarded_hero, guarded_enemy, 1)
 	var expected_guarded := maxi(1, int(floor(float(expected_raw) * 0.85)))
 	if guarded_damage != expected_guarded:
 		failures.append("allied Hub Guardians must reduce incoming native combat damage by 15 percent")
+
+	var guarded_ability_world := WorldState.create(99121)
+	guarded_ability_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	var guarded_ability_hero := Combat.ensure_hero(guarded_ability_world)
+	var guarded_ability_enemy := {"name":"Удар по способности","persistentId":"enemy-ability-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var guarded_ability_fight := Combat.begin(guarded_ability_enemy)
+	var guarded_ability_hp := int(guarded_ability_hero.hp)
+	Combat.use_ability(guarded_ability_world, guarded_ability_fight, "shield-bash")
+	var ability_raw := Combat._calculate_incoming_damage(guarded_ability_world, guarded_ability_hero, guarded_ability_enemy, 1)
+	if guarded_ability_hp - int(guarded_ability_hero.hp) != maxi(1, int(floor(float(ability_raw) * 0.85))):
+		failures.append("allied Hub Guardians must reduce counterattacks after damaging abilities")
+	var guarded_spell_world := WorldState.create(99122)
+	guarded_spell_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	guarded_spell_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
+	var guarded_spell_hero := Combat.ensure_hero(guarded_spell_world)
+	var guarded_spell_enemy := {"name":"Удар по заклинанию","persistentId":"enemy-spell-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var guarded_spell_fight := Combat.begin(guarded_spell_enemy)
+	var guarded_spell_hp := int(guarded_spell_hero.hp)
+	Combat.cast_spell(guarded_spell_world, guarded_spell_fight, "fireball")
+	var spell_raw := Combat._calculate_incoming_damage(guarded_spell_world, guarded_spell_hero, guarded_spell_enemy, 1)
+	if guarded_spell_hp - int(guarded_spell_hero.hp) != maxi(1, int(floor(float(spell_raw) * 0.85))):
+		failures.append("allied Hub Guardians must reduce counterattacks after damaging spells")
 	var strong := {"name": "Сильный враг", "persistentId": "enemy-strong", "hp": 100, "maxHp": 100, "attack": 999, "defense": 0, "exp": 1, "gold": 1, "boss": false, "dead": false}
 	var loss_fight := Combat.begin(strong)
 	var hp_before := int(world.hero.hp)
 	Combat.player_attack(world, loss_fight)
 	if loss_fight.result != "defeat" or int(world.hero.hp) != 1 or bool(strong.dead):
 		failures.append("defeat must leave enemy alive and hero at one HP")
+	# Enemy damage-over-time effects tick after a player action, before the retaliation.
+	var dot_world := WorldState.create(11201)
+	Combat.select_class(dot_world, "warrior")
+	var dot_enemy := {"name":"Горящий враг","enemyId":"goblin","persistentId":"player-action-dot","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":12,"effects":[{"id":"burn","duration":2}]}
+	var dot_fight := Combat.begin(dot_enemy)
+	Combat.player_attack(dot_world, dot_fight)
+	if int(dot_enemy.effects[0].duration) != 1 or int(dot_enemy.hp) >= 1000 - 8:
+		failures.append("enemy burn must tick once after a successful player attack before retaliation")
 	var poisoned := {"hp": 50, "effects": []}
 	Combat.apply_effect(poisoned, "poison")
 	var poison_tick := Combat.tick_effects(poisoned)
@@ -108,8 +196,85 @@ func _initialize() -> void:
 	var spell_enemy := {"name":"Тестовый враг","persistentId":"enemy-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
 	var spell_fight := Combat.begin(spell_enemy)
 	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
-	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) >= 100:
-		failures.append("mage must cast known spells and spend mana")
+	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) != 65:
+		failures.append("fireball damage must add half effective Intelligence, matching the browser formula, and spend mana")
+	var spell_crit_world := WorldState.create(9921)
+	Combat.select_class(spell_crit_world, "mage")
+	var spell_crit_chance := Combat.critical_chance(spell_crit_world.hero)
+	var spell_crit_seed := 1
+	var spell_crit_found := false
+	for candidate_seed in range(1, 100000):
+		var candidate_rng := preload("res://godot/scripts/world_random.gd").new(preload("res://godot/scripts/world_random.gd").derive_seed([candidate_seed, "combat-crit", "spell-crit-test", 0]))
+		if candidate_rng.next_float() < spell_crit_chance:
+			spell_crit_seed = candidate_seed
+			spell_crit_found = true
+			break
+	if not spell_crit_found:
+		failures.append("test seed search must find a deterministic spell critical roll")
+	else:
+		spell_crit_world["seed"] = spell_crit_seed
+		var spell_crit_enemy := {"name":"Цель критического заклинания","persistentId":"spell-crit-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+		var spell_crit_fight := Combat.begin(spell_crit_enemy)
+		var spell_crit_result := Combat.cast_spell(spell_crit_world, spell_crit_fight, "fireball")
+		if not spell_crit_result.ok or int(spell_crit_enemy.hp) != 48 or not str(spell_crit_result.message).contains("КРИТ!"):
+			failures.append("native damaging spells must use browser-compatible critical chance and critical damage")
+	var reaction_world := WorldState.create(9922)
+	Combat.select_class(reaction_world, "mage")
+	var reaction_enemy := {"name":"Замедлённая цель","persistentId":"spell-fire-reaction","enemyId":"goblin","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"effects":[{"id":"slow","duration":2}]}
+	var reaction_fight := Combat.begin(reaction_enemy)
+	var reaction_result := Combat.cast_spell(reaction_world,reaction_fight,"fireball")
+	if not reaction_result.ok or Combat._has_effect(reaction_enemy,"slow"):
+		failures.append("fire spells must consume slow through the browser-compatible elemental reaction")
+	var weakness_world := WorldState.create(9923)
+	Combat.select_class(weakness_world, "mage")
+	var weakness_enemy := {"name":"Скелет","persistentId":"spell-weakness","enemyId":"skeleton","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var weakness_fight := Combat.begin(weakness_enemy)
+	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
+	if not weakness_result.ok or int(weakness_enemy.hp) != 57:
+		failures.append("magic weakness must increase spell damage by the browser multiplier")
+	# Physical matchup parity: ghost-family enemies are weak to physical damage,
+	# while armored magma/dark/royal enemies resist it.
+	var physical_base_world := WorldState.create(9924)
+	Combat.select_class(physical_base_world, "warrior")
+	var physical_base_enemy := {"name":"Учебная цель","persistentId":"physical-matchup","enemyId":"goblin","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_base_fight := Combat.begin(physical_base_enemy)
+	var physical_base_result := Combat.player_attack(physical_base_world, physical_base_fight)
+	var physical_base_damage := 1000 - int(physical_base_enemy.hp)
+	var physical_weak_world := WorldState.create(9924)
+	Combat.select_class(physical_weak_world, "warrior")
+	var physical_weak_enemy := {"name":"Призрак","persistentId":"physical-matchup","enemyId":"ghost","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_weak_fight := Combat.begin(physical_weak_enemy)
+	var physical_weak_result := Combat.player_attack(physical_weak_world, physical_weak_fight)
+	if not physical_base_result.ok or not physical_weak_result.ok or 1000 - int(physical_weak_enemy.hp) != int(floor(float(physical_base_damage) * 1.25)):
+		failures.append("physical weakness must increase melee damage by the browser multiplier")
+	var physical_resist_world := WorldState.create(9924)
+	Combat.select_class(physical_resist_world, "warrior")
+	var physical_resist_enemy := {"name":"Магмовый голем","persistentId":"physical-matchup","enemyId":"magma-golem","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var physical_resist_fight := Combat.begin(physical_resist_enemy)
+	var physical_resist_result := Combat.player_attack(physical_resist_world, physical_resist_fight)
+	if not physical_resist_result.ok or 1000 - int(physical_resist_enemy.hp) != int(floor(float(physical_base_damage) * 0.8)):
+		failures.append("physical resistance must reduce melee damage by the browser multiplier")
+	# Adaptive enemy AI: three recent player actions with a 2-of-3 style majority
+	# cause a temporary defense counter on the enemy's next turn.
+	var adaptive_enemy := {"enemyId":"goblin","defense":20,"boss":false}
+	var adaptive_combat := {"playerStyleHistory":["melee","magic","melee"]}
+	var adaptation_message := Combat.prepare_enemy_adaptation(adaptive_combat, adaptive_enemy)
+	if adaptation_message.is_empty() or adaptive_enemy.get("adaptiveCounter", {}).get("style", "") != "melee" or int(adaptive_enemy.adaptiveCounter.remaining) != 1:
+		failures.append("regular enemies must adapt to a repeated player attack style")
+	if Combat.enemy_defense_for_style(adaptive_enemy, 0.0, "melee") != 24 or Combat.enemy_defense_for_style(adaptive_enemy, 0.0, "magic") != 20:
+		failures.append("adaptive defense must only mitigate the style the enemy learned")
+	if not Combat.consume_enemy_adaptation(adaptive_enemy, "melee") or adaptive_enemy.get("adaptiveCounter", null) != null:
+		failures.append("regular enemy adaptation must be consumed by one matching attack")
+	var adaptive_boss := {"enemyId":"grave-king","defense":20,"boss":true}
+	var adaptive_boss_combat := {"playerStyleHistory":["ranged","ranged","magic"]}
+	if Combat.prepare_enemy_adaptation(adaptive_boss_combat, adaptive_boss).is_empty() or int(adaptive_boss.adaptiveCounter.remaining) != 2:
+		failures.append("bosses must retain a weaker adaptive counter for two matching attacks")
+	if Combat.enemy_defense_for_style(adaptive_boss, 0.0, "ranged") != 22 or not Combat.consume_enemy_adaptation(adaptive_boss, "ranged") or int(adaptive_boss.adaptiveCounter.remaining) != 1:
+		failures.append("boss adaptive defense must use the reduced multiplier and two-charge duration")
+	var mixed_adaptive_combat := {"playerStyleHistory":["melee","ranged","magic"]}
+	var mixed_adaptive_enemy := {"enemyId":"goblin","defense":20,"boss":false}
+	if not Combat.prepare_enemy_adaptation(mixed_adaptive_combat, mixed_adaptive_enemy).is_empty():
+		failures.append("enemy adaptation must not trigger without a repeated style majority")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
@@ -357,6 +522,10 @@ func _initialize() -> void:
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var purchase: Dictionary=Npc.buy_item(economy_world,"health-potion")
 	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
+	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
+	var allied_purchase: Dictionary = Npc.buy_item(allied_trade_world,"health-potion")
+	if not allied_purchase.ok or not is_equal_approx(float(allied_purchase.get("discount",0.0)),0.15) or int(allied_trade_world.hero.gold) != 91:
+		failures.append("allied Free Traders must apply the canonical fifteen percent discount to the actual purchase")
 	var sale: Dictionary=Npc.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
@@ -382,13 +551,168 @@ func _initialize() -> void:
 	if not rumor.ok or not str(rumor.message).contains("тайникам"): failures.append("herald treasure choice must return its matching dialogue branch")
 	var invalid_choice: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"guard","not-a-choice")
 	if invalid_choice.ok: failures.append("unknown dialogue branches must be rejected")
-	var poor_kids: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	if poor_kids.ok or int(dialogue_world.hero.gold)!=2: failures.append("kids coin choice must not spend gold when unaffordable")
-	dialogue_world.hero.gold=2
-	var gift_once: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	var gift_twice: Dictionary=NpcEngine.choose_dialogue(dialogue_world,"kids","coin")
-	if not gift_once.ok or gift_twice.ok or int(dialogue_world.hero.gold)!=1: failures.append("kids gift must be charged once and reject repeated rewards")
+	if not NpcEngine.dialogue_choices("kids", dialogue_world).is_empty() or NpcEngine.choose_dialogue(dialogue_world, "kids", "coin").ok:
+		failures.append("children must remain a flavor-only NPC, matching the browser interaction")
 	if NpcCatalog.map_locations().size()!=NpcCatalog.ids().size(): failures.append("all village NPCs must have authored map coordinates")
+
+	# Buff abilities consume a real combat turn; only the dodge effect prevents damage.
+	var buff_world := WorldState.create(1101)
+	buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
+	var buff_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
+	var buff_fight := Combat.begin(buff_enemy)
+	var buff_result: Dictionary = Combat.use_ability(buff_world,buff_fight,"mana-shield")
+	if not buff_result.ok or int(buff_world.hero.hp) != 80 or str(buff_fight.turn) != "player":
+		failures.append("mana shield must consume the player's turn and allow one enemy response")
+	if not buff_world.hero.effects.any(func(entry): return str(entry.get("id","")) == "defBuff") or not is_equal_approx(Combat._effect_multiplier(buff_world.hero,"defMult"),1.5):
+		failures.append("mana shield must apply the actual defensive combat effect")
+	var dodge_world := WorldState.create(1102)
+	dodge_world["hero"] = {"class":"archer","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":10,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
+	var dodge_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"dodge-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":2}
+	var dodge_fight := Combat.begin(dodge_enemy)
+	var dodge_result: Dictionary = Combat.use_ability(dodge_world,dodge_fight,"evasion")
+	if not dodge_result.ok or int(dodge_world.hero.hp) != 100 or str(dodge_fight.turn) != "player":
+		failures.append("evasion must consume the enemy response without allowing damage")
+	if dodge_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "dodge"):
+		failures.append("evasion charge must be consumed by the skipped enemy attack")
+
+
+	# Stun must suppress the enemy response for both abilities and spells.
+	var stun_world := WorldState.create(1108)
+	stun_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
+	var stun_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-ability-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":8}
+	var stun_fight := Combat.begin(stun_enemy)
+	var stun_result: Dictionary = Combat.use_ability(stun_world,stun_fight,"shield-bash")
+	if not stun_result.ok or int(stun_enemy.hp) >= 100 or int(stun_world.hero.hp) != 100 or str(stun_fight.turn) != "player" or Combat._has_effect(stun_enemy,"stun"):
+		failures.append("shield bash must stun the enemy, consume its response, and clear the one-turn stun")
+	# A skipped enemy turn must still tick damage-over-time effects and cooldowns.
+	var stun_tick_world := WorldState.create(1110)
+	stun_tick_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[{"id":"poison","duration":2}],"cooldowns":{"shield-bash":2}}
+	var stun_tick_enemy := {"name":"Отравленный враг","enemyId":"goblin","persistentId":"stun-tick-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":10,"effects":[{"id":"stun","duration":1},{"id":"burn","duration":2}]}
+	var stun_tick_fight := Combat.begin(stun_tick_enemy)
+	stun_tick_fight["turn"] = "enemy"
+	var stun_tick_lines: Array[String] = []
+	Combat._resolve_enemy_response(stun_tick_world,stun_tick_fight,stun_tick_world.hero,stun_tick_enemy,stun_tick_lines)
+	if int(stun_tick_world.hero.hp) != 95 or int(stun_tick_world.hero.cooldowns["shield-bash"]) != 1 or int(stun_tick_enemy.hp) != 92 or int(stun_tick_enemy.effects[0].duration) != 1 or int(stun_tick_enemy.turnCount) != 1:
+		failures.append("stunned enemy turns must tick both sides' effects, reduce player cooldowns, and advance turn counters")
+	# Normal enemy turns must also decrement cooldowns and advance the shared turn counter.
+	var normal_tick_world := WorldState.create(1111)
+	normal_tick_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{"shield-bash":2}}
+	var normal_tick_enemy := {"name":"Обычный враг","enemyId":"goblin","persistentId":"normal-tick-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":11}
+	var normal_tick_fight := Combat.begin(normal_tick_enemy)
+	normal_tick_fight["turn"] = "enemy"
+	var normal_tick_lines: Array[String] = []
+	Combat._resolve_enemy_response(normal_tick_world,normal_tick_fight,normal_tick_world.hero,normal_tick_enemy,normal_tick_lines)
+	if int(normal_tick_world.hero.cooldowns["shield-bash"]) != 1 or int(normal_tick_fight.get("turnCount", -1)) != 1 or normal_tick_fight.turn != "player":
+		failures.append("normal enemy turns must decrement ability cooldowns and advance the shared turn counter")
+	var nova_world := WorldState.create(1109)
+	nova_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["frost-nova"],"buffs":[],"effects":[],"cooldowns":{}}
+	var nova_enemy := {"name":"Оглушённый враг","enemyId":"goblin","persistentId":"stun-spell-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":9}
+	var nova_fight := Combat.begin(nova_enemy)
+	var nova_result: Dictionary = Combat.cast_spell(nova_world,nova_fight,"frost-nova")
+	if not nova_result.ok or int(nova_enemy.hp) >= 100 or int(nova_world.hero.hp) != 100 or str(nova_fight.turn) != "player" or Combat._has_effect(nova_enemy,"stun"):
+		failures.append("frost nova must stun the enemy and prevent its response for that turn")
+
+	# A damage-over-time kill during a defensive/buff action must suppress retaliation.
+	var buff_dot_world := WorldState.create(1112)
+	buff_dot_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var buff_dot_enemy := {"name":"Догорающий враг","enemyId":"goblin","persistentId":"buff-dot-kill-test","hp":5,"maxHp":5,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":13,"effects":[{"id":"burn","duration":1}]}
+	var buff_dot_fight := Combat.begin(buff_dot_enemy)
+	var buff_dot_result: Dictionary = Combat.use_ability(buff_dot_world,buff_dot_fight,"mana-shield")
+	if not buff_dot_result.ok or buff_dot_fight.result != "victory" or int(buff_dot_world.hero.hp) != 100 or int(buff_dot_enemy.hp) != 0:
+		failures.append("an enemy killed by burn during a buff action must not retaliate")
+
+	# Defensive abilities must still trigger the enemy turn when no adaptation message is produced.
+	var buff_turn_world := WorldState.create(1113)
+	buff_turn_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var buff_turn_enemy := {"name":"Враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":14}
+	var buff_turn_fight := Combat.begin(buff_turn_enemy)
+	var buff_turn_result: Dictionary = Combat.use_ability(buff_turn_world,buff_turn_fight,"mana-shield")
+	if not buff_turn_result.ok or int(buff_turn_world.hero.hp) >= 100 or buff_turn_fight.turn != "player":
+		failures.append("a defensive buff must allow the enemy response even when adaptation is inactive")
+
+	# Class combat profiles, gear, runes and passive bonuses contribute to dodge/block.
+	var defense_profile_hero := {"class":"warrior","dex":10,"equipped":{},"passives":["start"],"talents":[]}
+	var defense_profile: Dictionary = Combat._combat_defense_stats(defense_profile_hero)
+	if not is_equal_approx(float(defense_profile.dodgeChance),0.06) or not is_equal_approx(float(defense_profile.blockChance),0.16) or not is_equal_approx(float(defense_profile.blockPower),0.66):
+		failures.append("warrior automatic dodge and block profile must match browser class combat stats")
+
+	# Legacy Priest class, abilities and one-time resurrection remain available to old saves.
+	var priest_world := WorldState.create(1114)
+	priest_world["hero"] = {"class":"priest","level":1,"hp":40,"maxHp":115,"mp":100,"maxMp":160,"str":6,"int":15,"wis":18,"con":10,"dex":7,"gold":0,"inventory":[],"equipped":{},"spells":["heal","holy-light"],"buffs":[],"effects":[],"cooldowns":{},"talents":[],"passives":["start"]}
+	var priest_hero: Dictionary = Combat.ensure_hero(priest_world)
+	if str(priest_hero.get("class","")) != "priest" or int(priest_hero.get("maxHp",0)) != 115 or not priest_hero.get("spells",[]).has("holy-light") or ClassCatalog.class_ids().has("priest"):
+		failures.append("legacy Priest save must preserve class stats while remaining hidden from new character selection")
+	var prayer_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-prayer-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":15}
+	priest_world.hero.effects = [{"id":"poison","duration":2},{"id":"atkBuff","duration":2}]
+	var prayer_fight := Combat.begin(prayer_enemy)
+	var prayer_result: Dictionary = Combat.use_ability(priest_world,prayer_fight,"prayer")
+	if not prayer_result.ok or int(priest_world.hero.hp) <= 40 or prayer_fight.turn != "player" or Combat._has_effect(priest_world.hero,"poison") or not Combat._has_effect(priest_world.hero,"atkBuff"):
+		failures.append("Priest prayer must heal, clear debuffs without removing buffs and resolve the enemy turn")
+	var sanctify_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-sanctify-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":18}
+	var sanctify_fight := Combat.begin(sanctify_enemy)
+	var sanctify_result: Dictionary = Combat.use_ability(priest_world,sanctify_fight,"sanctify")
+	if not sanctify_result.ok or int(sanctify_enemy.hp) >= 100 or not Combat._has_effect(sanctify_enemy,"burn"):
+		failures.append("Priest sanctify must deal magic damage and apply burn")
+	var revive_world := WorldState.create(1116)
+	revive_world["hero"] = priest_world.hero.duplicate(true)
+	revive_world["hero"]["hp"] = 1
+	var revive_enemy := {"name":"Сильный враг","enemyId":"goblin","persistentId":"priest-revive-test","hp":100,"maxHp":100,"attack":1000,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":17}
+	var revive_fight := Combat.begin(revive_enemy)
+	var revive_lines: Array[String] = []
+	Combat._resolve_enemy_response(revive_world,revive_fight,revive_world.hero,revive_enemy,revive_lines)
+	if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed or not "\n".join(revive_lines).contains("Воскрешение"):
+		failures.append("Priest must resurrect once when a combat response would defeat them")
+
+	# Manual block is an explicit combat action, with the elite/boss counterattack.
+	var block_world := WorldState.create(1115)
+	block_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":[],"buffs":[],"effects":[],"cooldowns":{},"talents":[],"passives":["start"]}
+	var block_enemy := {"name":"Проверочный босс","enemyId":"goblin","persistentId":"manual-block-test","hp":100,"maxHp":100,"attack":40,"defense":0,"exp":1,"gold":0,"boss":true,"dead":false,"drops":[],"dropSeed":16}
+	var block_fight := Combat.begin(block_enemy)
+	var block_result: Dictionary = Combat.block(block_world,block_fight)
+	if not block_result.ok or int(block_world.hero.hp) >= 100 or int(block_world.hero.hp) < 80 or bool(block_fight.get("blocking",true)) or not str(block_result.message).contains("защитную стойку") or not str(block_result.message).contains("Контратака"):
+		failures.append("manual guard must mitigate boss damage, counterattack and reset its state")
+
+	var heal_world := WorldState.create(1103)
+	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
+	var heal_fight := Combat.begin(heal_enemy)
+	var heal_result: Dictionary = Combat.cast_spell(heal_world,heal_fight,"heal")
+	if not heal_result.ok or int(heal_world.hero.hp) != 80 or str(heal_fight.turn) != "player":
+		failures.append("healing spells must resolve the enemy response before returning the player turn")
+
+
+	var lifesteal_world := WorldState.create(1104)
+	lifesteal_world["hero"] = {"class":"warrior","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[{"id":"lifesteal","duration":2}],"cooldowns":{}}
+	var lifesteal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"lifesteal-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":4}
+	var lifesteal_fight := Combat.begin(lifesteal_enemy)
+	var lifesteal_result: Dictionary = Combat.player_attack(lifesteal_world,lifesteal_fight)
+	if not lifesteal_result.ok or int(lifesteal_world.hero.hp) <= 50:
+		failures.append("lifesteal must restore health from actual damage dealt")
+
+	var charge_world := WorldState.create(1105)
+	charge_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[{"id":"double_next","duration":1}],"effects":[],"cooldowns":{}}
+	var charge_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"charge-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":5}
+	var charge_fight := Combat.begin(charge_enemy)
+	var charge_result: Dictionary = Combat.player_attack(charge_world,charge_fight)
+	if not charge_result.ok or int(charge_enemy.hp) > 80 or charge_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "double_next"):
+		failures.append("charge must double the next basic attack and consume its one-use buff")
+
+
+	var fire_world := WorldState.create(1106)
+	fire_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["fireball"],"buffs":[],"effects":[],"cooldowns":{}}
+	var fire_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"fire-reaction-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":6,"effects":[{"id":"slow","duration":2}]}
+	var fire_fight := Combat.begin(fire_enemy)
+	var fire_result: Dictionary = Combat.cast_spell(fire_world,fire_fight,"fireball")
+	if not fire_result.ok or Combat._has_effect(fire_enemy,"slow") or not Combat._has_effect(fire_enemy,"burn"):
+		failures.append("fireball must consume slow and apply burn according to its fire element")
+	var ice_world := WorldState.create(1107)
+	ice_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":4,"int":10,"con":0,"dex":8,"gold":0,"inventory":[],"equipped":{},"spells":["ice-bolt"],"buffs":[],"effects":[],"cooldowns":{}}
+	var ice_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"ice-reaction-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":7,"effects":[{"id":"burn","duration":2}]}
+	var ice_fight := Combat.begin(ice_enemy)
+	var ice_result: Dictionary = Combat.cast_spell(ice_world,ice_fight,"ice-bolt")
+	if not ice_result.ok or Combat._has_effect(ice_enemy,"burn") or not Combat._has_effect(ice_enemy,"slow"):
+		failures.append("ice bolt must consume burn and apply slow according to its ice element")
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
