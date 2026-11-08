@@ -32,6 +32,7 @@ static func _write_json_atomically(path: String, serialized: String) -> Error:
 			if recovery_error != OK:
 				DirAccess.remove_absolute(absolute_temporary)
 				return recovery_error
+			had_previous = true
 		else:
 			DirAccess.remove_absolute(absolute_backup)
 	if had_previous:
