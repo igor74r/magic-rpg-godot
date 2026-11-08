@@ -250,46 +250,9 @@ static func player_attack(world: Dictionary, combat: Dictionary) -> Dictionary:
 		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
 		if not adaptation_message.is_empty():
 			lines.append(adaptation_message)
-		var turn_count := int(enemy.get("turnCount", 0)) + 1
-		enemy["turnCount"] = turn_count
-		var incoming := _calculate_incoming_damage(world, hero, enemy, turn_count)
-		var special: Dictionary = enemy.get("special", {})
-		var every := maxi(1, int(enemy.get("phaseSpecialEvery", special.get("every", 3))))
-		var special_ready := not special.is_empty() and turn_count % every == 0
-		var special_type := str(special.get("type", ""))
-		if special_ready and special_type == "snipe":
-			incoming = maxi(1, int(round(float(incoming) * float(special.get("mult", 1.8)))))
-		elif special_ready and special_type == "double":
-			incoming = maxi(1, int(floor(float(incoming) * 0.6))) * 2
-		var faction_reduction := FactionEngine.get_damage_reduction(world)
-		incoming = maxi(1, int(floor(float(incoming) * (1.0 - faction_reduction))))
-		hero["hp"] = maxi(0, int(hero.hp) - incoming)
-		lines.append("%s наносит вам %d урона." % [str(enemy.get("name", "Противник")), incoming])
-		if special_ready:
-			lines.append("Особый приём: %s!" % str(special.get("name", "Атака")))
-			var effect_id := str(special.get("effect", ""))
-			if not effect_id.is_empty() and EFFECTS.has(effect_id):
-				apply_effect(hero, effect_id)
-				lines.append("Наложен эффект: %s." % str(EFFECTS[effect_id].name))
-		if special_ready and special_type == "drain":
-			var healed := mini(incoming, int(enemy.get("maxHp", enemy.hp)) - int(enemy.hp))
-			enemy["hp"] = int(enemy.hp) + maxi(0, healed)
-			lines.append("Противник восстановил %d HP." % maxi(0, healed))
-		var modifier_message := _apply_enemy_modifier(enemy, hero, incoming)
-		if not modifier_message.is_empty():
-			lines.append(modifier_message)
-		var effect_tick := tick_effects(hero)
-		if int(effect_tick.damage) > 0:
-			hero["hp"] = maxi(0, int(hero.hp) - int(effect_tick.damage))
-			lines.append("Эффекты наносят вам %d урона." % int(effect_tick.damage))
-		if int(hero.hp) <= 0:
-			hero["hp"] = 1
-			combat["over"] = true
-			combat["result"] = "defeat"
-			combat["turn"] = "over"
-			lines.append("Вы потерпели поражение и отступили. Противник остался жив.")
-		else:
-			combat["turn"] = "player"
+		var response_lines: Array[String] = []
+		_resolve_enemy_response(world, combat, hero, enemy, response_lines)
+		lines.append_array(response_lines)
 	world["hero"] = hero
 	combat["enemy"] = enemy
 	combat["log"] = "\n".join(lines)
