@@ -46,6 +46,47 @@ func _initialize() -> void:
 		for enemy_id in Catalog.enemy_roster(region_id):
 			if EnemyCatalog.get_enemy(enemy_id).is_empty():
 				failures.append("missing combat definition: %s" % enemy_id)
+	# Browser parity: canonical story dragons are mission/location gated, and
+	# optional act mini-bosses cannot leak into early visits to shared regions.
+	var obsidian_roster: Array = Catalog.enemy_roster("obsidian-fields")
+	var inactive_obsidian := Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "", 50)
+	if inactive_obsidian.has("flame-lord"):
+		failures.append("Ash Herald must not appear in ambient Obsidian Fields encounters before mission a3-m5")
+	var active_obsidian := Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "a3-m5", 50)
+	if not active_obsidian.has("flame-lord"):
+		failures.append("Ash Herald must be eligible in Obsidian Fields during its exact finale mission")
+	if Encounter.eligible_enemy_ids(obsidian_roster, "volcano", "a3-m5", 50).has("flame-lord"):
+		failures.append("story dragons must not spawn outside their authored finale region")
+	if Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "a3-m5", 50, true, false).has("flame-lord") or Encounter.eligible_enemy_ids(obsidian_roster, "obsidian-fields", "a3-m5", 50, false, true).has("flame-lord"):
+		failures.append("story dragons must stay out of Rift and Tower encounter modes")
+	var mini_boss_levels := {
+		"root-court-executioner": [8, "briar-hollow"],
+		"drowned-queen": [18, "sunken-necropolis"],
+		"oath-forge-warden": [28, "obsidian-fields"],
+		"mirror-icekeeper": [38, "frost-citadel"],
+		"echo-devourer": [48, "void-crater"]
+	}
+	for mini_boss_id in mini_boss_levels:
+		var mini_boss_data: Array = mini_boss_levels[mini_boss_id]
+		var required_level := int(mini_boss_data[0])
+		var mini_region := str(mini_boss_data[1])
+		var mini_roster: Array = Catalog.enemy_roster(mini_region)
+		if Encounter.eligible_enemy_ids(mini_roster, mini_region, "", required_level - 1).has(mini_boss_id):
+			failures.append("mini-boss %s must remain gated below level %d" % [mini_boss_id, required_level])
+		if not Encounter.eligible_enemy_ids(mini_roster, mini_region, "", required_level).has(mini_boss_id):
+			failures.append("mini-boss %s must unlock at level %d" % [mini_boss_id, required_level])
+	var obsidian_grid := MapGenerator.generate_map("obsidian-fields", 40, 30, 99117, 1, 1)
+	var ambient_obsidian := Encounter.generate("obsidian-fields", obsidian_grid, 99117, 1, 1, Vector2i(20, 15), 0, "normal", 0, "", 50)
+	for spawned in ambient_obsidian:
+		if str(spawned.get("enemyId", "")) == "flame-lord":
+			failures.append("ambient encounter generation must apply story-dragon gating before roster selection")
+	var finale_obsidian := Encounter.generate("obsidian-fields", obsidian_grid, 99117, 1, 1, Vector2i(20, 15), 0, "normal", 0, "a3-m5", 50)
+	var finale_has_dragon := false
+	for spawned in finale_obsidian:
+		if str(spawned.get("enemyId", "")) == "flame-lord":
+			finale_has_dragon = true
+	if not finale_has_dragon:
+		failures.append("the accepted finale mission must include its guaranteed story dragon in the encounter roster")
 	var grid := MapGenerator.generate_map("forest", 40, 30, 123456, 1, 1)
 	var first := Encounter.generate("forest", grid, 123456, 1, 1)
 	var second := Encounter.generate("forest", grid, 123456, 1, 1)
