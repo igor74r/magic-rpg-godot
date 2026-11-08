@@ -265,7 +265,7 @@ func _refresh_exploration() -> void:
 	var visit_index := int(visits.get(current, 1))
 	var map_grid := WorldMapGeneratorScript.generate_map(current, 40, 30, world_seed, int(world.get("generatorVersion", 1)), visit_index)
 	map_view.call("set_map", map_grid)
-	_refresh_map_npcs(current)
+	_refresh_map_npcs(current, map_grid)
 	
 	_refresh_encounters(current, map_grid, world_seed, visit_index)
 	_refresh_inventory()
@@ -727,7 +727,7 @@ func _talk_to_npc(npc_id: String) -> void:
 
 
 
-func _refresh_map_npcs(region_id: String) -> void:
+func _refresh_map_npcs(region_id: String, map_grid: Array) -> void:
 	merchant_stock.clear()
 	wandering_merchant_cell = Vector2i(-1, -1)
 	var markers: Array=[]
@@ -739,10 +739,9 @@ func _refresh_map_npcs(region_id: String) -> void:
 			markers.append({"id":str(npc_id),"cell":locations[npc_id],"emoji":str(npc.get("emoji","✦")),"short":str(npc.get("name",npc_id)).split(" ")[0]})
 	else:
 		var visits: Dictionary=world.get("regionVisits",{})
-		var current_grid: Array = map_view.get("map_grid") if map_view.get("map_grid") is Array else []
 		wandering_merchant_cell = WorldMapGeneratorScript.wandering_merchant_cell(
 			region_id, 40, 30, int(world.get("seed",1)),
-			int(world.get("generatorVersion",1)), int(visits.get(region_id,1)), current_grid
+			int(world.get("generatorVersion",1)), int(visits.get(region_id,1)), map_grid
 		)
 		if wandering_merchant_cell.x >= 0:
 			markers.append({"id":"wandering-merchant","cell":wandering_merchant_cell,"emoji":"🧳","short":"Торговец"})
