@@ -179,7 +179,7 @@ func _open_browser_import_dialog() -> void:
 func _open_browser_export_dialog() -> void:
 	var payload := WorldStateRepositoryScript.to_browser_payload(world)
 	if payload.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(payload):
-		status_label.text = "Экспорт недоступен: сначала импортируйте совместимое браузерное сохранение v18."
+		status_label.text = "Экспорт недоступен: текущее состояние не удалось преобразовать в совместимое сохранение v18."
 		return
 	browser_export_dialog.popup_centered_ratio(0.8)
 
