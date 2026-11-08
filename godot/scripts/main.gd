@@ -12,6 +12,7 @@ const WorldItemCatalogScript = preload("res://godot/scripts/world_item_catalog.g
 const PassiveEngineScript = preload("res://godot/scripts/world_passive_engine.gd")
 const PassiveTreeScript = preload("res://godot/scripts/world_passive_tree.gd")
 const DailyQuestScript = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const AchievementEngineScript = preload("res://godot/scripts/world_achievement_engine.gd")
 const CampaignScript = preload("res://godot/scripts/world_campaign_engine.gd")
 const RiftEngineScript = preload("res://godot/scripts/world_rift_engine.gd")
 const TowerEngineScript = preload("res://godot/scripts/world_tower_engine.gd")
