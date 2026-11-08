@@ -547,8 +547,8 @@ func _initialize() -> void:
 	var buff_result: Dictionary = Combat.use_ability(buff_world,buff_fight,"mana-shield")
 	if not buff_result.ok or int(buff_world.hero.hp) != 80 or str(buff_fight.turn) != "player":
 		failures.append("mana shield must consume the player's turn and allow one enemy response")
-	if not buff_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "defense_buff"):
-		failures.append("mana shield must retain its defensive buff after the enemy response")
+	if not buff_world.hero.effects.any(func(entry): return str(entry.get("id","")) == "defBuff") or not is_equal_approx(Combat._effect_multiplier(buff_world.hero,"defMult"),1.5):
+		failures.append("mana shield must apply the actual defensive combat effect")
 	var dodge_world := WorldState.create(1102)
 	dodge_world["hero"] = {"class":"archer","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":10,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
 	var dodge_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"dodge-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":2}
@@ -567,6 +567,23 @@ func _initialize() -> void:
 	var heal_result: Dictionary = Combat.cast_spell(heal_world,heal_fight,"heal")
 	if not heal_result.ok or int(heal_world.hero.hp) != 80 or str(heal_fight.turn) != "player":
 		failures.append("healing spells must resolve the enemy response before returning the player turn")
+
+
+	var lifesteal_world := WorldState.create(1104)
+	lifesteal_world["hero"] = {"class":"warrior","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[{"id":"lifesteal","duration":2}],"cooldowns":{}}
+	var lifesteal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"lifesteal-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":4}
+	var lifesteal_fight := Combat.begin(lifesteal_enemy)
+	var lifesteal_result: Dictionary = Combat.player_attack(lifesteal_world,lifesteal_fight)
+	if not lifesteal_result.ok or int(lifesteal_world.hero.hp) <= 50:
+		failures.append("lifesteal must restore health from actual damage dealt")
+
+	var charge_world := WorldState.create(1105)
+	charge_world["hero"] = {"class":"warrior","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[{"id":"double_next","duration":1}],"effects":[],"cooldowns":{}}
+	var charge_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"charge-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":5}
+	var charge_fight := Combat.begin(charge_enemy)
+	var charge_result: Dictionary = Combat.player_attack(charge_world,charge_fight)
+	if not charge_result.ok or int(charge_enemy.hp) > 80 or charge_world.hero.buffs.any(func(entry): return str(entry.get("id","")) == "double_next"):
+		failures.append("charge must double the next basic attack and consume its one-use buff")
 
 	if not failures.is_empty():
 		for failure in failures:
