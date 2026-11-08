@@ -50,6 +50,14 @@ func _initialize()->void:
 	var rejected := WorldState.normalize(corrupted, 4455)
 	if bool(rejected.towerRun.get("active", false)):
 		failures.append("tower save must reject a queue whose prior encounter is not defeated")
+	var wrong_composition := resumed_state.duplicate(true)
+	wrong_composition.towerRun.enemies[1]["enemyId"] = "forged-enemy"
+	if bool(WorldState.normalize(wrong_composition, 4455).towerRun.get("active", false)):
+		failures.append("tower save must reject an enemy outside the canonical floor composition")
+	var wrong_region := resumed_state.duplicate(true)
+	wrong_region.towerRun["sourceId"] = "unknown-region"
+	if bool(WorldState.normalize(wrong_region, 4455).towerRun.get("active", false)):
+		failures.append("tower save must reject a mismatched floor region")
 	var guardian_world:=WorldState.create(5566)
 	guardian_world["hero"]={"level":10,"classChosen":true,"towerBest":4,"class":"warrior","hp":100,"maxHp":100,"attack":100,"defense":10,"inventory":[],"gold":0,"exp":0}
 	var guardian_entry:=Tower.begin_floor(guardian_world)
