@@ -15,26 +15,44 @@ const TILE_COLORS := {
 }
 
 func set_map(value: Array) -> void:
-	tile_map = value
+	tile_map = value.duplicate(true)
 	queue_redraw()
 
 func set_npcs(value: Array) -> void:
-	npc_markers = value.duplicate(true)
+	npc_markers.clear()
+	for entry in value:
+		if not entry is Dictionary:
+			continue
+		var npc_id := str(entry.get("id", "")).strip_edges()
+		var cell: Variant = entry.get("cell", null)
+		if npc_id.is_empty() or not cell is Vector2i:
+			continue
+		npc_markers.append(entry.duplicate(true))
 	queue_redraw()
 
+func _map_width() -> int:
+	if tile_map.is_empty() or not tile_map[0] is Array:
+		return 0
+	return tile_map[0].size()
+
 func _draw() -> void:
-	if tile_map.is_empty() or tile_map[0].is_empty():
+	var columns := _map_width()
+	if columns == 0 or size.x <= 0.0 or size.y <= 0.0:
 		return
-	var cell_w := size.x / float(tile_map[0].size())
+	var cell_w := size.x / float(columns)
 	var cell_h := size.y / float(tile_map.size())
 	for y in range(tile_map.size()):
-		for x in range(tile_map[y].size()):
+		if not tile_map[y] is Array:
+			continue
+		for x in range(mini(columns, tile_map[y].size())):
 			var rect := Rect2(x * cell_w, y * cell_h, cell_w + 0.5, cell_h + 0.5)
 			draw_rect(rect, TILE_COLORS.get(int(tile_map[y][x]), Color("#66845a")), true)
 			draw_rect(rect, Color(0, 0, 0, 0.10), false, 0.5)
 	var font := ThemeDB.fallback_font
 	for npc in npc_markers:
-		var cell: Vector2i = npc.get("cell", Vector2i.ZERO)
+		var cell: Vector2i = npc["cell"]
+		if not _cell_is_inside_map(cell, columns):
+			continue
 		var center := Vector2((float(cell.x) + 0.5) * cell_w, (float(cell.y) + 0.5) * cell_h)
 		draw_circle(center, 9.0, Color("#29251e"))
 		draw_circle(center, 7.0, Color("#f1d28a"))
@@ -53,14 +71,21 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _activate_npc_at(position: Vector2) -> void:
-	if tile_map.is_empty() or tile_map[0].is_empty():
+	var columns := _map_width()
+	if columns == 0 or size.x <= 0.0 or size.y <= 0.0:
 		return
-	var cell_w := size.x / float(tile_map[0].size())
+	var cell_w := size.x / float(columns)
 	var cell_h := size.y / float(tile_map.size())
 	for npc in npc_markers:
-		var cell: Vector2i = npc.get("cell", Vector2i.ZERO)
+		var cell: Vector2i = npc["cell"]
+		if not _cell_is_inside_map(cell, columns):
+			continue
 		var center := Vector2((float(cell.x) + 0.5) * cell_w, (float(cell.y) + 0.5) * cell_h)
 		if position.distance_to(center) <= 15.0:
-			npc_clicked.emit(str(npc.get("id", "")))
+			npc_clicked.emit(str(npc["id"]))
 			accept_event()
 			return
+
+
+func _cell_is_inside_map(cell: Vector2i, columns: int) -> bool:
+	return cell.x >= 0 and cell.x < columns and cell.y >= 0 and cell.y < tile_map.size()
