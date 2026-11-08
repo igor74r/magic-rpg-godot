@@ -12,14 +12,26 @@ const POOL := [
 static func today_key() -> String:
 	var date: Dictionary = Time.get_date_dict_from_system()
 	return "%04d-%02d-%02d" % [int(date.year),int(date.month),int(date.day)]
-static func get_quests(world: Dictionary) -> Array:
+static func get_quests(world: Dictionary, now_ms: int = -1) -> Array:
+	var current_ms := int(Time.get_unix_time_from_system() * 1000.0) if now_ms < 0 else now_ms
 	var key := today_key()
 	var saved: Dictionary = world.get("dailyQuests",{}) if world.get("dailyQuests",{}) is Dictionary else {}
 	var list: Array = saved.get("list",[]) if saved.get("list",[]) is Array else []
-	if str(saved.get("date","")) != key or list.size()!=3:
+	# Browser saves persist Date.now() milliseconds and rotate quests only after
+	# a rolling 24-hour window. Accept the old native YYYY-MM-DD key once.
+	var raw_date: Variant = saved.get("date", 0)
+	var last_ms := 0
+	if raw_date is int or raw_date is float:
+		var date_number := float(raw_date)
+		if is_finite(date_number) and floor(date_number) == date_number and date_number >= 0.0 and date_number <= float(current_ms) and date_number <= 9007199254740991.0:
+			last_ms = int(date_number)
+	elif raw_date is String and str(raw_date) == key:
+		last_ms = current_ms
+	var expired := last_ms == 0 or current_ms - last_ms > 86400000
+	if expired or list.size() != 3:
 		var shuffled: Array = POOL.duplicate(true)
 		var rng := RandomNumberGenerator.new()
-		rng.seed = int(WorldRandom.derive_seed([world.get("seed",1),key,"daily-quests"]))
+		rng.seed = int(WorldRandom.derive_seed([world.get("seed",1),current_ms,"daily-quests"]))
 		for i in range(shuffled.size()-1,0,-1):
 			var j := rng.randi_range(0,i)
 			var temp: Variant = shuffled[i]
@@ -32,7 +44,7 @@ static func get_quests(world: Dictionary) -> Array:
 			quest["completed"]=false
 			quest["claimed"]=false
 			list.append(quest)
-		world["dailyQuests"]={"date":key,"list":list}
+		world["dailyQuests"]={"date":current_ms,"list":list}
 	else:
 		var normalized: Array=[]
 		var seen: Array=[]
@@ -44,16 +56,21 @@ static func get_quests(world: Dictionary) -> Array:
 			if definition.is_empty() or seen.has(definition.id): continue
 			seen.append(definition.id)
 			var quest: Dictionary=definition.duplicate(true)
-			quest["current"]=clampi(int(entry.get("current",0)),0,int(definition.max))
+			var raw_current: Variant = entry.get("current",0)
+			var progress := int(raw_current) if raw_current is int or raw_current is float else 0
+			quest["current"]=clampi(progress,0,int(definition.max))
 			quest["completed"]=int(quest.current)>=int(quest.max)
-			quest["claimed"]=bool(entry.get("claimed",false)) and bool(quest.completed)
+			quest["claimed"]=entry.get("claimed",false)==true and bool(quest.completed)
 			normalized.append(quest)
-		world["dailyQuests"]={"date":key,"list":normalized}
-		if normalized.size()!=3: return get_quests_with_reset(world,key)
+		world["dailyQuests"]={"date":last_ms,"list":normalized}
+		if normalized.size()!=3:
+			world["dailyQuests"]={"date":current_ms,"list":[]}
+			return get_quests(world,current_ms)
 	return world.dailyQuests.list
 static func get_quests_with_reset(world: Dictionary,key: String) -> Array:
 	world.erase("dailyQuests")
 	return get_quests(world)
+
 static func update_progress(world: Dictionary,kind: String,target: String,amount: int=1) -> void:
 	if amount<=0:return
 	var quests := get_quests(world)
