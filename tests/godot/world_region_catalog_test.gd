@@ -4,6 +4,7 @@ const Catalog = preload("res://godot/scripts/world_region_catalog.gd")
 const Graph = preload("res://godot/scripts/world_graph.gd")
 const Enemies = preload("res://godot/scripts/world_enemy_catalog.gd")
 const Npcs = preload("res://godot/scripts/world_npc_catalog.gd")
+const Items = preload("res://godot/scripts/world_item_catalog.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -26,6 +27,11 @@ func _initialize() -> void:
 				failures.append("invalid enemy id in %s" % region_id)
 			elif Enemies.get_enemy(str(enemy_id)).is_empty():
 				failures.append("region %s references missing enemy definition: %s" % [region_id, enemy_id])
+	for enemy_id in Enemies.enemy_ids():
+		var enemy: Dictionary = Enemies.get_enemy(str(enemy_id))
+		for drop_id in enemy.get("drops", []):
+			if Items.get_item(str(drop_id)).is_empty():
+				failures.append("enemy %s references missing drop item: %s" % [enemy_id, drop_id])
 	if Catalog.enemy_roster("wasteland").count("sand-worm") != 2:
 		failures.append("authored duplicate enemy weights must be preserved")
 	if Catalog.get_region("void-crater").get("chestsCount") != 6:
