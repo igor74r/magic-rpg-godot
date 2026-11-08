@@ -727,6 +727,8 @@ func _talk_to_npc(npc_id: String) -> void:
 		_add_npc_action("Испить воду · полное восстановление","well")
 	elif npc_id=="bard":
 		_add_npc_action("Заплатить 15 золота · +10% опыта","bard")
+	elif npc_id=="cat" and not NpcEngineScript.has_entry(hero, "catLuck"):
+		_add_npc_action("Погладить · +5% критического шанса на 1 бой", "cat")
 	elif npc_id=="merchant" or is_wandering_merchant:
 		merchant_stock = NpcEngineScript.get_merchant_stock(is_wandering_merchant)
 		_add_npc_action("Открыть редкие находки и товары" if is_wandering_merchant else "Открыть ассортимент торговца","shop")
@@ -809,6 +811,7 @@ func _perform_npc_action(action: String) -> void:
 		"heal": result = NpcEngineScript.heal(world)
 		"well": result = NpcEngineScript.use_well(world)
 		"bard": result = NpcEngineScript.pay_bard(world)
+		"cat": result = NpcEngineScript.pet_cat(world)
 	status_label.text = str(result.get("message", ""))
 	var save_error := WorldStateRepositoryScript.save_world(world)
 	if save_error != OK: status_label.text += "\nОшибка сохранения: %s" % error_string(save_error)
