@@ -7,6 +7,15 @@ func _initialize() -> void:
 	if Factions.get_reputation(world, "free-traders") != 0: failures.append("new world faction reputation defaults to neutral")
 	var change := Factions.change_reputation(world, "free-traders", 30, "quest reward", "campaign")
 	if int(change.get("value", -1)) != 30 or Factions.get_trade_discount(world) != 0.05: failures.append("30 reputation unlocks the 5 percent merchant discount")
+	var fractional_world := World.create(79)
+	fractional_world["factions"] = {"reputation":{"free-traders":29},"changeLog":[]}
+	var fractional_change := Factions.change_reputation(fractional_world, "free-traders", 0.6, "fractional reward", "test")
+	if int(fractional_change.get("value", -1)) != 30 or Factions.get_trade_discount(fractional_world) != 0.05:
+		failures.append("fractional reputation deltas must round the combined value like the browser")
+	var negative_fractional_world := World.create(80)
+	var negative_fractional_change := Factions.change_reputation(negative_fractional_world, "rift-cult", -1.5, "negative fractional reward", "test")
+	if int(negative_fractional_change.get("value", 0)) != -1:
+		failures.append("negative half reputation deltas must round toward positive infinity like JavaScript Math.round")
 	Factions.change_reputation(world, "hub-guardians", 90)
 	Factions.change_reputation(world, "ash-nomads", 70)
 	Factions.change_reputation(world, "rift-cult", 30)

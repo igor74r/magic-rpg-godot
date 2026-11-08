@@ -71,11 +71,13 @@ static func get_reputation(world: Dictionary, faction_id: String) -> int:
 	if not FACTIONS.has(faction_id): return 0
 	return int(ensure_state(world).reputation.get(faction_id, 0))
 
-static func change_reputation(world: Dictionary, faction_id: String, amount: int, reason: String = "unknown", source: String = "system") -> Dictionary:
-	if not FACTIONS.has(faction_id) or amount == 0: return {}
+static func change_reputation(world: Dictionary, faction_id: String, amount: float, reason: String = "unknown", source: String = "system") -> Dictionary:
+	# Browser changeFactionReputation accepts any finite numeric delta and
+	# rounds the combined reputation with JavaScript Math.round semantics.
+	if not FACTIONS.has(faction_id) or not is_finite(amount) or amount == 0.0: return {}
 	var state := ensure_state(world)
 	var previous := int(state.reputation[faction_id])
-	var value := clampi(previous + amount, MIN_REPUTATION, MAX_REPUTATION)
+	var value := _normalize_reputation(float(previous) + amount)
 	var delta := value - previous
 	if delta != 0:
 		state.reputation[faction_id] = value
