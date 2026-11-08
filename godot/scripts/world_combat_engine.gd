@@ -11,6 +11,8 @@ const EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const RandomScript = preload("res://godot/scripts/world_random.gd")
 const EncounterGenerator = preload("res://godot/scripts/world_encounter_generator.gd")
 const FORGE_BONUS := [0, 2, 4, 7]
+const MAGIC_WEAK_ENEMIES := ["skeleton", "skeleton-archer", "dark-knight", "magma-golem", "grave-king"]
+const MAGIC_RESIST_ENEMIES := ["ghost", "wraith", "shadow-mage"]
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
 	var hero: Dictionary = world.get("hero", {}) if world.get("hero", {}) is Dictionary else {}
@@ -531,12 +533,21 @@ static func cast_spell(world: Dictionary, combat: Dictionary, spell_id: String) 
 		lines.append("Защита усилена на 2 хода.")
 	else:
 		var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
-		var enemy_armor := maxi(0, int(enemy.get("defense", 0)) - int(passive_bonus.get("armorPen", 0)))
+		var armor_pen := maxi(0, int(passive_bonus.get("armorPen", 0)))
+		var penetration := minf(0.75, float(armor_pen) * 0.025)
+		var enemy_armor := maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - float(armor_pen) * 0.5)))
+		var enemy_id := str(enemy.get("enemyId", ""))
+		var matchup_multiplier := 1.25 if MAGIC_WEAK_ENEMIES.has(enemy_id) else (0.8 if MAGIC_RESIST_ENEMIES.has(enemy_id) else 1.0)
 		var raw_damage := int(spell.get("damage", 0)) + int(floor(float(effective_stat(hero, "magic")) / 2.0)) - int(floor(float(enemy_armor) / 2.0))
-		var damage := maxi(1, int(round(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)))))
-		if str(spell.get("element", "")) == "lightning" and _has_effect(enemy, "slow"):
-			damage = int(round(float(damage) * 1.2))
+		var damage := maxi(1, int(floor(float(raw_damage) * float(passive_bonus.get("spellMult", 1.0)) * matchup_multiplier)))
+		var element := str(spell.get("element", ""))
+		if element == "lightning" and _has_effect(enemy, "slow"):
+			damage = int(floor(float(damage) * 1.2))
 			_remove_effect(enemy, "slow")
+		elif element == "fire" and _has_effect(enemy, "slow"):
+			_remove_effect(enemy, "slow")
+		elif element == "ice" and _has_effect(enemy, "burn"):
+			_remove_effect(enemy, "burn")
 		# Browser combat spells share the weapon critical formula.
 		var attack_index := int(combat.get("playerAttackCount", 0))
 		combat["playerAttackCount"] = attack_index + 1

@@ -202,6 +202,20 @@ func _initialize() -> void:
 		var spell_crit_result := Combat.cast_spell(spell_crit_world, spell_crit_fight, "fireball")
 		if not spell_crit_result.ok or int(spell_crit_enemy.hp) != 48 or not str(spell_crit_result.message).contains("КРИТ!"):
 			failures.append("native damaging spells must use browser-compatible critical chance and critical damage")
+	var reaction_world := WorldState.create(9922)
+	Combat.select_class(reaction_world, "mage")
+	var reaction_enemy := {"name":"Замедлённая цель","persistentId":"spell-fire-reaction","enemyId":"goblin","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"effects":[{"id":"slow","duration":2}]}
+	var reaction_fight := Combat.begin(reaction_enemy)
+	var reaction_result := Combat.cast_spell(reaction_world,reaction_fight,"fireball")
+	if not reaction_result.ok or Combat._has_effect(reaction_enemy,"slow"):
+		failures.append("fire spells must consume slow through the browser-compatible elemental reaction")
+	var weakness_world := WorldState.create(9923)
+	Combat.select_class(weakness_world, "mage")
+	var weakness_enemy := {"name":"Скелет","persistentId":"spell-weakness","enemyId":"skeleton","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+	var weakness_fight := Combat.begin(weakness_enemy)
+	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
+	if not weakness_result.ok or int(weakness_enemy.hp) != 56:
+		failures.append("magic weakness must increase spell damage by the browser multiplier")
 	var warrior_world := WorldState.create(993)
 	var warrior := Combat.ensure_hero(warrior_world)
 	var ability_enemy := {"name":"Манекен","persistentId":"enemy-ability","hp":1000,"maxHp":1000,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
