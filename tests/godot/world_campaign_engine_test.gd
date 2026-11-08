@@ -55,6 +55,25 @@ func _run() -> void:
 	if int(browser_numeric_progress.campaignKills.get("a1-m3", -1)) != 0:
 		failures.append("unsafe campaign kill counters must normalize to zero")
 
+	var unknown_active_mission: Dictionary = {
+		"campaignKills": {},
+		"campaignClaimed": {},
+		"activeCampaignMission": "missing-mission"
+	}
+	if not Campaign.get_active(unknown_active_mission).is_empty():
+		failures.append("unknown active campaign mission IDs must not resolve")
+	if str(unknown_active_mission.get("activeCampaignMission", "not-cleared")) != "":
+		failures.append("unknown active campaign mission IDs must be cleared like the browser implementation")
+	if str(Campaign.get_next(unknown_active_mission).get("id", "")) != "a1-m1":
+		failures.append("clearing an unknown active mission must restore the next unclaimed mission")
+	var claimed_active_mission: Dictionary = {
+		"campaignKills": {},
+		"campaignClaimed": {"a1-m1": true},
+		"activeCampaignMission": "a1-m1"
+	}
+	if not Campaign.get_active(claimed_active_mission).is_empty() or str(claimed_active_mission.get("activeCampaignMission", "not-cleared")) != "":
+		failures.append("already-claimed active campaign missions must be cleared instead of remaining stale")
+
 	var first_region := Campaign.can_enter_location(hero, "briar-hollow")
 	if not bool(first_region.get("allowed", false)):
 		failures.append("the first story region must be available to a new level-1 hero")
