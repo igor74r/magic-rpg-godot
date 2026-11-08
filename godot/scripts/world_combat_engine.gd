@@ -20,17 +20,23 @@ static func enemy_damage_multiplier(enemy: Dictionary, style: String) -> float:
 	var enemy_id := str(enemy.get("enemyId", ""))
 	if enemy_id.is_empty() or not ["melee", "ranged", "magic"].has(style):
 		return 1.0
-	var physical := style == "melee" or style == "ranged"
-	var weak := (PHYSICAL_WEAK_ENEMIES if physical else MAGIC_WEAK_ENEMIES).has(enemy_id)
-	var resistant := (PHYSICAL_RESIST_ENEMIES if physical else MAGIC_RESIST_ENEMIES).has(enemy_id)
+	var weak := false
+	var resistant := false
+	if style == "melee" or style == "ranged":
+		weak = PHYSICAL_WEAK_ENEMIES.has(enemy_id)
+		resistant = PHYSICAL_RESIST_ENEMIES.has(enemy_id)
+	else:
+		weak = MAGIC_WEAK_ENEMIES.has(enemy_id)
+		resistant = MAGIC_RESIST_ENEMIES.has(enemy_id)
 	if weak and resistant:
 		return 1.0
 	return 1.25 if weak else (0.8 if resistant else 1.0)
 
 
 static func enemy_defense_for_style(enemy: Dictionary, armor_pen: float = 0.0) -> int:
-	var penetration := clampf(armor_pen * 0.025, 0.0, 0.75)
-	return maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - armor_pen * 0.5)))
+	var safe_armor_pen := maxf(0.0, armor_pen)
+	var penetration := clampf(safe_armor_pen * 0.025, 0.0, 0.75)
+	return maxi(0, int(floor(float(enemy.get("defense", 0)) * (1.0 - penetration) - safe_armor_pen * 0.5)))
 
 
 static func ensure_hero(world: Dictionary) -> Dictionary:
