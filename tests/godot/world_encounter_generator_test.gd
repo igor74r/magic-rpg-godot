@@ -9,11 +9,11 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	if not is_equal_approx(Encounter.elite_chance("easy", 0), 0.15) or not is_equal_approx(Encounter.elite_chance("normal", 0), 0.20) or not is_equal_approx(Encounter.elite_chance("hard", 0), 0.35):
 		failures.append("elite chance must match easy, normal and hard browser values")
-	if not is_equal_approx(Encounter.elite_chance("hard", 3), 0.50) or not is_equal_approx(Encounter.elite_chance("normal", 99), 0.35):
+	if not is_equal_approx(Encounter.elite_chance("hard", 3), 0.50) or not is_equal_approx(Encounter.elite_chance("normal", 99), 0.35) or not is_equal_approx(Encounter.elite_chance("unknown", 0), 0.20):
 		failures.append("regional threat must add five percent per level and cap elite chance at fifty percent")
-	if not is_equal_approx(Encounter.respawn_minutes("easy"), 0.25) or not is_equal_approx(Encounter.respawn_minutes("normal"), 0.5) or not is_equal_approx(Encounter.respawn_minutes("hard"), 1.0):
+	if not is_equal_approx(Encounter.respawn_minutes("easy"), 0.25) or not is_equal_approx(Encounter.respawn_minutes("normal"), 0.5) or not is_equal_approx(Encounter.respawn_minutes("hard"), 1.0) or not is_equal_approx(Encounter.respawn_minutes("unknown"), 0.5):
 		failures.append("respawn duration must match 15/30/60 second difficulty settings")
-	if not is_equal_approx(Encounter.base_drop_chance("easy"), 0.70) or not is_equal_approx(Encounter.base_drop_chance("normal"), 0.50) or not is_equal_approx(Encounter.base_drop_chance("hard"), 0.30) or not is_equal_approx(Encounter.base_drop_chance("hard", true), 0.85):
+	if not is_equal_approx(Encounter.base_drop_chance("easy"), 0.70) or not is_equal_approx(Encounter.base_drop_chance("normal"), 0.50) or not is_equal_approx(Encounter.base_drop_chance("hard"), 0.30) or not is_equal_approx(Encounter.base_drop_chance("hard", true), 0.85) or not is_equal_approx(Encounter.base_drop_chance("unknown"), 0.50):
 		failures.append("drop chance must match browser difficulty and elite bonuses")
 	if Encounter.build_persistent_id("shadow-mage", true, 1, 4) != "boss-shadow-mage" or Encounter.build_persistent_id("shadow-mage", true, 3, 4) != "boss-shadow-mage-3" or Encounter.build_persistent_id("goblin", false, 1, 4) != "enemy-4":
 		failures.append("spawn persistent IDs must match browser boss occurrence and regular spawn formats")
