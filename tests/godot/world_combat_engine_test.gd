@@ -360,10 +360,10 @@ func _initialize() -> void:
 	var sale: Dictionary=Npc.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
-	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp")
+	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp","alchemist")
 	if not craft_result.ok or str(craft_world.hero.inventory[0].id)!="health-potion": failures.append("alchemist must consume three life herbs and create a health potion")
 	var rarity_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"common"},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"equipped":{},"campaignClaimed":{}}}
-	var rarity_result: Dictionary=Npc.craft(rarity_world,"r-briar-court-mantle")
+	var rarity_result: Dictionary=Npc.craft(rarity_world,"r-briar-court-mantle","blacksmith")
 	if not rarity_result.ok or str(rarity_world.hero.inventory[0].get("rarity",""))!="common" or rarity_world.hero.inventory.size()!=2 or str(rarity_world.hero.inventory[1].get("rarity",""))!="uncommon":
 		failures.append("crafting a duplicate named item must apply recipe rarity only to the newly created equipment")
 	var forge_world := {"hero":{"class":"warrior","level":1,"gold":30,"inventory":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"forgeLevel":0}},"campaignClaimed":{}}}
