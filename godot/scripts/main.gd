@@ -234,7 +234,7 @@ func _on_browser_import_selected(path: String) -> void:
 	if not parsed is Dictionary:
 		status_label.text = "Импорт отменён: файл не содержит корректное сохранение."
 		return
-	var source_version := int(parsed.get("version", 0))
+	var source_version_label := str(parsed.get("version", 0))
 	var migrated: Dictionary = SaveRepositoryScript.migrate_payload(parsed)
 	if migrated.is_empty() or not SaveRepositoryScript.is_browser_v18_payload(migrated):
 		status_label.text = "Импорт отменён: сохранение повреждено или его версия не поддерживается."
@@ -250,7 +250,7 @@ func _on_browser_import_selected(path: String) -> void:
 	world = imported
 	DailyQuestScript.get_quests(world)
 	_refresh_exploration()
-	status_label.text = "Браузерное сохранение v%d успешно импортировано и обновлено до v18." % source_version
+	status_label.text = "Браузерное сохранение v%s успешно импортировано и обновлено до v18." % source_version_label
 
 
 func _on_browser_export_selected(path: String) -> void:
