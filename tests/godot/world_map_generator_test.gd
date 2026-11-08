@@ -30,6 +30,23 @@ func _run() -> void:
 			cross_count += 1
 	if cross_count == 40:
 		failures.append("village horizontal road must not be a full-width cross")
+	if village[15][18] != Generator.TILE_ROAD or village[15][22] != Generator.TILE_ROAD:
+		failures.append("village central plaza must retain the browser's widened paved footprint")
+	if village[14][13] != Generator.TILE_ROAD or village[16][13] != Generator.TILE_ROAD:
+		failures.append("village craft and market junctions must retain their paved widening")
+	var protected_cells: Array[Vector2i] = [
+		Vector2i(19,15), Vector2i(17,19), Vector2i(20,19), Vector2i(22,6), Vector2i(4,9), Vector2i(33,10), Vector2i(5,20), Vector2i(33,21),
+		Vector2i(16,14), Vector2i(19,13), Vector2i(22,13), Vector2i(15,10), Vector2i(17,10), Vector2i(20,10), Vector2i(7,10), Vector2i(31,10),
+		Vector2i(7,21), Vector2i(31,21), Vector2i(24,6), Vector2i(19,25), Vector2i(12,16), Vector2i(13,13), Vector2i(27,13), Vector2i(15,8), Vector2i(15,18),
+		Vector2i(12,9), Vector2i(27,9), Vector2i(12,20), Vector2i(27,20), Vector2i(10,14), Vector2i(29,14), Vector2i(10,18), Vector2i(29,18),
+		Vector2i(29,22), Vector2i(9,9), Vector2i(9,11), Vector2i(10,11), Vector2i(29,21), Vector2i(9,21),
+		Vector2i(25,4), Vector2i(7,8), Vector2i(31,8), Vector2i(7,20), Vector2i(31,20), Vector2i(13,25), Vector2i(25,25), Vector2i(13,4),
+		Vector2i(16,6), Vector2i(17,8), Vector2i(22,8), Vector2i(23,10)
+	]
+	for cell in protected_cells:
+		if village[cell.y][cell.x] == Generator.TILE_PROP:
+			failures.append("browser-protected village interaction cell must never become a garden obstacle: %s" % str(cell))
+			break
 	if not Generator.is_blocked([[Generator.TILE_STONE]], 0, 0):
 		failures.append("stone must block ordinary movement")
 	if Generator.is_blocked([[Generator.TILE_STONE]], 0, 0, true):
