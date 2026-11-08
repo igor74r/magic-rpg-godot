@@ -156,7 +156,7 @@ static func record_kill(world: Dictionary, region_id: String, enemy: Dictionary)
 static func record_discovery(world: Dictionary, region_id: String) -> Array:
 	if not WorldGraphScript.region_ids().has(region_id): return []
 	var completed: Array = []
-	for event in world.get("events", {}).get("active", []).duplicate(true):
+	for event in world.get("events", {}).get("active", []).duplicate():
 		if event.get("status") != "active" or not bool(event.get("accepted", false)) or event.get("objectiveType") != "region-discovery" or str(event.get("targetRegionId", "")) != region_id: continue
 		event["progress"] = mini(int(event.get("targetCount", 1)), int(event.get("progress", 0)) + 1)
 		event["phase"] = event.progress
