@@ -7,6 +7,7 @@ const Catalog = preload("res://godot/scripts/world_npc_catalog.gd")
 const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
 const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
 const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
+const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -255,10 +256,7 @@ static func get_buy_price(world: Dictionary, item_id: String) -> int:
  if item.is_empty() or str(item.get("type","")) == "quest" or bool(item.get("storyShard",false)) or bool(item.get("bossOnly",false)): return 0
  var hero := hero_for(world)
  var multipliers: Array = [1.0, 1.2, 1.4, 1.6, 1.8]
- var faction_state: Dictionary = world.get("factions", {}) if world.get("factions", {}) is Dictionary else {}
- var reputation: Dictionary = faction_state.get("reputation", {}) if faction_state.get("reputation", {}) is Dictionary else {}
- var trader_reputation := clampi(int(reputation.get("free-traders", 0)), -100, 100)
- var discount := 0.15 if trader_reputation >= 90 else 0.10 if trader_reputation >= 70 else 0.05 if trader_reputation >= 30 else 0.0
+ var discount := FactionEngine.get_trade_discount(world)
  var base_price := int(item.get("price", 0))
  if base_price <= 0: return 0
  return maxi(1, int(round(float(base_price) * multipliers[current_act(hero) - 1] * (1.0 - discount))))
