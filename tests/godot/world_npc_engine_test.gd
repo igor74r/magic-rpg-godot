@@ -104,6 +104,19 @@ func _initialize() -> void:
 	preview_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":90}}
 	if Npc.get_buy_price(preview_world, "iron-sword") != 38:
 		failures.append("shop preview must include act scaling and allied trader discount")
+
+	var rounded_trader_world := WorldState.create(20261125)
+	rounded_trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
+	rounded_trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":29.6}}
+	var rounded_trader_buy := Npc.buy_item(rounded_trader_world, "iron-sword")
+	if not bool(rounded_trader_buy.get("ok", false)) or not is_equal_approx(float(rounded_trader_buy.get("discount", -1.0)), 0.05) or int(rounded_trader_buy.get("price", 0)) != 43:
+		failures.append("purchase result must use browser-rounded reputation when crossing the +30 trader discount threshold")
+	var next_trader_world := WorldState.create(20261126)
+	next_trader_world["hero"] = {"level":1,"gold":100,"inventory":[],"campaignClaimed":{},"equipped":{}}
+	next_trader_world["factions"] = {"schemaVersion":1,"reputation":{"free-traders":69.6}}
+	var next_trader_buy := Npc.buy_item(next_trader_world, "iron-sword")
+	if not bool(next_trader_buy.get("ok", false)) or not is_equal_approx(float(next_trader_buy.get("discount", -1.0)), 0.10) or int(next_trader_buy.get("price", 0)) != 41:
+		failures.append("purchase result must use browser-rounded reputation when crossing the +70 trader discount threshold")
 	var sell_world := WorldState.create(20261111)
 	sell_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"uncommon"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var sold := Npc.sell_item(sell_world,0)
