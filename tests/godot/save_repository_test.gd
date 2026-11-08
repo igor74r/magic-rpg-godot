@@ -216,7 +216,7 @@ func _run() -> void:
 	# Exercise every remaining legacy schema entry point independently. The
 	# browser migration suite covers v1-v17; native migration must also accept
 	# each starting version and preserve opaque extension data.
-	for legacy_version in range(2, 17):
+	for legacy_version in range(1, 17):
 		var legacy_matrix_payload := {
 			"version": legacy_version,
 			"legacyExtension": {"versionMarker": legacy_version},
