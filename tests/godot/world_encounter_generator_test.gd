@@ -17,6 +17,10 @@ func _initialize() -> void:
 		failures.append("drop chance must match browser difficulty and elite bonuses")
 	if Encounter.build_persistent_id("shadow-mage", true, 1, 4) != "boss-shadow-mage" or Encounter.build_persistent_id("shadow-mage", true, 3, 4) != "boss-shadow-mage-3" or Encounter.build_persistent_id("goblin", false, 1, 4) != "enemy-4":
 		failures.append("spawn persistent IDs must match browser boss occurrence and regular spawn formats")
+	if not is_equal_approx(Encounter.herb_drop_chance(), 0.30) or not is_equal_approx(Encounter.herb_drop_chance(false, true), 0.70) or not is_equal_approx(Encounter.herb_drop_chance(true, false), 0.875):
+		failures.append("herb drop chances must match regular, elite and boss browser values")
+	if Encounter.herb_drop_quantity() != 1 or Encounter.herb_drop_quantity(false, true) != 2 or Encounter.herb_drop_quantity(true, false) != 2:
+		failures.append("elite and boss herb drops must award two herbs while regular enemies award one")
 	for region_id in Catalog.region_ids():
 		for enemy_id in Catalog.enemy_roster(region_id):
 			if EnemyCatalog.get_enemy(enemy_id).is_empty():
