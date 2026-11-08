@@ -49,10 +49,9 @@ static func ensure_state(world: Dictionary) -> Dictionary:
 	var log: Variant = state.get("changeLog", [])
 	if not log is Array:
 		log = []
-	var clean_log: Array = []
-	for entry in log:
-		if entry is Dictionary and FACTIONS.has(str(entry.get("factionId", ""))):
-			clean_log.append(entry.duplicate(true))
+	# Browser ensureFactionState preserves arbitrary legacy log entries and
+	# only trims the history length; keep that lossless behavior here too.
+	var clean_log: Array = log.duplicate(true)
 	if clean_log.size() > LOG_LIMIT:
 		clean_log = clean_log.slice(clean_log.size() - LOG_LIMIT)
 	var normalized := {"schemaVersion":1,"reputation":clean,"changeLog":clean_log}
