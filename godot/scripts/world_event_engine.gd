@@ -6,6 +6,7 @@ const WorldRandomScript = preload("res://godot/scripts/world_random.gd")
 const WorldGraphScript = preload("res://godot/scripts/world_graph.gd")
 const RegionCatalogScript = preload("res://godot/scripts/world_region_catalog.gd")
 const FactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
+const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 
 const MIN_INTERVAL := 480.0
 const INTERVAL_VARIANCE := 240
@@ -115,7 +116,7 @@ static func advance_time(world: Dictionary, delta_minutes: float, region_id: Str
 			if template.objectiveType == "defend-region": event["holdElapsedMinutes"] = 0.0
 			if not str(template.get("campaignId", "")).is_empty() and int(template.get("campaignStage", 1)) == 1:
 				campaigns[str(template.campaignId)] = {"status":"active","stage":1,"startedAt":now}
-				events["factionCampaigns"] = campaigns
+				world["factionCampaigns"] = campaigns
 			active.append(event)
 			started.append(event)
 			events["sequence"] = sequence + 1
@@ -195,7 +196,7 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 	elif status == "failed" and bool(event.get("accepted", false)) and not faction_id.is_empty() and int(event.get("failureReputationDelta", 0)) != 0:
 		FactionEngineScript.change_reputation(world, faction_id, int(event.failureReputationDelta), "Провал: %s" % str(event.name), "world-event")
 	if faction_id == "hub-guardians" and status in ["completed","failed"]:
-		var region: Dictionary = WorldStateRegionRecord.get_record(world, str(event.regionId))
+		var region: Dictionary = WorldStateScript.get_region_record(world, str(event.regionId))
 		if not region.is_empty(): region["securityThreat"] = clampi(int(region.get("securityThreat", 0)) + (-1 if status == "completed" else 1), 0, 3)
 	events["history"].append(completed)
 	while events.history.size() > HISTORY_LIMIT:
@@ -215,11 +216,3 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 	events["active"] = remaining
 	return completed
 
-
-# Lightweight adapter avoids coupling event rules to the full world-state class.
-class WorldStateRegionRecord:
-	static func get_record(world: Dictionary, region_id: String) -> Dictionary:
-		var regions: Dictionary = world.get("regions", {})
-		if not regions.has(region_id): regions[region_id] = {"securityThreat":0}
-		world["regions"] = regions
-		return regions[region_id]
