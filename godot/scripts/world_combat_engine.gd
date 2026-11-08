@@ -666,9 +666,6 @@ static func block(world: Dictionary, combat: Dictionary) -> Dictionary:
 	var lines: Array[String] = ["Вы принимаете защитную стойку."]
 	if not _tick_enemy_effects(world, combat, enemy, lines):
 		combat["turn"] = "enemy"
-		var adaptation_message := prepare_enemy_adaptation(combat, enemy)
-		if not adaptation_message.is_empty():
-			lines.append(adaptation_message)
 		_resolve_enemy_response(world, combat, hero, enemy, lines)
 	combat["blocking"] = false
 	combat["log"] = "\n".join(lines)
