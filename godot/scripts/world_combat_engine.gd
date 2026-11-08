@@ -279,7 +279,7 @@ static func _award_victory(world: Dictionary, enemy: Dictionary) -> String:
 		if bool(enemy.get("boss", false)):
 			WorldState.mark_boss_defeated(world, region_id, persistent_id)
 		else:
-			WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + 0.5)
+			WorldState.mark_enemy_defeated(world, region_id, persistent_id, float(world.get("clockMinutes", 0.0)) + EncounterGenerator.respawn_minutes(str(world.get("difficulty", "normal"))))
 	world["hero"] = hero
 	var message := "Победа! +%d опыта, +%d золота." % [reward_exp, reward_gold]
 	if not campaign_message.is_empty(): message += "\n" + campaign_message
