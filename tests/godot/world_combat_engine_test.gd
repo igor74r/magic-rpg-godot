@@ -629,6 +629,12 @@ func _initialize() -> void:
 	if not buff_turn_result.ok or int(buff_turn_world.hero.hp) >= 100 or buff_turn_fight.turn != "player":
 		failures.append("a defensive buff must allow the enemy response even when adaptation is inactive")
 
+	# Class combat profiles, gear, runes and passive bonuses contribute to dodge/block.
+	var defense_profile_hero := {"class":"warrior","dex":10,"equipped":{},"passives":["start"],"talents":[]}
+	var defense_profile: Dictionary = Combat._combat_defense_stats(defense_profile_hero)
+	if not is_equal_approx(float(defense_profile.dodgeChance),0.06) or not is_equal_approx(float(defense_profile.blockChance),0.16) or not is_equal_approx(float(defense_profile.blockPower),0.66):
+		failures.append("warrior automatic dodge and block profile must match browser class combat stats")
+
 	var heal_world := WorldState.create(1103)
 	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
 	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
