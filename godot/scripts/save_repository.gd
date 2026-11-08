@@ -5,6 +5,7 @@ const SAVE_VERSION := 18
 const PREVIOUS_SAVE_VERSION := 17
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const WorldCampaignCatalogScript = preload("res://godot/scripts/world_campaign_catalog.gd")
+const WorldFactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
 const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 
 
@@ -149,21 +150,9 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
 
-	var factions_value: Variant = migrated.get("factions", null)
-	var factions: Dictionary = factions_value.duplicate(true) if factions_value is Dictionary else {}
-	var reputation_value: Variant = factions.get("reputation", {})
-	var reputation: Dictionary = reputation_value.duplicate(true) if reputation_value is Dictionary else {}
-	for faction_id in ["hub-guardians", "rift-cult", "free-traders", "ash-nomads"]:
-		var reputation_number := float(reputation.get(faction_id, 0))
-		reputation[faction_id] = clampi(roundi(reputation_number), -100, 100) if is_finite(reputation_number) else 0
-	factions["schemaVersion"] = 1
-	factions["reputation"] = reputation
-	var log_value: Variant = factions.get("changeLog", [])
-	var change_log: Array = log_value.duplicate(true) if log_value is Array else []
-	if change_log.size() > 50:
-		change_log = change_log.slice(change_log.size() - 50)
-	factions["changeLog"] = change_log
-	migrated["factions"] = factions
+	# Reuse the runtime normalizer so imported legacy saves and live world state
+	# share Number/Math.round coercion, bounds, and change-log filtering.
+	WorldFactionEngineScript.ensure_state(migrated)
 
 	_normalize_campaign_branches(hero)
 	migrated[hero_key] = hero
