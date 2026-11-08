@@ -39,7 +39,10 @@ static func load_slot(slot: int) -> Dictionary:
 
 static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var migrated: Dictionary = payload.duplicate(true)
-	var version := int(migrated.get("version", -1))
+	var version_value: Variant = migrated.get("version", -1)
+	if not version_value is int:
+		return {}
+	var version := int(version_value)
 	var hero_key := "player" if migrated.get("player", null) is Dictionary else "hero"
 	var hero_value: Variant = migrated.get(hero_key, null)
 	# A version marker alone is not a save. Reject payloads without a valid
