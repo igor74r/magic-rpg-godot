@@ -70,7 +70,9 @@ const SPELLS := {
 }
 
 static func class_ids() -> Array:
-	return CLASSES.keys()
+	var ids: Array = CLASSES.keys()
+	ids.erase("priest")
+	return ids
 
 static func get_class(class_id: String) -> Dictionary:
 	return CLASSES.get(class_id, CLASSES.warrior).duplicate(true)

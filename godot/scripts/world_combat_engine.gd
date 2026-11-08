@@ -670,7 +670,8 @@ static func block(world: Dictionary, combat: Dictionary) -> Dictionary:
 		if not adaptation_message.is_empty():
 			lines.append(adaptation_message)
 		_resolve_enemy_response(world, combat, hero, enemy, lines)
-	combat["log"] = "\\n".join(lines)
+	combat["blocking"] = false
+	combat["log"] = "\n".join(lines)
 	combat["enemy"] = enemy
 	world["hero"] = hero
 	return {"ok": true, "message": str(combat.log), "result": str(combat.get("result", ""))}

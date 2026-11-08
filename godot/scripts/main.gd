@@ -1340,8 +1340,17 @@ func _combat_block() -> void:
 		RiftEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 		TowerEngineScript.sync_encounter(world, combat_state.get("enemy", {}))
 	elif str(result.get("result", "")) == "victory":
-		_record_world_event_victory(combat_state.get("enemy", {}))
-	WorldStateRepositoryScript.save_world(world)
+		var defeated_enemy: Dictionary = combat_state.get("enemy", {})
+		_record_world_event_victory(defeated_enemy)
+		if bool(defeated_enemy.get("riftMode", false)):
+			var rift_result: Dictionary = RiftEngineScript.complete_area(world, defeated_enemy)
+			if bool(rift_result.get("ok", false)):
+				status_label.text += "\n" + str(rift_result.message)
+		elif bool(defeated_enemy.get("towerMode", false)):
+			_complete_tower_victory(defeated_enemy)
+	var error := WorldStateRepositoryScript.save_world(world)
+	if error != OK:
+		status_label.text += "\nОшибка сохранения: %s" % error_string(error)
 	_refresh_combat_ui()
 	_refresh_inventory()
 	if combat_state.get("over", false):

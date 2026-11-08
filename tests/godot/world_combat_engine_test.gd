@@ -639,8 +639,8 @@ func _initialize() -> void:
 	var priest_world := WorldState.create(1114)
 	priest_world["hero"] = {"class":"priest","level":1,"hp":40,"maxHp":115,"mp":100,"maxMp":160,"str":6,"int":15,"wis":18,"con":10,"dex":7,"gold":0,"inventory":[],"equipped":{},"spells":["heal","holy-light"],"buffs":[],"effects":[],"cooldowns":{},"talents":[],"passives":["start"]}
 	var priest_hero: Dictionary = Combat.ensure_hero(priest_world)
-	if str(priest_hero.get("class","")) != "priest" or int(priest_hero.get("maxHp",0)) != 115 or not priest_hero.get("spells",[]).has("holy-light"):
-		failures.append("legacy Priest save must preserve class stats and spell list")
+	if str(priest_hero.get("class","")) != "priest" or int(priest_hero.get("maxHp",0)) != 115 or not priest_hero.get("spells",[]).has("holy-light") or ClassCatalog.class_ids().has("priest"):
+		failures.append("legacy Priest save must preserve class stats while remaining hidden from new character selection")
 	var prayer_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"priest-prayer-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":15}
 	var prayer_fight := Combat.begin(prayer_enemy)
 	var prayer_result: Dictionary = Combat.use_ability(priest_world,prayer_fight,"prayer")
@@ -653,9 +653,8 @@ func _initialize() -> void:
 	var revive_fight := Combat.begin(revive_enemy)
 	var revive_lines: Array[String] = []
 	Combat._resolve_enemy_response(revive_world,revive_fight,revive_world.hero,revive_enemy,revive_lines)
-	if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed or not str(revive_fight.log).contains("Воскрешение"):
-		if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed:
-			failures.append("Priest must resurrect once when a combat response would defeat them")
+	if int(revive_world.hero.hp) <= 0 or revive_fight.turn != "player" or not revive_fight.playerResurrectionUsed or not "\n".join(revive_lines).contains("Воскрешение"):
+		failures.append("Priest must resurrect once when a combat response would defeat them")
 
 	# Manual block is an explicit combat action, with the elite/boss counterattack.
 	var block_world := WorldState.create(1115)
