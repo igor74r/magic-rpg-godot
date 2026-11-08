@@ -7,10 +7,20 @@ func _initialize()->void:
 	if not bool(Tower.floor_definition(5).guardian) or bool(Tower.floor_definition(4).guardian): failures.append("guardian every fifth floor")
 	var EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 	var RegionCatalog = preload("res://godot/scripts/world_region_catalog.gd")
+	var tower_seed_world := WorldState.create(9900)
 	for floor_number in range(1, Tower.MAX_FLOOR + 1):
 		var definition: Dictionary = Tower.floor_definition(floor_number)
 		if not RegionCatalog.REGIONS.has(str(definition.get("sourceId", ""))):
 			failures.append("floor %d must reference a real region" % floor_number)
+		var generated_ids: Array[String] = []
+		for enemy_index in range(definition.get("enemyIds", []).size()):
+			var generated_enemy: Dictionary = Tower._enemy(tower_seed_world, str(definition.enemyIds[enemy_index]), floor_number, enemy_index)
+			var generated_id := str(generated_enemy.get("persistentId", ""))
+			if generated_enemy.is_empty() or generated_id.is_empty() or generated_ids.has(generated_id):
+				failures.append("floor %d must generate unique, valid enemy identities" % floor_number)
+			generated_ids.append(generated_id)
+			if int(generated_enemy.get("hp", 0)) != int(generated_enemy.get("maxHp", -1)) or int(generated_enemy.get("towerFloor", 0)) != floor_number:
+				failures.append("floor %d enemy must start with full health and correct floor metadata" % floor_number)
 		for enemy_id in definition.get("enemyIds", []):
 			if EnemyCatalog.get_enemy(str(enemy_id)).is_empty():
 				failures.append("floor %d references missing enemy %s" % [floor_number, str(enemy_id)])
