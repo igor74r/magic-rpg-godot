@@ -56,11 +56,20 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	var world: Dictionary = world_value.duplicate(true) if world_value is Dictionary else create(seed_fallback, legacy)
 	var defaults := create(seed_fallback, legacy)
 	world["schemaVersion"] = SCHEMA_VERSION
-	var seed_value := int(world.get("seed", seed_fallback)) & 0xffffffff
+	var raw_seed: Variant = world.get("seed", seed_fallback)
+	# Match browser Number.isFinite before applying JavaScript's >>> 0
+	# conversion. Numeric strings must not be coerced into valid world seeds.
+	var numeric_seed := float(raw_seed) if raw_seed is int or raw_seed is float else float(seed_fallback)
+	if not is_finite(numeric_seed):
+		numeric_seed = float(seed_fallback)
+	var seed_value := int(fposmod(numeric_seed, 4294967296.0))
 	world["seed"] = seed_value if seed_value != 0 else 1
-	var generator := int(world.get("generatorVersion", GENERATOR_VERSION))
-	world["generatorVersion"] = maxi(1, generator)
-	world["clockMinutes"] = maxf(0.0, float(world.get("clockMinutes", 0)))
+	var raw_generator: Variant = world.get("generatorVersion", GENERATOR_VERSION)
+	var generator := float(raw_generator) if raw_generator is int or raw_generator is float else float(GENERATOR_VERSION)
+	world["generatorVersion"] = maxf(1.0, generator) if is_finite(generator) else float(GENERATOR_VERSION)
+	var raw_clock: Variant = world.get("clockMinutes", 0)
+	var clock := float(raw_clock) if raw_clock is int or raw_clock is float else 0.0
+	world["clockMinutes"] = maxf(0.0, clock) if is_finite(clock) else 0.0
 	world["legacyFastTravel"] = world.get("legacyFastTravel", false) == true or legacy
 
 	var valid_regions: Array = WorldGraph.region_ids()
