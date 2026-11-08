@@ -332,6 +332,31 @@ func _run() -> void:
 		failures.append("browser export must preserve extension data")
 	if exported_browser is Dictionary and exported_browser != browser_payload:
 		failures.append("browser import/export must preserve the complete payload, including nested and unknown fields")
+	# Exercise the actual browser import -> native slot -> browser export path
+	# for every legacy schema boundary, not only the in-memory migrator.
+	for legacy_import_version in range(1, 18):
+		var legacy_round_trip := browser_payload.duplicate(true)
+		legacy_round_trip["version"] = legacy_import_version
+		legacy_round_trip.erase("worldSeed")
+		legacy_round_trip.erase("worldGeneratorVersion")
+		legacy_round_trip.erase("world")
+		legacy_round_trip.erase("factions")
+		legacy_round_trip["extensionData"] = {
+			"nullableMarker": null,
+			"nested": {"opaque": "v%d" % legacy_import_version, "flags": [true, false, null]}
+		}
+		if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(legacy_round_trip)) != OK:
+			failures.append("legacy browser v%d payload must import through the native slot" % legacy_import_version)
+			continue
+		var round_trip_payload: Variant = JSON.parse_string(SaveRepo.export_browser_save(TEST_SLOT))
+		if not round_trip_payload is Dictionary or not SaveRepo.is_browser_v18_payload(round_trip_payload):
+			failures.append("legacy browser v%d import must export a valid v18 browser payload" % legacy_import_version)
+			continue
+		var round_trip_extension: Dictionary = round_trip_payload.get("extensionData", {})
+		if round_trip_extension.get("nullableMarker", "missing") != null or round_trip_extension.get("nested", {}).get("opaque", "") != "v%d" % legacy_import_version or round_trip_extension.get("nested", {}).get("flags", []) != [true, false, null]:
+			failures.append("legacy browser v%d round-trip must preserve nested unknown values and explicit nulls" % legacy_import_version)
+		if str(round_trip_payload.get("player", {}).get("name", "")) != "Browser fixture":
+			failures.append("legacy browser v%d round-trip must preserve player identity" % legacy_import_version)
 	var legacy_browser_payload := browser_payload.duplicate(true)
 	legacy_browser_payload["version"] = 17
 	legacy_browser_payload.erase("worldSeed")
