@@ -97,6 +97,7 @@ func _initialize() -> void:
 	var malformed_world := WorldState.create(77)
 	malformed_world.events.active = ["invalid", null, 42]
 	malformed_world.events.history = ["invalid", null]
+	EventEngine.advance_time(malformed_world, 0.1, "forest")
 	if not EventEngine.record_kill(malformed_world, "forest", normal_enemy).is_empty() or not EventEngine.claim_reward(malformed_world, "missing").is_empty():
 		failures.append("malformed imported event entries must be ignored safely")
 
