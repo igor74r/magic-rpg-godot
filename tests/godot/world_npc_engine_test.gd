@@ -8,6 +8,13 @@ func _initialize() -> void:
 	# Full NPC dialogue contract: every authored identity is reachable, greetings
 	# cycle deterministically across the catalog, and invalid actions are side-effect free.
 	const NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
+	const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
+	var village_grid := MapGenerator.generate_map("village", 40, 30, 20261140, 1, 1)
+	var npc_cells: Dictionary = NpcCatalog.map_locations()
+	for npc_id in expected_npc_ids:
+		var npc_cell: Vector2i = npc_cells.get(npc_id, Vector2i(-1, -1))
+		if npc_cell.x < 0 or npc_cell.x >= 40 or npc_cell.y < 0 or npc_cell.y >= 30 or MapGenerator.is_blocked(village_grid, npc_cell.x, npc_cell.y):
+			failures.append("village NPC %s must be placed on an in-bounds walkable cell" % npc_id)
 	var dialogue_world := WorldState.create(20261140)
 	var expected_npc_ids := ["blacksmith", "healer", "alchemist", "merchant", "elder", "well", "bard", "guard", "cat", "kids", "herald", "questBoard"]
 	var actual_npc_ids: Array = NpcCatalog.ids()
