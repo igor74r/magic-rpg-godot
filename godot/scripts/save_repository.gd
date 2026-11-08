@@ -109,9 +109,14 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	elif version_value is String:
 		var version_text := str(version_value).strip_edges()
 		if not version_text.is_empty():
-			if not version_text.is_valid_float():
+			# JavaScript Number() also accepts hexadecimal integer strings.
+			# Preserve that browser behavior before falling back to decimal floats.
+			if version_text.is_valid_int():
+				version_number = float(version_text.to_int())
+			elif version_text.is_valid_float():
+				version_number = version_text.to_float()
+			else:
 				return {}
-			version_number = version_text.to_float()
 	elif version_value != null:
 		return {}
 	if not is_finite(version_number) or version_number < 0.0 or version_number != floor(version_number) or version_number > 9007199254740991.0:
