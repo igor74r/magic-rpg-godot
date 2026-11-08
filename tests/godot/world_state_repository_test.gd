@@ -55,6 +55,15 @@ func _run() -> void:
 		"factions": {"reputation": {"hub-guardians": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
 		"browserRootExtension": {"opaque": "preserve"}
 	}
+	# Browser saves may omit world.currentRegionId while retaining a valid
+	# region in the top-level location field. Import must use that fallback.
+	var location_fallback_payload := browser_payload.duplicate(true)
+	location_fallback_payload["location"] = "forest"
+	location_fallback_payload.world.erase("currentRegionId")
+	var location_fallback_world := Repository.from_browser_payload(location_fallback_payload)
+	if str(location_fallback_world.get("currentRegionId", "")) != "forest":
+		failures.append("browser top-level region location must restore the native current region when world.currentRegionId is absent")
+
 	var native_world := Repository.from_browser_payload(browser_payload)
 	if native_world.is_empty():
 		failures.append("valid browser v18 snapshot must map into native runtime state")
