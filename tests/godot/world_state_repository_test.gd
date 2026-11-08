@@ -50,7 +50,8 @@ func _run() -> void:
 		"world": {
 			"seed": 424242, "generatorVersion": 1, "discoveredRegions": ["village", "forest"],
 			"unlockedRoutes": [], "currentRegionId": "forest",
-			"browserWorldExtension": {"keep": 77}
+			"browserWorldExtension": {"keep": 77},
+			"regions": {"forest": {"generationVisit": 1, "browserRegionExtension": {"opaque": "retain-me"}}}
 		},
 		"factions": {"reputation": {"hub-guardians": 35}, "changeLog": [{"faction": "wardens", "delta": 5}]},
 		"browserRootExtension": {"opaque": "preserve"}
@@ -95,6 +96,8 @@ func _run() -> void:
 			failures.append("unknown browser player fields must survive native round-trip")
 		if exported.get("world", {}).get("browserWorldExtension", {}).get("keep", 0) != 77:
 			failures.append("unknown browser world fields must survive native round-trip")
+		if exported.get("world", {}).get("regions", {}).get("forest", {}).get("browserRegionExtension", {}).get("opaque", "") != "retain-me":
+			failures.append("unknown nested browser region fields must survive native round-trip")
 		if int(exported.get("world", {}).get("clockMinutes", 0)) != 210:
 			failures.append("native world changes must be reflected in browser export")
 		if Repository.save_world(native_world) != OK:
