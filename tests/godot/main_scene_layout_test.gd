@@ -60,8 +60,10 @@ func _initialize() -> void:
 		var campaign_claim_start := controller_source.find("func _claim_campaign_mission() -> void:")
 		var campaign_claim_end := controller_source.find("\\n\\nfunc ", campaign_claim_start)
 		var campaign_claim_source := controller_source.substr(campaign_claim_start, campaign_claim_end - campaign_claim_start)
-		if campaign_claim_source.find("add_item(hero, str(reward.itemId), 1)") > campaign_claim_source.find("CampaignScript.claim(hero)"):
-			failures.append("campaign reward inventory capacity must be validated before granting the claim permanently")
+		if campaign_claim_source.find("add_item(hero, str(reward.itemId), 1)") > campaign_claim_source.find('hero["gold"]') or campaign_claim_source.find("add_item(hero, str(reward.itemId), 1)") > campaign_claim_source.find("_save_world_or_restore(snapshot"):
+			failures.append("campaign reward inventory capacity must be validated before crediting rewards or committing the save")
+		if not campaign_claim_source.contains("world = snapshot"):
+			failures.append("campaign reward failures must restore the full pre-claim world snapshot")
 		scene.free()
 
 	if failures.is_empty():
