@@ -53,7 +53,7 @@ func _initialize() -> void:
 		failures.append("ready camp order must grant its reward once and remove the claimed job")
 	var city_world := WorldState.create(20261120)
 	city_world["location"] = "village"
-	city_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{}}
+	city_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"campaignClaimed":{},"equipped":{},"inventoryInitialized":true}
 	var city_craft := Npc.craft(city_world, "r-hp", "alchemist", 2000000)
 	if not bool(city_craft.get("ok", false)) or bool(city_craft.get("queued", false)) or str(city_world.hero.inventory[0].id) != "health-potion":
 		failures.append("city crafting must remain immediate and must not create a camp order")
