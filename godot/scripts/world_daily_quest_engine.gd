@@ -100,14 +100,25 @@ static func claim(world: Dictionary,quest_id: String) -> Dictionary:
 	for quest in get_quests(world):
 		if str(quest.id)!=quest_id:continue
 		if not bool(quest.completed) or bool(quest.claimed):return {"ok":false,"message":"Задание ещё не выполнено или награда уже получена"}
-		var gold:=int(quest.gold)
-		if int(hero.get("gold",0))>2147483647-gold:return {"ok":false,"message":"Слишком много золота"}
-		hero["gold"]=int(hero.get("gold",0))+gold
-		var exp:=int(quest.exp)
-		var level_ups:=WorldCombatEngine.grant_experience(hero,exp)
-		quest["claimed"]=true
-		world["hero"]=hero
-		return {"ok":true,"message":"Награда: +%d золота, +%d опыта" % [gold,exp],"levelUps":level_ups}
+		var gold := int(quest.gold)
+		var current_gold := hero.get("gold", 0)
+		if not (current_gold is int) or int(current_gold) < 0 or int(current_gold) > 9007199254740991 - gold:
+			return {"ok": false, "message": "Невозможно выдать награду: проверьте баланс золота."}
+		var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
+		var current_earned: Variant = stats.get("goldEarned", 0)
+		if not (current_earned is int) or int(current_earned) < 0 or int(current_earned) > 9007199254740991 - gold:
+			return {"ok": false, "message": "Невозможно обновить статистику заработанного золота."}
+		var exp := int(quest.exp)
+		# Mirror the browser reward transaction: balance, lifetime-earned gold,
+		# experience, and claimed state are updated together only after validation.
+		hero["gold"] = int(current_gold) + gold
+		stats["goldEarned"] = int(current_earned) + gold
+		hero["stats"] = stats
+		var level_ups := WorldCombatEngine.grant_experience(hero, exp)
+		quest["claimed"] = true
+		world["hero"] = hero
+		var achievements: Array = preload("res://godot/scripts/world_achievement_engine.gd").evaluate(world)
+		return {"ok": true, "message": "Награда: +%d золота, +%d опыта" % [gold, exp], "levelUps": level_ups, "achievements": achievements}
 	return {"ok":false,"message":"Задание не найдено"}
 
 
