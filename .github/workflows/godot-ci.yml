@@ -47,6 +47,9 @@ jobs:
       - name: Test story dragon finale rewards
         run: godot --headless --path . --script res://tests/godot/world_combat_engine_test.gd
 
+      - name: Test atomic world repository and interrupted-write recovery
+        run: godot --headless --path . --script res://tests/godot/world_state_repository_test.gd
+
       - name: Test save-scoped world exploration state
         run: godot --headless --path . --script res://tests/godot/world_state_test.gd
 
