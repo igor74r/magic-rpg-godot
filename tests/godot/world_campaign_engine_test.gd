@@ -43,6 +43,18 @@ func _run() -> void:
 	if bool(malformed_progress.campaignClaimed.get("a1-m1", false)):
 		failures.append("non-boolean campaign claims must not be accepted")
 
+	var browser_numeric_progress: Dictionary = {
+		"campaignKills": {"a1-m1": 3.0, "a1-m2": 2.5, "a1-m3": 9007199254740992.0},
+		"campaignClaimed": {}
+	}
+	Campaign.ensure_state(browser_numeric_progress)
+	if int(browser_numeric_progress.campaignKills.get("a1-m1", -1)) != 3:
+		failures.append("integral float campaign kill counters must match browser Number.isSafeInteger behavior")
+	if int(browser_numeric_progress.campaignKills.get("a1-m2", -1)) != 0:
+		failures.append("fractional campaign kill counters must normalize to zero")
+	if int(browser_numeric_progress.campaignKills.get("a1-m3", -1)) != 0:
+		failures.append("unsafe campaign kill counters must normalize to zero")
+
 	var first_region := Campaign.can_enter_location(hero, "briar-hollow")
 	if not bool(first_region.get("allowed", false)):
 		failures.append("the first story region must be available to a new level-1 hero")
