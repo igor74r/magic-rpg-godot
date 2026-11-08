@@ -18,6 +18,12 @@ func _run() -> void:
 		failures.append("slot 4 must be rejected")
 	if SaveRepo.save_slot(TEST_SLOT, {"version": 17}) != ERR_INVALID_DATA:
 		failures.append("unsupported save versions must be rejected")
+	if SaveRepo.save_slot(TEST_SLOT, {"version": 18}) != ERR_INVALID_DATA:
+		failures.append("v18 payload without a hero record must be rejected before writing")
+	if SaveRepo.save_slot(TEST_SLOT, {"version": 18.5, "player": {"name": "Bad version"}}) != ERR_INVALID_DATA:
+		failures.append("fractional versions must be rejected by save_slot")
+	if SaveRepo.save_slot(TEST_SLOT, {"version": "18", "player": {"name": "String version"}}) != ERR_INVALID_DATA:
+		failures.append("string versions must be rejected by save_slot")
 
 	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"customFlag":"keep"},"worldSeed":9876}
 	var migrated := SaveRepo.migrate_payload(legacy_payload)

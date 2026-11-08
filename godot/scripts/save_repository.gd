@@ -9,14 +9,17 @@ const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 static func save_slot(slot: int, payload: Dictionary) -> Error:
 	if slot < 1 or slot > 3:
 		return ERR_INVALID_PARAMETER
-	if int(payload.get("version", -1)) != SAVE_VERSION:
+	# Validate the complete payload before opening the file. A version marker
+	# alone must never allow a malformed save to replace a healthy slot.
+	var normalized := migrate_payload(payload)
+	if normalized.is_empty():
 		return ERR_INVALID_DATA
 
 	var file := FileAccess.open(SLOT_PATH_TEMPLATE % slot, FileAccess.WRITE)
 	if file == null:
 		return FileAccess.get_open_error()
 
-	file.store_string(JSON.stringify(payload))
+	file.store_string(JSON.stringify(normalized))
 	return file.get_error()
 
 
