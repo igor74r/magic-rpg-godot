@@ -58,7 +58,7 @@ static func generate_map(region_id: String, cols: int, rows: int, world_seed: in
 
 
 static func wandering_merchant_cell(region_id: String, cols: int, rows: int, world_seed: int, generator_version: int = 1, visit_index: int = 0) -> Vector2i:
-	if cols < 7 or rows < 7 or region_id in ["village", "rift", "dragon-lair"] or region_id.begins_with("tower-floor-"):
+	if cols < 7 or rows < 7 or region_id in ["village", "rift", "obsidian-fields", "frost-citadel", "dragon-lair"] or region_id.begins_with("tower-floor-"):
 		return Vector2i(-1, -1)
 	if WorldRegionCatalog.is_safe(region_id):
 		return Vector2i(-1, -1)
