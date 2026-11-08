@@ -870,7 +870,7 @@ func _buyback_from_npc(index: int) -> void:
 
 func _show_npc_alchemy() -> void:
 	for recipe_id in ["r-hp","r-mp","r-shp","r-smp","r-rune-root","r-rune-ember","r-rune-tide","r-rune-frost","r-rune-void"]:
-		_add_recipe_button(recipe_id, "blacksmith" if not recipe_id.begins_with("r5-") else "final-forge")
+		_add_recipe_button(recipe_id, "alchemist")
 
 
 func _show_npc_forge() -> void:
@@ -889,7 +889,7 @@ func _show_npc_forge() -> void:
 		button.pressed.connect(_upgrade_npc_equipment.bind(str(slot)))
 		npc_container.add_child(button)
 	for recipe_id in ["r-briar-court-mantle","r-mourner-signet","r-oathfire-cleaver","r-mirrorweave-cloak","r-echo-prism-amulet","r5-dragon-blade","r5-dragon-plate","r5-astral-staff"]:
-		_add_recipe_button(recipe_id, "alchemist")
+		_add_recipe_button(recipe_id, "blacksmith" if not recipe_id.begins_with("r5-") else "final-forge")
 
 
 func _add_recipe_button(recipe_id: String, station: String) -> void:
