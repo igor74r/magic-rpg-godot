@@ -95,7 +95,7 @@ static func progress(hero: Dictionary,mission: Dictionary) -> Dictionary:
 	var kills:=maxi(0,int(hero.campaignKills.get(id,0)))
 	var shard_id:=str(mission.get("shardId",""))
 	var shards: Dictionary=hero.get("storyShards",{})
-	var shard_found:=shard_id.is_empty() or shards.get(shard_id,false)==true
+	var shard_found: bool =shard_id.is_empty() or shards.get(shard_id,false)==true
 	return {"current":mini(kills,required),"kills":kills,"required":required,"complete":kills>=required and shard_found,"claimed":bool(hero.campaignClaimed.get(id,false)),"shardFound":shard_found}
 
 static func record_shard(hero: Dictionary, shard_id: String) -> bool:
@@ -198,7 +198,7 @@ static func can_enter_location(hero: Dictionary, location_id: String) -> Diction
 		return {"allowed":true,"requirement":{},"currentLevel":current_level,"reason":""}
 	var level_allowed := current_level>=int(requirement.requiredLevel)
 	var previous_mission_id := str(requirement.get("unlockAfterMissionId",""))
-	var campaign_allowed := previous_mission_id.is_empty() or hero.campaignClaimed.get(previous_mission_id,false)==true
+	var campaign_allowed: bool = previous_mission_id.is_empty() or hero.campaignClaimed.get(previous_mission_id,false)==true
 	var reason := "" if level_allowed and campaign_allowed else "level" if not level_allowed else "campaign"
 	return {
 		"allowed":level_allowed and campaign_allowed,
