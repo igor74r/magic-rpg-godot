@@ -2,6 +2,9 @@ extends SceneTree
 
 const Npc = preload("res://godot/scripts/world_npc_engine.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
+const NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
+const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
+const EXPECTED_NPC_IDS := ["blacksmith", "healer", "alchemist", "merchant", "elder", "well", "bard", "guard", "cat", "kids", "herald", "questBoard"]
 
 static func _is_cell_reachable(grid: Array, start: Vector2i, target: Vector2i) -> bool:
 	var pending: Array[Vector2i] = [start]
@@ -12,7 +15,7 @@ static func _is_cell_reachable(grid: Array, start: Vector2i, target: Vector2i) -
 		if current == target:
 			return true
 		for direction in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var next_cell := current + direction
+			var next_cell: Vector2i = current + direction
 			if visited.has(next_cell) or MapGenerator.is_blocked(grid, next_cell.x, next_cell.y):
 				continue
 			visited[next_cell] = true
@@ -23,23 +26,20 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	# Full NPC dialogue contract: every authored identity is reachable, greetings
 	# cycle deterministically across the catalog, and invalid actions are side-effect free.
-	const NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
-	const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
 	var village_grid := MapGenerator.generate_map("village", 40, 30, 20261140, 1, 1)
 	var npc_cells: Dictionary = NpcCatalog.map_locations()
-	for npc_id in expected_npc_ids:
+	for npc_id in EXPECTED_NPC_IDS:
 		var npc_cell: Vector2i = npc_cells.get(npc_id, Vector2i(-1, -1))
 		if npc_cell.x < 0 or npc_cell.x >= 40 or npc_cell.y < 0 or npc_cell.y >= 30 or MapGenerator.is_blocked(village_grid, npc_cell.x, npc_cell.y):
 			failures.append("village NPC %s must be placed on an in-bounds walkable cell" % npc_id)
 		elif not _is_cell_reachable(village_grid, Vector2i(20, 15), npc_cell):
 			failures.append("village NPC %s must be reachable from the central plaza without crossing blocked tiles" % npc_id)
 	var dialogue_world := WorldState.create(20261140)
-	var expected_npc_ids := ["blacksmith", "healer", "alchemist", "merchant", "elder", "well", "bard", "guard", "cat", "kids", "herald", "questBoard"]
 	var actual_npc_ids: Array = NpcCatalog.ids()
-	for expected_id in expected_npc_ids:
+	for expected_id in EXPECTED_NPC_IDS:
 		if not actual_npc_ids.has(expected_id):
 			failures.append("native NPC catalog is missing browser-authored identity: %s" % expected_id)
-	if actual_npc_ids.size() != expected_npc_ids.size():
+	if actual_npc_ids.size() != EXPECTED_NPC_IDS.size():
 		failures.append("native NPC catalog must not expose duplicate or extra identities")
 	for npc_id in expected_npc_ids:
 		var definition := NpcCatalog.get_npc(npc_id)
