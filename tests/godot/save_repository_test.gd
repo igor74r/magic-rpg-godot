@@ -434,6 +434,14 @@ func _run() -> void:
 		failures.append("browser export must produce a valid v18 payload")
 	elif exported_browser.get("extensionData", {}).get("customQuestFlag", false) != true:
 		failures.append("browser export must preserve extension data")
+	if exported_browser is Dictionary:
+		print("ROUNDTRIP_DIAGNOSTIC root=", exported_browser.get("extensionData", {}) == browser_payload.extensionData,
+			" player=", exported_browser.get("player", {}).get("browserExtension", {}) == browser_payload.player.browserExtension,
+			" world=", exported_browser.get("world", {}).get("browserExtension", {}) == browser_payload.world.browserExtension,
+			" factions=", exported_browser.get("factions", {}).get("browserExtension", {}) == browser_payload.factions.browserExtension,
+			" name=", exported_browser.get("player", {}).get("name", "") == browser_payload.player.name,
+			" inventory=", exported_browser.get("player", {}).get("inventory", []) == browser_payload.player.inventory,
+			" exported-valid=", SaveRepo.is_browser_v18_payload(exported_browser))
 	if exported_browser is Dictionary and (exported_browser.get("extensionData", {}) != browser_payload.extensionData or exported_browser.get("player", {}).get("browserExtension", {}) != browser_payload.player.browserExtension or exported_browser.get("world", {}).get("browserExtension", {}) != browser_payload.world.browserExtension or exported_browser.get("factions", {}).get("browserExtension", {}) != browser_payload.factions.browserExtension or exported_browser.get("player", {}).get("name", "") != browser_payload.player.name or exported_browser.get("player", {}).get("inventory", []) != browser_payload.player.inventory):
 		failures.append("browser import/export must preserve supplied known fields and nested unknown extension data while applying runtime defaults")
 	# Exercise the actual browser import -> native slot -> browser export path
