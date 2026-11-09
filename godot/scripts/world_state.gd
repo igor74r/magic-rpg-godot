@@ -238,8 +238,8 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		events[key] = sanitized_events
 	if not events.get("cooldowns", {}) is Dictionary:
 		events["cooldowns"] = {}
-	if not _is_safe_integer(events.get("sequence", null)) or int(events.sequence) < 0:
-		events["sequence"] = 0
+	var sequence_value: Variant = events.get("sequence", null)
+	events["sequence"] = maxf(0.0, float(sequence_value)) if _is_finite_number(sequence_value) else 0.0
 	var next_spawn_value: Variant = events.get("nextSpawnAt", defaults.events.nextSpawnAt)
 	var next_spawn_at := float(next_spawn_value) if next_spawn_value is int or next_spawn_value is float else -1.0
 	if not is_finite(next_spawn_at) or next_spawn_at < 0.0:
