@@ -101,7 +101,7 @@ static func claim(world: Dictionary,quest_id: String) -> Dictionary:
 		if str(quest.id)!=quest_id:continue
 		if not bool(quest.completed) or bool(quest.claimed):return {"ok":false,"message":"Задание ещё не выполнено или награда уже получена"}
 		var gold := int(quest.gold)
-		var current_gold := hero.get("gold", 0)
+		var current_gold: Variant = hero.get("gold", 0)
 		if not (current_gold is int) or int(current_gold) < 0 or int(current_gold) > 9007199254740991 - gold:
 			return {"ok": false, "message": "Невозможно выдать награду: проверьте баланс золота."}
 		var stats: Dictionary = hero.get("stats", {}) if hero.get("stats", {}) is Dictionary else {}
