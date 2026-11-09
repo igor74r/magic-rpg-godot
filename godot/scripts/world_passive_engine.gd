@@ -13,7 +13,7 @@ static func ensure_passives(hero: Dictionary) -> void:
 	hero["passivePoints"]=maxi(0,int(hero.get("passivePoints",0)))
 static func can_allocate(hero: Dictionary,node_id: String) -> bool:
 	if hero.is_empty() or node_id.is_empty() or node_id=="start": return false
-	var nodes: Dictionary = PassivePassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
+	var nodes: Dictionary = PassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
 	if not nodes.has(node_id): return false
 	ensure_passives(hero)
 	var node: Dictionary = nodes[node_id]
@@ -36,7 +36,7 @@ static func node_status(hero: Dictionary,node_id: String) -> String:
 	return "Сначала изучите соединённый узел"
 static func allocate(hero: Dictionary,node_id: String) -> Dictionary:
 	if not can_allocate(hero,node_id): return {"ok":false,"message":node_status(hero,node_id)}
-	var node: Dictionary = PassivePassiveTree.get_node(str(hero.get("class","warrior")),node_id)
+	var node: Dictionary = PassiveTree.get_node(str(hero.get("class","warrior")),node_id)
 	var passives: Array = hero.passives.duplicate()
 	passives.append(node_id)
 	hero["passives"]=passives
