@@ -278,10 +278,10 @@ static func _apply_generator_fallback(world: Dictionary, payload: Dictionary, ha
 	if not had_world_state:
 		return
 	var current_generator: Variant = world.get("generatorVersion", null)
-	if (current_generator is int or current_generator is float) and is_finite(float(current_generator)) and float(current_generator) >= 1.0:
+	if (current_generator is int or current_generator is float) and is_finite(float(current_generator)) and float(current_generator) >= 1.0 and float(current_generator) <= 9007199254740991.0:
 		return
 	var legacy_generator: Variant = payload.get("worldGeneratorVersion", null)
-	if (legacy_generator is int or legacy_generator is float) and is_finite(float(legacy_generator)) and float(legacy_generator) >= 1.0:
+	if (legacy_generator is int or legacy_generator is float) and is_finite(float(legacy_generator)) and float(legacy_generator) >= 1.0 and float(legacy_generator) <= 9007199254740991.0:
 		world["generatorVersion"] = floor(float(legacy_generator))
 	else:
 		world["generatorVersion"] = 1
