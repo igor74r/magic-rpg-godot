@@ -25,6 +25,23 @@ func _run() -> void:
 	if SaveRepo.save_slot(TEST_SLOT, {"version": "18", "player": {"name": "String version"}}) != ERR_INVALID_DATA:
 		failures.append("string versions must be rejected by save_slot")
 
+	# Exercise every supported browser schema entry point, not only the
+	# immediately previous version. Each fixture must reach v18 while keeping
+	# opaque top-level extension data intact.
+	for source_version in range(0, SaveRepo.SAVE_VERSION):
+		var matrix_fixture := {
+			"version": source_version,
+			"player": {"name": "Legacy v%d hero" % source_version, "class": "warrior", "level": 1},
+			"migrationFixture": {"sourceVersion": source_version, "opaque": true}
+		}
+		var matrix_result := SaveRepo.migrate_payload(matrix_fixture)
+		if int(matrix_result.get("version", -1)) != SaveRepo.SAVE_VERSION:
+			failures.append("browser save version %d must migrate to v18" % source_version)
+		if matrix_result.get("migrationFixture", {}).get("sourceVersion", -1) != source_version or matrix_result.get("migrationFixture", {}).get("opaque", false) != true:
+			failures.append("browser save version %d must preserve unknown top-level extension data" % source_version)
+		if not matrix_result.get("player", null) is Dictionary or not matrix_result.get("world", null) is Dictionary:
+			failures.append("browser save version %d must produce a native-compatible v18 hero and world" % source_version)
+
 	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"customFlag":"keep"},"worldSeed":9876}
 	var migrated := SaveRepo.migrate_payload(legacy_payload)
 	var migrated_player: Dictionary = migrated.get("player", {})
