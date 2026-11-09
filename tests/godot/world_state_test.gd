@@ -26,8 +26,8 @@ func _run() -> void:
 	}, 77)
 	if int(numeric_parity_world.seed) != 77:
 		failures.append("world seed normalization must reject numeric strings instead of coercing them")
-	if absf(float(numeric_parity_world.generatorVersion) - 1.5) > 0.000001:
-		failures.append("world generator version normalization must preserve finite fractional numbers")
+	if int(numeric_parity_world.generatorVersion) != 1:
+		failures.append("world generator version normalization must floor finite fractional numbers like the browser")
 	if float(numeric_parity_world.clockMinutes) != 0.0:
 		failures.append("world clock normalization must reject numeric strings instead of coercing them")
 	var wrapped_seed_world := WorldStateScript.normalize({"seed": -1}, 77)
@@ -40,6 +40,41 @@ func _run() -> void:
 		failures.append("region visit normalization must reject numeric strings and booleans like browser Number.isFinite")
 	if int(visit_number_parity.regionVisits.get("shadow", -1)) != 3 or int(visit_number_parity.regionVisits.get("ruins", -1)) != 0:
 		failures.append("region visit normalization must floor finite numbers and clamp negative counts to zero")
+	var campaign_event_world := WorldStateScript.create(78)
+	campaign_event_world["factionCampaigns"] = {
+		"unknown-campaign": {"status":"active","stage":1,"startedAt":10},
+		"ash-nomad-warband": {"status":"invalid","stage":9,"startedAt":-5}
+	}
+	campaign_event_world.events.active = [
+		"invalid-event",
+		{"id":"bad-region","regionId":"not-a-region"},
+		{
+			"id":"sanitized-defense","regionId":"forest","status":"active","objectiveType":"defend-region",
+			"targetCount":2000,"progress":1500,"holdElapsedMinutes":2001.0,"phase":0,
+			"objectiveText":"x".repeat(260),"accepted":"yes","campaignId":"wrong-campaign","campaignStage":1
+		},
+		{
+			"id":"sanitized-survey","regionId":"forest","objectiveType":"region-discovery",
+			"targetRegionId":"void-crater","targetCount":1,"progress":0,"objectiveText":"old"
+		}
+	]
+	campaign_event_world.events.history = [null, {"id":"bad-history","regionId":"unknown"}]
+	var sanitized_campaign_events := WorldStateScript.normalize(campaign_event_world, 78)
+	if sanitized_campaign_events.events.active.size() != 2 or not sanitized_campaign_events.events.history.is_empty():
+		failures.append("world normalization must discard malformed active and historical event entries")
+	var sanitized_defense: Dictionary = sanitized_campaign_events.events.active[0]
+	if int(sanitized_defense.targetCount) != 1000 or int(sanitized_defense.progress) != 1000 or int(sanitized_defense.phase) != 1000:
+		failures.append("world event progress must clamp to a safe target count and synchronize phase")
+	if float(sanitized_defense.holdElapsedMinutes) != 1000.0 or sanitized_defense.objectiveText.length() != 240 or bool(sanitized_defense.accepted):
+		failures.append("defense event elapsed time, objective text and accepted flag must be normalized")
+	if sanitized_defense.campaignId != null or sanitized_defense.campaignStage != null:
+		failures.append("unknown event campaign references must be cleared")
+	var sanitized_survey: Dictionary = sanitized_campaign_events.events.active[1]
+	if sanitized_survey.targetRegionId != null or sanitized_survey.objectiveText != "Цель разведки недоступна. Обратитесь к доске объявлений.":
+		failures.append("region survey events must reject non-adjacent targets with browser-compatible guidance")
+	if sanitized_campaign_events.factionCampaigns.has("unknown-campaign") or sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].status != "failed" or int(sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].stage) != 2 or float(sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].startedAt) != 0.0:
+		failures.append("faction campaign records must match browser key, status, stage and start-time normalization")
+
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
