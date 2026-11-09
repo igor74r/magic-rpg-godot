@@ -118,7 +118,7 @@ export function validateCurrentSaveShape(game) {
   const isRecord = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const finitePlayerFields = ['hp', 'maxHp', 'mp', 'maxMp', 'str', 'int', 'wis', 'con', 'dex', 'luck'];
   if (!Number.isSafeInteger(game.worldSeed) || game.worldSeed < 1 || game.worldSeed > 0xffffffff ||
-      game.worldGeneratorVersion !== 1 ||
+      !Number.isSafeInteger(game.worldGeneratorVersion) || game.worldGeneratorVersion < 1 ||
       finitePlayerFields.some(key => !Number.isFinite(player[key])) ||
       player.hp < 0 || player.maxHp <= 0 || player.mp < 0 || player.maxMp <= 0 ||
       !Number.isSafeInteger(player.exp) || player.exp < 0 ||
@@ -138,7 +138,8 @@ export function validateCurrentSaveShape(game) {
       !isRecord(game.storyShards) || !isRecord(game.storyDragons) ||
       !isRecord(player.activeCampaignByBranch) || !isRecord(game.world) ||
       !Number.isSafeInteger(game.world.seed) || game.world.seed <= 0 ||
-      !Number.isSafeInteger(game.world.generatorVersion) || game.world.generatorVersion < 0 ||
+      !Number.isSafeInteger(game.world.generatorVersion) || game.world.generatorVersion < 1 ||
+      game.world.generatorVersion !== game.worldGeneratorVersion ||
       !Array.isArray(game.world.discoveredRegions) || !Array.isArray(game.world.unlockedRoutes) ||
       !isRecord(game.factions) || !isRecord(game.factions.reputation) || !Array.isArray(game.factions.changeLog) ||
       !(player.activeCampaignMission === null || typeof player.activeCampaignMission === 'string')) {
