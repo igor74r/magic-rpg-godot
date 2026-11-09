@@ -500,12 +500,12 @@ func _initialize() -> void:
 
 	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
 	var npc_world := {"seed":17,"hero":{"class":"warrior","level":1,"gold":30,"hp":50,"maxHp":100,"mp":0,"maxMp":0,"exp":0,"expNext":125,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0,"inventory":[],"buffs":[],"effects":[]}}
-	var healer_result: Dictionary=Npc.heal(npc_world)
+	var healer_result: Dictionary=NpcEngine.heal(npc_world)
 	if not healer_result.ok or int(npc_world.hero.hp)!=100 or int(npc_world.hero.gold)!=22: failures.append("healer must fully restore hero for 8 gold")
-	var bard_result: Dictionary=Npc.pay_bard(npc_world)
-	if not bard_result.ok or int(npc_world.hero.gold)!=7 or not Npc.has_entry(npc_world.hero,"bardBuff"): failures.append("bard must charge 15 gold and grant three-battle buff")
-	var blessing_result: Dictionary=Npc.take_blessing(npc_world)
-	if not blessing_result.ok or not Npc.has_entry(npc_world.hero,"elderBlessing","effects"): failures.append("elder must grant ten-battle experience blessing")
+	var bard_result: Dictionary=NpcEngine.pay_bard(npc_world)
+	if not bard_result.ok or int(npc_world.hero.gold)!=7 or not NpcEngine.has_entry(npc_world.hero,"bardBuff"): failures.append("bard must charge 15 gold and grant three-battle buff")
+	var blessing_result: Dictionary=NpcEngine.take_blessing(npc_world)
+	if not blessing_result.ok or not NpcEngine.has_entry(npc_world.hero,"elderBlessing","effects"): failures.append("elder must grant ten-battle experience blessing")
 	var well_world := {"hero":{"class":"mage","hp":10,"maxHp":100,"mp":0,"maxMp":80,"gold":0}}
 	if not NpcEngine.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
 	if NpcEngine.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
@@ -518,7 +518,6 @@ func _initialize() -> void:
 	if int(buff_world.hero.exp)!=7 or int(buff_world.hero.level)!=2: failures.append("bard and elder buffs must multiply XP reward to 132 before level-up")
 	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
 
-	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
 	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
@@ -539,7 +538,6 @@ func _initialize() -> void:
 	var forge_result: Dictionary=NpcEngine.upgrade_equipment(forge_world,"weapon")
 	if not forge_result.ok or int(forge_world.hero.gold)!=0 or int(forge_world.hero.equipped.weapon.forgeLevel)!=1 or int(forge_world.hero.equipped.weapon.bonus.attack)!=8: failures.append("blacksmith upgrade must charge 30 gold and apply five-percent bonus rounding")
 
-	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
 	var dialogue_world := {"hero":{"class":"warrior","level":1,"gold":2,"inventory":[],"equipped":{},"campaignClaimed":{}}}
 	var greeting_a: Dictionary=NpcEngine.talk(dialogue_world,"guard")
 	var greeting_b: Dictionary=NpcEngine.talk(dialogue_world,"guard")
