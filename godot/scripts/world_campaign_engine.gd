@@ -117,7 +117,7 @@ static func progress(hero: Dictionary,mission: Dictionary) -> Dictionary:
 static func record_shard(hero: Dictionary, shard_id: String) -> bool:
 	if not ["flame", "ice", "blood"].has(shard_id):
 		return false
-	if not hero.get("storyShards", {}) is Dictionary:
+	if not hero.has("storyShards") or not hero.get("storyShards") is Dictionary:
 		hero["storyShards"] = {}
 	var shards: Dictionary = hero["storyShards"]
 	shards[shard_id] = true
