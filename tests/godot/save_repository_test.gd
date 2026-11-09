@@ -194,8 +194,18 @@ func _run() -> void:
 	var default_location := SaveRepo.migrate_payload({"version":17,"player":{"name":"Seed hero","class":"mage","createdAt":12345,"level":1},"location":"village"})
 	if int(invalid_seed_string.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)) or int(invalid_seed_fraction.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)):
 		failures.append("v18 migration must derive a seed instead of coercing string or fractional worldSeed values")
-	if int(integral_float_seed.get("worldSeed", 0)) != 9876 or int(integral_float_seed.get("worldGeneratorVersion", 0)) != 2:
-		failures.append("v18 migration must preserve browser-safe integral float worldSeed and worldGeneratorVersion values")
+	if int(integral_float_seed.get("worldSeed", 0)) != 9876 or int(integral_float_seed.get("worldGeneratorVersion", 0)) != 1:
+		failures.append("legacy migration must mirror the canonical generator version of a newly created world")
+
+	var existing_world_generator_v17 := SaveRepo.migrate_payload({
+		"version":17,
+		"worldSeed":9876,
+		"worldGeneratorVersion":3.0,
+		"player":{"name":"Existing world generator hero","class":"mage","createdAt":12345,"level":1},
+		"world":{"seed":9876,"generatorVersion":2.0,"discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if int(existing_world_generator_v17.get("worldGeneratorVersion", 0)) != 2 or int(existing_world_generator_v17.get("world", {}).get("generatorVersion", 0)) != 2:
+		failures.append("legacy migration must mirror the saved world's valid generator version over stale root metadata")
 	if int(invalid_location_type.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)):
 		failures.append("v18 migration must use the browser village fallback for non-string locations")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
