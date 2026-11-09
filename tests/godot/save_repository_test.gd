@@ -435,21 +435,19 @@ func _run() -> void:
 	elif exported_browser.get("extensionData", {}).get("customQuestFlag", false) != true:
 		failures.append("browser export must preserve extension data")
 	if exported_browser is Dictionary:
-		print("ROUNDTRIP_DIAGNOSTIC root=", exported_browser.get("extensionData", {}) == browser_payload.extensionData,
-			" player=", exported_browser.get("player", {}).get("browserExtension", {}) == browser_payload.player.browserExtension,
-			" world=", exported_browser.get("world", {}).get("browserExtension", {}) == browser_payload.world.browserExtension,
-			" factions=", exported_browser.get("factions", {}).get("browserExtension", {}) == browser_payload.factions.browserExtension,
-			" name=", exported_browser.get("player", {}).get("name", "") == browser_payload.player.name,
-			" inventory=", exported_browser.get("player", {}).get("inventory", []) == browser_payload.player.inventory,
-			" exported-valid=", SaveRepo.is_browser_v18_payload(exported_browser),
-			" root-value=", exported_browser.get("extensionData", {}),
-			" root-expected=", browser_payload.extensionData,
-			" player-value=", exported_browser.get("player", {}).get("browserExtension", {}),
-			" player-expected=", browser_payload.player.browserExtension,
-			" inventory-value=", exported_browser.get("player", {}).get("inventory", []),
-			" inventory-expected=", browser_payload.player.inventory)
-	if exported_browser is Dictionary and (exported_browser.get("extensionData", {}) != browser_payload.extensionData or exported_browser.get("player", {}).get("browserExtension", {}) != browser_payload.player.browserExtension or exported_browser.get("world", {}).get("browserExtension", {}) != browser_payload.world.browserExtension or exported_browser.get("factions", {}).get("browserExtension", {}) != browser_payload.factions.browserExtension or exported_browser.get("player", {}).get("name", "") != browser_payload.player.name or exported_browser.get("player", {}).get("inventory", []) != browser_payload.player.inventory):
-		failures.append("browser import/export must preserve supplied known fields and nested unknown extension data while applying runtime defaults")
+		var exported_root_extension: Dictionary = exported_browser.get("extensionData", {})
+		var exported_root_nested: Dictionary = exported_root_extension.get("nested", {})
+		var exported_player_extension: Dictionary = exported_browser.get("player", {}).get("browserExtension", {})
+		var exported_world_extension: Dictionary = exported_browser.get("world", {}).get("browserExtension", {})
+		var exported_faction_extension: Dictionary = exported_browser.get("factions", {}).get("browserExtension", {})
+		var exported_inventory: Array = exported_browser.get("player", {}).get("inventory", [])
+		var root_extension_matches := bool(exported_root_extension.get("customQuestFlag", false)) and int(exported_root_extension.get("opaqueCounter", 0)) == 73 and exported_root_nested.get("marker", "") == "opaque-v18" and exported_root_nested.get("flags", []) == [true, false, null]
+		var player_extension_matches := exported_player_extension.get("skillNote", "") == "preserve-player-extension" and exported_player_extension.get("flags", []).size() == 3 and int(exported_player_extension.get("flags", [])[0]) == 1 and int(exported_player_extension.get("flags", [])[1]) == 2 and int(exported_player_extension.get("flags", [])[2]) == 3
+		var world_extension_matches := exported_world_extension.get("mapNote", "") == "preserve-world-extension" and exported_world_extension.get("seen", []) == ["forest", "ruins"]
+		var faction_extension_matches := exported_faction_extension.get("historyMarker", "") == "preserve-faction-extension"
+		var inventory_matches := exported_inventory.size() == 1 and exported_inventory[0] is Dictionary and exported_inventory[0].get("id", "") == "health-potion" and int(exported_inventory[0].get("qty", 0)) == 2
+		if not root_extension_matches or not player_extension_matches or not world_extension_matches or not faction_extension_matches or exported_browser.get("player", {}).get("name", "") != browser_payload.player.name or not inventory_matches:
+			failures.append("browser import/export must preserve supplied known fields and nested unknown extension data while applying runtime defaults")
 	# Exercise the actual browser import -> native slot -> browser export path
 	# for every legacy schema boundary, not only the in-memory migrator.
 	for legacy_import_version in range(1, 18):
