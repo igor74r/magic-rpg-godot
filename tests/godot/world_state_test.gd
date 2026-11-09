@@ -97,10 +97,14 @@ func _run() -> void:
 				{"id":"bad-wall","tx":"1","ty":2,"wx":3,"wy":4,"ax":0,"ay":1,"rewardType":"loot"},
 				{"id":"valid-wall","tx":1,"ty":2,"wx":3,"wy":4,"ax":0,"ay":1,"rewardType":"loot"}
 			]
-		}
+		},
+		"ruins": [],
+		"not-a-region": {"generationVisit":5}
 	}
 	var normalized_region_validation := WorldStateScript.normalize(region_validation_world, 79)
 	var clean_region_validation: Dictionary = normalized_region_validation.regions.forest
+	if normalized_region_validation.regions.has("ruins") or normalized_region_validation.regions.has("not-a-region"):
+		failures.append("malformed and unknown region records must be discarded like the browser")
 	if int(clean_region_validation.generationVisit) != 1 or int(clean_region_validation.securityThreat) != 0:
 		failures.append("region generation and threat fields must reject strings and fractional integers")
 	if clean_region_validation.openedChests != ["", "valid"] or clean_region_validation.defeatedEnemies != {"wolf":123.5}:
