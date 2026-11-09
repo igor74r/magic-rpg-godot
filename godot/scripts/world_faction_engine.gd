@@ -87,7 +87,12 @@ static func ensure_state(world: Dictionary) -> Dictionary:
 	var clean_log: Array = log.duplicate(true)
 	if clean_log.size() > LOG_LIMIT:
 		clean_log = clean_log.slice(clean_log.size() - LOG_LIMIT)
-	var normalized := {"schemaVersion":1,"reputation":clean,"changeLog":clean_log}
+	# Browser normalization spreads the existing faction object before
+	# replacing canonical fields. Keep extension fields for lossless import/export.
+	var normalized: Dictionary = state.duplicate(true)
+	normalized["schemaVersion"] = 1
+	normalized["reputation"] = clean
+	normalized["changeLog"] = clean_log
 	world["factions"] = normalized
 	return normalized
 
