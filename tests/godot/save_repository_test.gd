@@ -441,7 +441,13 @@ func _run() -> void:
 			" factions=", exported_browser.get("factions", {}).get("browserExtension", {}) == browser_payload.factions.browserExtension,
 			" name=", exported_browser.get("player", {}).get("name", "") == browser_payload.player.name,
 			" inventory=", exported_browser.get("player", {}).get("inventory", []) == browser_payload.player.inventory,
-			" exported-valid=", SaveRepo.is_browser_v18_payload(exported_browser))
+			" exported-valid=", SaveRepo.is_browser_v18_payload(exported_browser),
+			" root-value=", exported_browser.get("extensionData", {}),
+			" root-expected=", browser_payload.extensionData,
+			" player-value=", exported_browser.get("player", {}).get("browserExtension", {}),
+			" player-expected=", browser_payload.player.browserExtension,
+			" inventory-value=", exported_browser.get("player", {}).get("inventory", []),
+			" inventory-expected=", browser_payload.player.inventory)
 	if exported_browser is Dictionary and (exported_browser.get("extensionData", {}) != browser_payload.extensionData or exported_browser.get("player", {}).get("browserExtension", {}) != browser_payload.player.browserExtension or exported_browser.get("world", {}).get("browserExtension", {}) != browser_payload.world.browserExtension or exported_browser.get("factions", {}).get("browserExtension", {}) != browser_payload.factions.browserExtension or exported_browser.get("player", {}).get("name", "") != browser_payload.player.name or exported_browser.get("player", {}).get("inventory", []) != browser_payload.player.inventory):
 		failures.append("browser import/export must preserve supplied known fields and nested unknown extension data while applying runtime defaults")
 	# Exercise the actual browser import -> native slot -> browser export path
