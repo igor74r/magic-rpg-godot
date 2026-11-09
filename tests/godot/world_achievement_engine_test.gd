@@ -10,15 +10,12 @@ func _initialize() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var world := {"hero":{
-		"level":10,"gold":100,"riftBest":25,
+		"level":10,"gold":100,"riftBest":50,
 		"storyShards":{"flame":true,"ice":true,"blood":true},
 		"stats":{"kills":{"goblin":10,"skeleton":10,"wolf":5,"ancient-dragon":1},
 			"goldEarned":1000,"eliteKills":5,"bossKills":2,"chestsOpened":10,"dailyChestsOpened":3}
 	}}
 	var unlocked := AchievementEngine.evaluate(world)
-	print("ACHIEVEMENT_DIAGNOSTIC unlocked=", unlocked.map(func(entry): return str(entry.get("id", ""))), " gold=", world.hero.gold)
-	for definition in AchievementEngine.DEFINITIONS:
-		print("ACHIEVEMENT_PROGRESS ", str(definition.id), "=", AchievementEngine.progress_value(world, definition), "/", int(definition.target))
 	if unlocked.size() != AchievementEngine.DEFINITIONS.size():
 		failures.append("all achievement conditions must unlock exactly once when every objective is met")
 	if AchievementEngine.unlocked_count(world.hero) != AchievementEngine.DEFINITIONS.size():
