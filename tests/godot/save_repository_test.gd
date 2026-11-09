@@ -138,6 +138,36 @@ func _run() -> void:
 	if not bool(normalized_v18_without_world.get("world", {}).get("legacyFastTravel", false)):
 		failures.append("current v18 payload without world state must initialize the legacy travel compatibility mode")
 
+	# Browser ensureWorldState falls back to the legacy root location whenever
+	# the saved world has no valid currentRegionId; a valid saved region wins.
+	var legacy_location_fallback_v17 := SaveRepo.migrate_payload({
+		"version":17,
+		"location":"forest",
+		"player":{"name":"Legacy location hero","class":"mage","level":1}
+	})
+	var legacy_location_world: Dictionary = legacy_location_fallback_v17.get("world", {})
+	if legacy_location_world.get("currentRegionId", "") != "forest" or int(legacy_location_world.get("regionVisits", {}).get("forest", 0)) != 1:
+		failures.append("v17 migration must restore the root legacy location when creating world state")
+	var invalid_world_location_fallback_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"worldSeed":123456,
+		"location":"ruins",
+		"player":{"name":"Invalid world location hero","class":"mage","level":1},
+		"world":{"seed":123456,"generatorVersion":1,"currentRegionId":"missing-region","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	var invalid_world_location: Dictionary = invalid_world_location_fallback_v18.get("world", {})
+	if invalid_world_location.get("currentRegionId", "") != "ruins" or int(invalid_world_location.get("regionVisits", {}).get("ruins", 0)) != 1:
+		failures.append("v18 migration must fall back to root location when saved currentRegionId is invalid")
+	var valid_world_location_priority_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"worldSeed":123456,
+		"location":"forest",
+		"player":{"name":"Saved world location hero","class":"mage","level":1},
+		"world":{"seed":123456,"generatorVersion":1,"currentRegionId":"village","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if valid_world_location_priority_v18.get("world", {}).get("currentRegionId", "") != "village":
+		failures.append("v18 migration must prefer a valid saved world location over the legacy root location")
+
 	var faction_migration := SaveRepo.migrate_payload({"version":17,"player":{"name":"Faction migration","level":1},"factions":{"reputation":{"hub-guardians":12.6,"rift-cult":-1.5,"free-traders":"42","ash-nomads":"not-a-number","unknown":99},"changeLog":[{"factionId":"rift-cult","delta":2},"invalid",{"factionId":"unknown"}]}})
 	var migrated_factions: Dictionary = faction_migration.get("factions", {})
 	var migrated_reputation: Dictionary = migrated_factions.get("reputation", {})
