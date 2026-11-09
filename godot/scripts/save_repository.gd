@@ -233,6 +233,9 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	_apply_location_fallback(world, migrated, has_legacy_world)
 	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
+	# Browser ensureWorldState mirrors the normalized world generator version
+	# back to the root envelope, even when legacy metadata was stale.
+	migrated["worldGeneratorVersion"] = int(world.get("generatorVersion", 1))
 
 	# Reuse the runtime normalizer so imported legacy saves and live world state
 	# share Number/Math.round coercion, bounds, and change-log filtering.
