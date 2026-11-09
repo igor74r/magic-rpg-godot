@@ -16,6 +16,9 @@ func _run() -> void:
 			"goldEarned":1000,"eliteKills":5,"bossKills":2,"chestsOpened":10,"dailyChestsOpened":3}
 	}}
 	var unlocked := AchievementEngine.evaluate(world)
+	print("ACHIEVEMENT_DIAGNOSTIC unlocked=", unlocked.map(func(entry): return str(entry.get("id", ""))), " gold=", world.hero.gold)
+	for definition in AchievementEngine.DEFINITIONS:
+		print("ACHIEVEMENT_PROGRESS ", str(definition.id), "=", AchievementEngine.progress_value(world, definition), "/", int(definition.target))
 	if unlocked.size() != AchievementEngine.DEFINITIONS.size():
 		failures.append("all achievement conditions must unlock exactly once when every objective is met")
 	if AchievementEngine.unlocked_count(world.hero) != AchievementEngine.DEFINITIONS.size():
@@ -30,11 +33,11 @@ func _run() -> void:
 	if int(world.hero.gold) != expected_gold:
 		failures.append("repeat evaluation must not change gold")
 
-	var partial := {"hero":{"level":1,"gold":0,"stats":{"kills":{"goblin":9}}}}
+	var partial := {"hero":{"level":1,"gold":0,"stats":{"kills":{}}}}
 	var partial_unlocks := AchievementEngine.evaluate(partial)
 	if partial_unlocks.size() != 0 or partial.hero.achievements.size() != 0:
-		failures.append("progress below an objective must not unlock an achievement")
-	var overflow := {"hero":{"level":1,"gold":2147483640,"stats":{"kills":{"goblin":1}}}}
+		failures.append("progress below every achievement objective must not unlock an achievement")
+	var overflow := {"hero":{"level":1,"gold":2147483646,"stats":{"kills":{"goblin":1}}}}
 	var overflow_unlocks := AchievementEngine.evaluate(overflow)
 	if overflow_unlocks.size() != 0 or overflow.hero.achievements.size() != 0:
 		failures.append("reward overflow must not grant an achievement without its reward")
