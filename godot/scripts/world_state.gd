@@ -160,7 +160,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var tower_floor := int(tower_run.get("floor", 0))
 		var tower_queue: Variant = tower_run.get("enemies", [])
 		var tower_index := int(tower_run.get("enemyIndex", -1))
-		var tower_valid := tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
+		var tower_valid: bool = tower_floor >= 1 and tower_floor <= 40 and tower_queue is Array and not tower_queue.is_empty() and tower_index >= 0 and tower_index < tower_queue.size()
 		if tower_valid:
 			var expected_floor: Dictionary = WorldTowerEngine.floor_definition(tower_floor)
 			var expected_ids: Array = expected_floor.get("enemyIds", [])
@@ -449,7 +449,7 @@ static func _normalize_region_record(value: Variant) -> Dictionary:
 			if not wall is Dictionary:
 				continue
 			var wall_id: Variant = wall.get("id", "")
-			var valid := wall_id is String and wall_id.length() <= 80
+			var valid: bool = wall_id is String and wall_id.length() <= 80
 			for coordinate in ["tx", "ty", "wx", "wy", "ax", "ay"]:
 				valid = valid and _is_finite_number(wall.get(coordinate, null))
 			if valid and ["chest", "elite", "loot"].has(wall.get("rewardType", "")):
@@ -632,7 +632,7 @@ static func record_secret_layout(world: Dictionary, region_id: String, walls: Ar
 		if not wall is Dictionary:
 			continue
 		var wall_id: Variant = wall.get("id", "")
-		var valid := wall_id is String and not wall_id.is_empty() and wall_id.length() <= 80
+		var valid: bool = wall_id is String and not wall_id.is_empty() and wall_id.length() <= 80
 		for coordinate in ["tx", "ty", "wx", "wy", "ax", "ay"]:
 			valid = valid and is_finite(float(wall.get(coordinate, NAN)))
 		if valid and ["chest", "elite", "loot"].has(wall.get("rewardType", "")):
