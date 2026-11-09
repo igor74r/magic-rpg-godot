@@ -12,6 +12,11 @@ const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 static func save_slot(slot: int, payload: Dictionary) -> Error:
 	if slot < 1 or slot > 3:
 		return ERR_INVALID_PARAMETER
+	# Slot writes accept only a current, numeric v18 payload. Legacy version
+	# coercion belongs to import/migration, never to overwriting a native slot.
+	var raw_version: Variant = payload.get("version", null)
+	if not _is_safe_integer(raw_version) or int(raw_version) != SAVE_VERSION:
+		return ERR_INVALID_DATA
 	# Validate the complete payload before opening the file. A version marker
 	# alone must never allow a malformed save to replace a healthy slot.
 	var normalized := migrate_payload(payload)
