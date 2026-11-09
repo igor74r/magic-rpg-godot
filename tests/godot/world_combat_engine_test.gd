@@ -553,14 +553,14 @@ func _initialize() -> void:
 	if NpcCatalog.map_locations().size()!=NpcCatalog.ids().size(): failures.append("all village NPCs must have authored map coordinates")
 
 	# Buff abilities consume a real combat turn; only the dodge effect prevents damage.
-	var buff_world := WorldState.create(1101)
-	buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
+	var npc_buff_world := WorldState.create(1101)
+	npc_buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
 	var buff_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 	var buff_fight := Combat.begin(buff_enemy)
-	var buff_result: Dictionary = Combat.use_ability(buff_world,buff_fight,"mana-shield")
-	if not buff_result.ok or int(buff_world.hero.hp) != 80 or str(buff_fight.turn) != "player":
+	var buff_result: Dictionary = Combat.use_ability(npc_buff_world,buff_fight,"mana-shield")
+	if not buff_result.ok or int(npc_buff_world.hero.hp) != 80 or str(buff_fight.turn) != "player":
 		failures.append("mana shield must consume the player's turn and allow one enemy response")
-	if not buff_world.hero.effects.any(func(entry): return str(entry.get("id","")) == "defBuff") or not is_equal_approx(Combat._effect_multiplier(buff_world.hero,"defMult"),1.5):
+	if not npc_buff_world.hero.effects.any(func(entry): return str(entry.get("id","")) == "defBuff") or not is_equal_approx(Combat._effect_multiplier(npc_buff_world.hero,"defMult"),1.5):
 		failures.append("mana shield must apply the actual defensive combat effect")
 	var dodge_world := WorldState.create(1102)
 	dodge_world["hero"] = {"class":"archer","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":0,"con":0,"dex":10,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
