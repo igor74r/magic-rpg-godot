@@ -179,13 +179,14 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
 		var current_world: Dictionary = migrated.world.duplicate(true) if has_world_state else WorldStateScript.create(seed_fallback, true)
 		_apply_location_fallback(current_world, migrated, has_world_state)
+		_apply_generator_fallback(current_world, migrated, has_world_state)
 		var normalized_world := WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
 		migrated["world"] = normalized_world
 		# Browser ensureWorldState always mirrors the normalized world identity
 		# back to the save envelope. Keep v18 exports valid when imported saves
 		# contain stale root-level seed/generator metadata.
 		migrated["worldSeed"] = int(normalized_world.get("seed", seed_fallback))
-		migrated["worldGeneratorVersion"] = int(normalized_world.get("generatorVersion", 1))
+		migrated["worldGeneratorVersion"] = normalized_world.get("generatorVersion", 1)
 		WorldFactionEngineScript.ensure_state(migrated)
 		_normalize_campaign_branches(current_hero)
 		_rebase_legacy_experience(current_hero)
@@ -231,11 +232,12 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var has_legacy_world := world_value is Dictionary
 	var world: Dictionary = WorldStateScript.create(source_seed, true) if not has_legacy_world else world_value.duplicate(true)
 	_apply_location_fallback(world, migrated, has_legacy_world)
+	_apply_generator_fallback(world, migrated, has_legacy_world)
 	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
 	# Browser ensureWorldState mirrors the normalized world generator version
 	# back to the root envelope, even when legacy metadata was stale.
-	migrated["worldGeneratorVersion"] = int(world.get("generatorVersion", 1))
+	migrated["worldGeneratorVersion"] = world.get("generatorVersion", 1)
 
 	# Reuse the runtime normalizer so imported legacy saves and live world state
 	# share Number/Math.round coercion, bounds, and change-log filtering.
@@ -265,6 +267,22 @@ static func _apply_location_fallback(world: Dictionary, payload: Dictionary, had
 	var legacy_location: Variant = payload.get("location", null)
 	if WorldGraph.region_ids().has(legacy_location):
 		world["currentRegionId"] = legacy_location
+
+
+# Browser ensureWorldState uses the root generator metadata only when the
+# saved world has no usable generator version. A newly created world keeps
+# the canonical generator version from createWorldState (currently 1).
+static func _apply_generator_fallback(world: Dictionary, payload: Dictionary, had_world_state: bool) -> void:
+	if not had_world_state:
+		return
+	var current_generator: Variant = world.get("generatorVersion", null)
+	if (current_generator is int or current_generator is float) and is_finite(float(current_generator)) and float(current_generator) >= 1.0:
+		return
+	var legacy_generator: Variant = payload.get("worldGeneratorVersion", null)
+	if (legacy_generator is int or legacy_generator is float) and is_finite(float(legacy_generator)) and float(legacy_generator) >= 1.0:
+		world["generatorVersion"] = floor(float(legacy_generator))
+	else:
+		world["generatorVersion"] = 1
 
 
 static func is_browser_v18_payload(payload: Dictionary) -> bool:
