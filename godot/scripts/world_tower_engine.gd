@@ -15,7 +15,7 @@ static func start_floor(hero:Dictionary)->int:
 	return 1 if best_floor(hero)>=MAX_FLOOR else best_floor(hero)+1
 static func floor_definition(floor:int)->Dictionary:
 	var f:=clampi(floor,1,MAX_FLOOR)
-	var region:=REGIONS[(f-1)%REGIONS.size()]
+	var region: String =REGIONS[(f-1)%REGIONS.size()]
 	var ids:Array=[]
 	for id in Regions.enemy_roster(region):
 		var def:=Enemies.get_enemy(str(id))
