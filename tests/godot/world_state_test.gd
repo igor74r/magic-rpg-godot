@@ -117,7 +117,7 @@ func _run() -> void:
 	for history_index in range(55):
 		event_history.append({
 			"id":"history-%02d" % history_index,"regionId":"forest",
-			"status":"completed","rewardClaimed":history_index < 2
+			"status":"completed","rewardClaimed":history_index >= 2
 		})
 	event_history_world.events.history = event_history
 	var trimmed_event_history: Array = WorldStateScript.normalize(event_history_world, 80).events.history
