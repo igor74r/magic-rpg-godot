@@ -22,6 +22,10 @@ func _run() -> void:
 		if absf(actual - expected[index]) > 0.000000001:
 			failures.append("Mulberry32 vector %d differs: %.12f" % [index, actual])
 
+	var unicode_seed := WorldRng.derive_seed(["Hero 😀"])
+	if unicode_seed != 2299317654:
+		failures.append("FNV-1a seed must hash supplementary Unicode using browser-compatible UTF-16 code units: %d" % unicode_seed)
+
 	var region_seed := WorldRng.derive_region_seed(123456, 1, "forest", 0)
 	if region_seed != 3155385942:
 		failures.append("forest visit 0 seed differs: %d" % region_seed)

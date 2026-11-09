@@ -27,8 +27,12 @@ static func derive_seed(parts: Array) -> int:
 		values.append("" if part == null else str(part))
 	var input := "|".join(values)
 	var hash_value := 2166136261
-	for index in range(input.length()):
-		hash_value = _uint32(hash_value ^ input.unicode_at(index))
+	# JavaScript charCodeAt() hashes UTF-16 code units, not Unicode scalar
+	# values. Iterate the same 16-bit units so supplementary characters (for
+	# example emoji in an extension identifier) produce identical seeds.
+	var utf16 := input.to_utf16_buffer()
+	for byte_offset in range(0, utf16.size(), 2):
+		hash_value = _uint32(hash_value ^ utf16.decode_u16(byte_offset))
 		hash_value = _imul(hash_value, 16777619)
 	return hash_value if hash_value != 0 else 1
 
