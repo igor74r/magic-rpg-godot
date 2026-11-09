@@ -383,7 +383,7 @@ func _refresh_inventory() -> void:
 		class_title.text = "ВЫБЕРИ КЛАСС ГЕРОЯ"
 		inventory_container.add_child(class_title)
 		for class_id in ClassCatalogScript.class_ids():
-			var class_data: Dictionary = ClassCatalogScript.get_class(str(class_id))
+			var class_data: Dictionary = ClassCatalogScript.get_class_definition(str(class_id))
 			var class_button := Button.new()
 			class_button.text = "%s %s — HP %d / ресурс %d" % [str(class_data.emoji),str(class_data.name),int(class_data.maxHp),int(class_data.maxMp)]
 			class_button.pressed.connect(_select_hero_class.bind(str(class_id)))
@@ -518,7 +518,7 @@ func _refresh_rift() -> void:
 	for location in RiftEngineScript.get_locations(world):
 		var button := Button.new()
 		var cleared_ids: Variant = hero.get("riftClearedLocations", [])
-		var is_cleared := cleared_ids is Array and cleared_ids.has(str(location.id))
+		var is_cleared: bool = cleared_ids is Array and cleared_ids.has(str(location.id))
 		button.text = "%s %s%s" % ["✓" if is_cleared else "🌀", str(location.name), " · ур. %d" % int(location.minLevel) if not bool(location.unlocked) else ""]
 		button.disabled = not bool(location.unlocked)
 		button.pressed.connect(_start_rift_area.bind(str(location.id)))
@@ -869,7 +869,7 @@ func _show_npc_shop() -> void:
 	for item_id in merchant_stock:
 		var item: Dictionary=WorldItemCatalogScript.get_item(str(item_id))
 		if item.is_empty(): continue
-		var price := NpcEngineScript.get_buy_price(world, str(item_id))
+		var price: int = NpcEngineScript.get_buy_price(world, str(item_id))
 		if price <= 0: continue
 		var button:=Button.new()
 		button.name="NpcAction"
@@ -880,7 +880,7 @@ func _show_npc_shop() -> void:
 	for i in range(hero.inventory.size()):
 		var instance: Dictionary=hero.inventory[i]
 		var item:=WorldItemCatalogScript.get_item(str(instance.get("id","")))
-		var price := NpcEngineScript.get_sell_price(world, instance)
+		var price: int = NpcEngineScript.get_sell_price(world, instance)
 		if price <= 0: continue
 		var button:=Button.new()
 		button.name="NpcAction"
@@ -958,7 +958,7 @@ func _refresh_crafting_jobs() -> void:
 			status_label.text = "Готовые заказы не получены: сохранение не удалось (%s)." % error_string(save_error)
 		else:
 			status_label.text = "Получено готовых заказов: %d." % claimed.size()
-	var jobs := NpcEngineScript.get_crafting_jobs(world)
+	var jobs: Array = NpcEngineScript.get_crafting_jobs(world)
 	if jobs.is_empty():
 		return
 	var now_ms := int(Time.get_unix_time_from_system() * 1000.0)
