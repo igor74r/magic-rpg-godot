@@ -217,6 +217,14 @@ assert.equal(fractionalGeneratorSave.worldGeneratorVersion, 2);
 assert.equal(fractionalGeneratorSave.world.generatorVersion, 2);
 assert.doesNotThrow(() => validateCurrentSaveShape(fractionalGeneratorSave),
   'fractional generator metadata must normalize to a valid synchronized integer version');
+const unsafeGeneratorSave = JSON.parse(JSON.stringify(freshSave));
+unsafeGeneratorSave.worldGeneratorVersion = 4;
+unsafeGeneratorSave.world.generatorVersion = Number.MAX_SAFE_INTEGER + 1;
+migrateGame(unsafeGeneratorSave);
+assert.equal(unsafeGeneratorSave.worldGeneratorVersion, 4);
+assert.equal(unsafeGeneratorSave.world.generatorVersion, 4);
+assert.doesNotThrow(() => validateCurrentSaveShape(unsafeGeneratorSave),
+  'unsafe nested generator metadata must fall back to the safe root version');
 console.log('PASS new character starts on v18 with a fresh, non-legacy world');
 storage.set('magic-rpg-save-1', JSON.stringify({
   version: 16,
