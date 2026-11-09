@@ -178,6 +178,7 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 			var current_location: Variant = migrated.get("location", "village")
 			seed_fallback = _derive_legacy_world_seed(current_hero, str(current_location) if current_location is String else "village")
 		var current_world: Dictionary = migrated.world.duplicate(true) if has_world_state else WorldStateScript.create(seed_fallback, true)
+		_apply_location_fallback(current_world, migrated, has_world_state)
 		var normalized_world := WorldStateScript.normalize(current_world, seed_fallback, not has_world_state)
 		migrated["world"] = normalized_world
 		# Browser ensureWorldState always mirrors the normalized world identity
@@ -227,7 +228,9 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	migrated["worldGeneratorVersion"] = int(generator_value) if _is_safe_integer(generator_value) and int(generator_value) >= 1 else 1
 
 	var world_value: Variant = migrated.get("world", null)
-	var world: Dictionary = WorldStateScript.create(source_seed, true) if not world_value is Dictionary else world_value.duplicate(true)
+	var has_legacy_world := world_value is Dictionary
+	var world: Dictionary = WorldStateScript.create(source_seed, true) if not has_legacy_world else world_value.duplicate(true)
+	_apply_location_fallback(world, migrated, has_legacy_world)
 	world = WorldStateScript.normalize(world, source_seed, true)
 	migrated["world"] = world
 
@@ -249,6 +252,18 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 # Browser v18 is a separate, richer contract than the native Godot slot
 # envelope. Keep this validator explicit so a minimal native save is never
 # mistaken for a losslessly importable browser save.
+# Browser ensureWorldState prefers a valid saved world.currentRegionId, then
+# falls back to the legacy top-level game.location. Native world creation
+# defaults to village, so apply that same precedence before normalization.
+static func _apply_location_fallback(world: Dictionary, payload: Dictionary, had_world_state: bool) -> void:
+	var current_region: Variant = world.get("currentRegionId", null)
+	if had_world_state and WorldGraph.region_ids().has(current_region):
+		return
+	var legacy_location: Variant = payload.get("location", null)
+	if WorldGraph.region_ids().has(legacy_location):
+		world["currentRegionId"] = legacy_location
+
+
 static func is_browser_v18_payload(payload: Dictionary) -> bool:
 	# JavaScript Number.isSafeInteger accepts JSON 18 and 18.0 equally.
 	# Godot may decode the latter as float, so validate the numeric contract
