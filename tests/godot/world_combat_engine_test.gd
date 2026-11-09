@@ -519,8 +519,8 @@ func _initialize() -> void:
 	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
 
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
-	var purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
-	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
+	var economy_purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
+	if not economy_purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
 	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var allied_purchase: Dictionary = NpcEngine.buy_item(allied_trade_world,"health-potion")
 	if not allied_purchase.ok or not is_equal_approx(float(allied_purchase.get("discount",0.0)),0.15) or int(allied_trade_world.hero.gold) != 91:
