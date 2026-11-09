@@ -41,7 +41,7 @@ func _initialize() -> void:
 			failures.append("native NPC catalog is missing browser-authored identity: %s" % expected_id)
 	if actual_npc_ids.size() != EXPECTED_NPC_IDS.size():
 		failures.append("native NPC catalog must not expose duplicate or extra identities")
-	for npc_id in expected_npc_ids:
+	for npc_id in EXPECTED_NPC_IDS:
 		var definition := NpcCatalog.get_npc(npc_id)
 		var greetings: Array = definition.get("greetings", [])
 		if definition.get("id", "") != npc_id or str(definition.get("name", "")).is_empty() or greetings.is_empty():
