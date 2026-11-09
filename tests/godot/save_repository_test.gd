@@ -93,6 +93,25 @@ func _run() -> void:
 	})
 	if int(stale_world_metadata_v18.get("worldSeed", 0)) != 456789 or int(stale_world_metadata_v18.get("worldGeneratorVersion", 0)) != 1:
 		failures.append("current v18 normalization must synchronize root seed and generator metadata with the normalized world")
+
+	var missing_world_generator_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"worldSeed":456789,
+		"worldGeneratorVersion":3.0,
+		"player":{"name":"Missing world generator hero","class":"mage","level":1},
+		"world":{"seed":456789,"currentRegionId":"village","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if int(missing_world_generator_v18.get("worldGeneratorVersion", 0)) != 3 or int(missing_world_generator_v18.get("world", {}).get("generatorVersion", 0)) != 3:
+		failures.append("v18 migration must use the root generator fallback when the saved world version is missing")
+	var fractional_world_generator_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"worldSeed":456789,
+		"worldGeneratorVersion":3,
+		"player":{"name":"Fractional world generator hero","class":"mage","level":1},
+		"world":{"seed":456789,"generatorVersion":2.5,"currentRegionId":"village","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if float(fractional_world_generator_v18.get("worldGeneratorVersion", 0.0)) != 2.5 or float(fractional_world_generator_v18.get("world", {}).get("generatorVersion", 0.0)) != 2.5:
+		failures.append("v18 migration must preserve and mirror a valid fractional world generator version")
 	var fractional_root_seed_v18 := SaveRepo.migrate_payload({
 		"version":18,"worldSeed":123.5,
 		"player":{"name":"Fractional root seed hero","class":"mage","level":1}
