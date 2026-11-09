@@ -398,8 +398,13 @@ func _run() -> void:
 		failures.append("browser v18 contract must accept positive safe-integer world seeds above the unsigned 32-bit limit")
 	var supported_browser_generator_extension := browser_payload.duplicate(true)
 	supported_browser_generator_extension.world.generatorVersion = 2
+	supported_browser_generator_extension.worldGeneratorVersion = 2
 	if not SaveRepo.is_browser_v18_payload(supported_browser_generator_extension):
-		failures.append("browser v18 contract must accept non-negative safe-integer nested generator versions")
+		failures.append("browser v18 contract must accept synchronized positive safe-integer generator versions")
+	var mismatched_browser_generator := browser_payload.duplicate(true)
+	mismatched_browser_generator.world.generatorVersion = 2
+	if SaveRepo.is_browser_v18_payload(mismatched_browser_generator):
+		failures.append("browser v18 contract must reject mismatched root and nested generator versions")
 	var negative_browser_generator := browser_payload.duplicate(true)
 	negative_browser_generator.world.generatorVersion = -1
 	if SaveRepo.is_browser_v18_payload(negative_browser_generator):
