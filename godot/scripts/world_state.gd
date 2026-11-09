@@ -209,6 +209,20 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		world["riftRun"] = run_value.duplicate(true) if run_value is Dictionary else {}
 	if not world.get("factionCampaigns", {}) is Dictionary:
 		world["factionCampaigns"] = {}
+	var campaigns: Dictionary = world["factionCampaigns"]
+	for campaign_id in campaigns.keys():
+		var campaign_value: Variant = campaigns[campaign_id]
+		if campaign_id != "ash-nomad-warband" or not campaign_value is Dictionary:
+			campaigns.erase(campaign_id)
+			continue
+		var campaign: Dictionary = campaign_value
+		if not ["active", "completed", "failed"].has(campaign.get("status", null)):
+			campaign["status"] = "failed"
+		var campaign_stage: Variant = campaign.get("stage", null)
+		campaign["stage"] = clampi(int(campaign_stage), 1, 2) if _is_safe_integer(campaign_stage) else 1
+		var campaign_started: Variant = campaign.get("startedAt", null)
+		campaign["startedAt"] = maxf(0.0, float(campaign_started)) if _is_finite_number(campaign_started) else 0.0
+	world["factionCampaigns"] = campaigns
 	FactionEngine.ensure_state(world)
 	if not world.get("events", {}) is Dictionary:
 		world["events"] = defaults.events.duplicate(true)
@@ -216,9 +230,15 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	for key in ["active", "history"]:
 		if not events.get(key, []) is Array:
 			events[key] = []
+		var sanitized_events: Array = []
+		for event_value in events[key]:
+			var sanitized_event: Variant = _sanitize_world_event(event_value)
+			if sanitized_event is Dictionary:
+				sanitized_events.append(sanitized_event)
+		events[key] = sanitized_events
 	if not events.get("cooldowns", {}) is Dictionary:
 		events["cooldowns"] = {}
-	if not events.get("sequence", 0) is int:
+	if not _is_safe_integer(events.get("sequence", null)) or int(events.sequence) < 0:
 		events["sequence"] = 0
 	var next_spawn_value: Variant = events.get("nextSpawnAt", defaults.events.nextSpawnAt)
 	var next_spawn_at := float(next_spawn_value) if next_spawn_value is int or next_spawn_value is float else -1.0
@@ -227,6 +247,55 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	else:
 		events["nextSpawnAt"] = next_spawn_at
 	return world
+
+
+static func _is_finite_number(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value))
+
+
+static func _is_safe_integer(value: Variant) -> bool:
+	if not _is_finite_number(value):
+		return false
+	var number := float(value)
+	return floor(number) == number and absf(number) <= 9007199254740991.0
+
+
+static func _sanitize_world_event(value: Variant) -> Variant:
+	if not value is Dictionary:
+		return null
+	var event: Dictionary = value.duplicate(true)
+	var event_id: Variant = event.get("id", null)
+	var region_id: Variant = event.get("regionId", null)
+	if not event_id is String or str(event_id).is_empty() or str(event_id).length() > 100:
+		return null
+	if not WorldGraph.region_ids().has(region_id):
+		return null
+	if event.get("objectiveType", null) == "region-discovery":
+		var target_region: Variant = event.get("targetRegionId", null)
+		if not WorldGraph.region_ids().has(target_region) or not WorldGraph.neighbors(str(region_id)).has(target_region):
+			event["targetRegionId"] = null
+			event["objectiveText"] = "Цель разведки недоступна. Обратитесь к доске объявлений."
+	var target_value: Variant = event.get("targetCount", null)
+	var target_count := mini(1000, int(target_value)) if _is_safe_integer(target_value) and int(target_value) > 0 else 1
+	event["targetCount"] = target_count
+	var progress_value: Variant = event.get("progress", null)
+	var progress := clampi(int(progress_value), 0, target_count) if _is_safe_integer(progress_value) else 0
+	event["progress"] = progress
+	if event.get("objectiveType", null) == "defend-region":
+		var elapsed_value: Variant = event.get("holdElapsedMinutes", null)
+		event["holdElapsedMinutes"] = maxf(float(progress), minf(float(target_count), float(elapsed_value))) if _is_finite_number(elapsed_value) else float(progress)
+	event["phase"] = progress
+	var objective_text: Variant = event.get("objectiveText", null)
+	if not objective_text is String:
+		event["objectiveText"] = ""
+	elif str(objective_text).length() > 240:
+		event["objectiveText"] = str(objective_text).left(240)
+	if not event.get("accepted", null) is bool:
+		event["accepted"] = false
+	if event.get("campaignId", null) != "ash-nomad-warband" or not [1, 2].has(event.get("campaignStage", null)):
+		event["campaignId"] = null
+		event["campaignStage"] = null
+	return event
 
 
 static func _rift_location_ids() -> Array:
