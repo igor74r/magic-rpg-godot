@@ -222,7 +222,7 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 	var source_seed := int(world_seed_value) if _is_safe_integer(world_seed_value) else 0
 	if source_seed < 1 or source_seed > 4294967295:
 		var location_value: Variant = migrated.get("location", "village")
-		var legacy_location := location_value if location_value is String else "village"
+		var legacy_location: String = location_value if location_value is String else "village"
 		source_seed = _derive_legacy_world_seed(hero, legacy_location)
 	migrated["worldSeed"] = source_seed
 	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
