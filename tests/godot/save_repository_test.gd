@@ -225,6 +225,16 @@ func _run() -> void:
 	})
 	if int(existing_world_generator_v17.get("worldGeneratorVersion", 0)) != 2 or int(existing_world_generator_v17.get("world", {}).get("generatorVersion", 0)) != 2:
 		failures.append("legacy migration must mirror the saved world's valid generator version over stale root metadata")
+
+	var root_generator_fraction_v17 := SaveRepo.migrate_payload({
+		"version":17,
+		"worldSeed":9876,
+		"worldGeneratorVersion":3.5,
+		"player":{"name":"Root generator fallback hero","class":"mage","level":1},
+		"world":{"seed":9876,"currentRegionId":"village","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if int(root_generator_fraction_v17.get("worldGeneratorVersion", 0)) != 3 or int(root_generator_fraction_v17.get("world", {}).get("generatorVersion", 0)) != 3:
+		failures.append("legacy migration must floor a finite fractional root generator fallback when nested version is missing")
 	if int(invalid_location_type.get("worldSeed", 0)) != int(default_location.get("worldSeed", -1)):
 		failures.append("v18 migration must use the browser village fallback for non-string locations")
 	if not SaveRepo.migrate_payload({"version":16}).is_empty():
