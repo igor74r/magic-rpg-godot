@@ -112,6 +112,15 @@ func _run() -> void:
 	})
 	if int(fractional_world_generator_v18.get("worldGeneratorVersion", 0)) != 2 or int(fractional_world_generator_v18.get("world", {}).get("generatorVersion", 0)) != 2:
 		failures.append("v18 migration must floor fractional world generator versions and mirror the normalized integer")
+	var unsafe_nested_generator_v18 := SaveRepo.migrate_payload({
+		"version":18,
+		"worldSeed":456789,
+		"worldGeneratorVersion":4,
+		"player":{"name":"Unsafe nested generator hero","class":"mage","level":1},
+		"world":{"seed":456789,"generatorVersion":9007199254740992.0,"currentRegionId":"village","discoveredRegions":["village"],"unlockedRoutes":[]}
+	})
+	if int(unsafe_nested_generator_v18.get("worldGeneratorVersion", 0)) != 4 or int(unsafe_nested_generator_v18.get("world", {}).get("generatorVersion", 0)) != 4:
+		failures.append("v18 migration must use the safe root generator fallback when nested metadata is unsafe")
 	var fractional_root_seed_v18 := SaveRepo.migrate_payload({
 		"version":18,"worldSeed":123.5,
 		"player":{"name":"Fractional root seed hero","class":"mage","level":1}
