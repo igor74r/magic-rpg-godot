@@ -112,6 +112,18 @@ func _run() -> void:
 	if int(normalized_region_validation.regionVisits.get("ghost-region", -1)) != 0 or int(normalized_region_validation.regionVisits.get("forest", -1)) != 0 or int(normalized_region_validation.regionVisits.get("shadow", -1)) != 3:
 		failures.append("region visit normalization must retain unknown keys as zero and floor finite values")
 
+	var event_history_world := WorldStateScript.create(80)
+	var event_history: Array = []
+	for history_index in range(55):
+		event_history.append({
+			"id":"history-%02d" % history_index,"regionId":"forest",
+			"status":"completed","rewardClaimed":history_index < 2
+		})
+	event_history_world.events.history = event_history
+	var trimmed_event_history: Array = WorldStateScript.normalize(event_history_world, 80).events.history
+	if trimmed_event_history.size() != 50 or trimmed_event_history[0].id != "history-00" or trimmed_event_history[1].id != "history-01":
+		failures.append("world event history must retain all unclaimed completed rewards ahead of the newest ordinary history")
+
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
