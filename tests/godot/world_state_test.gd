@@ -78,6 +78,40 @@ func _run() -> void:
 	if sanitized_campaign_events.factionCampaigns.has("unknown-campaign") or sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].status != "failed" or int(sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].stage) != 2 or float(sanitized_campaign_events.factionCampaigns["ash-nomad-warband"].startedAt) != 0.0:
 		failures.append("faction campaign records must match browser key, status, stage and start-time normalization")
 
+	var region_validation_world := WorldStateScript.create(79)
+	region_validation_world["regionVisits"] = {"ghost-region":5,"forest":"4","shadow":3.9}
+	region_validation_world["regions"] = {
+		"forest": {
+			"generationVisit":"2","securityThreat":2.5,
+			"openedChests":["","valid","valid",42,"x".repeat(81)],
+			"defeatedEnemies":{"wolf":123.5,"string-deadline":"456","negative":-1},
+			"bossProgress":{
+				"fractional-phase":{"hpRatio":0.5,"phase":1.5,"turnCount":2},
+				"valid-boss":{"hpRatio":0.5,"phase":1,"turnCount":2.0,"pendingSpecial":true}
+			},
+			"secretChests":[
+				{"id":"string-coordinate","x":"1","y":2},
+				{"id":"valid-chest","x":1.5,"y":2.5}
+			],
+			"secretWalls":[
+				{"id":"bad-wall","tx":"1","ty":2,"wx":3,"wy":4,"ax":0,"ay":1,"rewardType":"loot"},
+				{"id":"valid-wall","tx":1,"ty":2,"wx":3,"wy":4,"ax":0,"ay":1,"rewardType":"loot"}
+			]
+		}
+	}
+	var normalized_region_validation := WorldStateScript.normalize(region_validation_world, 79)
+	var clean_region_validation: Dictionary = normalized_region_validation.regions.forest
+	if int(clean_region_validation.generationVisit) != 1 or int(clean_region_validation.securityThreat) != 0:
+		failures.append("region generation and threat fields must reject strings and fractional integers")
+	if clean_region_validation.openedChests != ["", "valid"] or clean_region_validation.defeatedEnemies != {"wolf":123.5}:
+		failures.append("region string IDs and finite respawn deadlines must follow browser filtering")
+	if clean_region_validation.bossProgress.size() != 1 or not bool(clean_region_validation.bossProgress["valid-boss"].pendingSpecial):
+		failures.append("boss progress must reject fractional phases and retain safe integral values")
+	if clean_region_validation.secretChests.size() != 1 or clean_region_validation.secretWalls.size() != 1:
+		failures.append("secret chest and wall coordinates must reject numeric strings")
+	if int(normalized_region_validation.regionVisits.get("ghost-region", -1)) != 0 or int(normalized_region_validation.regionVisits.get("forest", -1)) != 0 or int(normalized_region_validation.regionVisits.get("shadow", -1)) != 3:
+		failures.append("region visit normalization must retain unknown keys as zero and floor finite values")
+
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
