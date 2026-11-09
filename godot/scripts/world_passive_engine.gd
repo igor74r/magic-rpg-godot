@@ -13,7 +13,7 @@ static func ensure_passives(hero: Dictionary) -> void:
 	hero["passivePoints"]=maxi(0,int(hero.get("passivePoints",0)))
 static func can_allocate(hero: Dictionary,node_id: String) -> bool:
 	if hero.is_empty() or node_id.is_empty() or node_id=="start": return false
-	var nodes: Dictionary = PassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
+	var nodes: Dictionary = PassivePassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
 	if not nodes.has(node_id): return false
 	ensure_passives(hero)
 	var node: Dictionary = nodes[node_id]
@@ -24,7 +24,7 @@ static func can_allocate(hero: Dictionary,node_id: String) -> bool:
 static func node_status(hero: Dictionary,node_id: String) -> String:
 	if hero.is_empty(): return "Нет данных персонажа"
 	if node_id=="start": return "Стартовый узел"
-	var nodes: Dictionary = Tree.get_tree(str(hero.get("class","warrior"))).nodes
+	var nodes: Dictionary = PassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
 	if not nodes.has(node_id): return "Узел не найден"
 	ensure_passives(hero)
 	var node: Dictionary = nodes[node_id]
@@ -36,7 +36,7 @@ static func node_status(hero: Dictionary,node_id: String) -> String:
 	return "Сначала изучите соединённый узел"
 static func allocate(hero: Dictionary,node_id: String) -> Dictionary:
 	if not can_allocate(hero,node_id): return {"ok":false,"message":node_status(hero,node_id)}
-	var node: Dictionary = PassiveTree.get_node(str(hero.get("class","warrior")),node_id)
+	var node: Dictionary = PassivePassiveTree.get_node(str(hero.get("class","warrior")),node_id)
 	var passives: Array = hero.passives.duplicate()
 	passives.append(node_id)
 	hero["passives"]=passives
@@ -109,7 +109,7 @@ static func available_talents(hero: Dictionary) -> Array:
 static func get_bonus(hero: Dictionary) -> Dictionary:
 	var bonus := {"dmgMult":1.0,"healMult":1.0,"spellMult":1.0,"defMult":1.0,"critChance":0.0,"critMult":1.5,"lifesteal":0.0,"manaRegen":0.0,"hpRegen":0.0,"abilityCdDelta":0.0,"meteorMult":1.0,"prayerMult":1.0,"resurrectPct":0.3,"dodgeChance":0.0,"blockChance":0.0,"blockPower":0.0,"armorPen":0.0,"atkFlat":0.0,"magFlat":0.0,"defFlat":0.0,"dexFlat":0.0}
 	if hero.is_empty(): return bonus
-	var nodes: Dictionary = Tree.get_tree(str(hero.get("class","warrior"))).nodes
+	var nodes: Dictionary = PassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
 	for node_id in hero.get("passives",[]):
 		if nodes.has(str(node_id)): _add_effects(bonus,nodes[str(node_id)].get("effects",{}))
 	for talent_id in hero.get("talents",[]):
