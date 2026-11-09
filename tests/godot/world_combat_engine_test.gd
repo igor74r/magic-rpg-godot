@@ -498,7 +498,7 @@ func _initialize() -> void:
 	if not bool(forest_access.allowed): failures.append("claiming the previous story mission must unlock the next region")
 	if not bool(Campaign.can_enter_location(campaign_hero,"village").allowed): failures.append("non-story hub regions must remain accessible")
 
-	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
+	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
 	var npc_world := {"seed":17,"hero":{"class":"warrior","level":1,"gold":30,"hp":50,"maxHp":100,"mp":0,"maxMp":0,"exp":0,"expNext":125,"str":18,"int":0,"wis":0,"con":12,"dex":5,"statPoints":0,"passivePoints":0,"inventory":[],"buffs":[],"effects":[]}}
 	var healer_result: Dictionary=Npc.heal(npc_world)
 	if not healer_result.ok or int(npc_world.hero.hp)!=100 or int(npc_world.hero.gold)!=22: failures.append("healer must fully restore hero for 8 gold")
@@ -507,7 +507,7 @@ func _initialize() -> void:
 	var blessing_result: Dictionary=Npc.take_blessing(npc_world)
 	if not blessing_result.ok or not Npc.has_entry(npc_world.hero,"elderBlessing","effects"): failures.append("elder must grant ten-battle experience blessing")
 	var well_world := {"hero":{"class":"mage","hp":10,"maxHp":100,"mp":0,"maxMp":80,"gold":0}}
-	if not Npc.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
+	if not NpcEngine.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
 	if Npc.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
 
 	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
@@ -520,13 +520,13 @@ func _initialize() -> void:
 
 	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
-	var purchase: Dictionary=Npc.buy_item(economy_world,"health-potion")
+	var purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
 	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
 	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var allied_purchase: Dictionary = Npc.buy_item(allied_trade_world,"health-potion")
 	if not allied_purchase.ok or not is_equal_approx(float(allied_purchase.get("discount",0.0)),0.15) or int(allied_trade_world.hero.gold) != 91:
 		failures.append("allied Free Traders must apply the canonical fifteen percent discount to the actual purchase")
-	var sale: Dictionary=Npc.sell_item(economy_world,0)
+	var sale: Dictionary=NpcEngine.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
 	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp","alchemist")
