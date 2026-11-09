@@ -66,7 +66,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	world["seed"] = seed_value if seed_value != 0 else 1
 	var raw_generator: Variant = world.get("generatorVersion", GENERATOR_VERSION)
 	var generator := float(raw_generator) if raw_generator is int or raw_generator is float else float(GENERATOR_VERSION)
-	world["generatorVersion"] = float(maxi(1, int(floor(generator)))) if is_finite(generator) else float(GENERATOR_VERSION)
+	world["generatorVersion"] = float(maxi(1, int(floor(generator)))) if is_finite(generator) and generator <= 9007199254740991.0 else float(GENERATOR_VERSION)
 	var raw_clock: Variant = world.get("clockMinutes", 0)
 	var clock := float(raw_clock) if raw_clock is int or raw_clock is float else 0.0
 	world["clockMinutes"] = maxf(0.0, clock) if is_finite(clock) else 0.0
