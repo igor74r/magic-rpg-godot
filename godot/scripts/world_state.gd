@@ -256,7 +256,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	var next_spawn_value: Variant = events.get("nextSpawnAt", defaults.events.nextSpawnAt)
 	var next_spawn_at := float(next_spawn_value) if next_spawn_value is int or next_spawn_value is float else -1.0
 	if not is_finite(next_spawn_at) or next_spawn_at < 0.0:
-		events["nextSpawnAt"] = defaults.events.nextSpawnAt
+		events["nextSpawnAt"] = float(world.get("clockMinutes", 0.0)) + float(defaults.events.nextSpawnAt)
 	else:
 		events["nextSpawnAt"] = next_spawn_at
 	return world
