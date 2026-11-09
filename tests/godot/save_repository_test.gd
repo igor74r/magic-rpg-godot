@@ -42,7 +42,7 @@ func _run() -> void:
 		if not matrix_result.get("player", null) is Dictionary or not matrix_result.get("world", null) is Dictionary:
 			failures.append("browser save version %d must produce a native-compatible v18 hero and world" % source_version)
 
-	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"customFlag":"keep"},"worldSeed":9876}
+	var legacy_payload := {"version":17,"player":{"name":"Legacy hero","level":27,"gold":900,"campaignClaimed":{"a1-m1":true},"activeCampaignMission":"a1-m2","customFlag":"keep"},"worldSeed":9876}
 	var migrated := SaveRepo.migrate_payload(legacy_payload)
 	var migrated_player: Dictionary = migrated.get("player", {})
 	var integral_float_timestamp := legacy_payload.duplicate(true)
@@ -204,7 +204,7 @@ func _run() -> void:
 		failures.append("v17 faction migration must match runtime Number/Math.round normalization for numeric, string, and invalid values")
 	if migrated_reputation.has("unknown") or migrated_log.size() != 3 or migrated_log[0].get("factionId", "") != "rift-cult" or migrated_log[1] != "invalid" or migrated_log[2].get("factionId", "") != "unknown":
 		failures.append("v17 faction migration must discard unknown reputation keys while preserving every legacy change-log entry")
-	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m1":
+	if migrated_player.get("activeCampaignByBranch", {}).get("intro", "") != "a1-m2":
 		failures.append("v17 migration must preserve the legacy active campaign mission in its branch")
 	if int(migrated_player.get("expNext", 0)) != 269:
 		failures.append("v17 migration must rebase XP thresholds to the current level curve")
@@ -363,6 +363,7 @@ func _run() -> void:
 	browser_float_integers.player.inventory = [{"id": "health-potion", "qty": 2.0}]
 	browser_float_integers.world.seed = 123456.0
 	browser_float_integers.world.generatorVersion = 2.0
+	browser_float_integers.worldGeneratorVersion = 2.0
 	if not SaveRepo.is_browser_v18_payload(browser_float_integers):
 		failures.append("browser v18 contract must accept finite integral JSON numbers represented as floats")
 	var integral_float_browser_version := browser_payload.duplicate(true)
@@ -418,7 +419,10 @@ func _run() -> void:
 	negative_browser_generator.world.generatorVersion = -1
 	if SaveRepo.is_browser_v18_payload(negative_browser_generator):
 		failures.append("browser v18 contract must reject negative nested generator versions")
-	browser_payload["extensionData"] = {"customQuestFlag": true, "opaqueCounter": 73}
+	browser_payload["extensionData"] = {"customQuestFlag": true, "opaqueCounter": 73, "nested": {"marker": "opaque-v18", "flags": [true, false, null]}}
+	browser_payload.player["browserExtension"] = {"skillNote": "preserve-player-extension", "flags": [1, 2, 3]}
+	browser_payload.world["browserExtension"] = {"mapNote": "preserve-world-extension", "seen": ["forest", "ruins"]}
+	browser_payload.factions["browserExtension"] = {"historyMarker": "preserve-faction-extension"}
 	if SaveRepo.import_browser_save(TEST_SLOT, JSON.stringify(browser_payload)) != OK:
 		failures.append("valid browser v18 payload must import into a Godot slot")
 	var imported_browser := SaveRepo.load_slot(TEST_SLOT)
@@ -430,8 +434,8 @@ func _run() -> void:
 		failures.append("browser export must produce a valid v18 payload")
 	elif exported_browser.get("extensionData", {}).get("customQuestFlag", false) != true:
 		failures.append("browser export must preserve extension data")
-	if exported_browser is Dictionary and exported_browser != browser_payload:
-		failures.append("browser import/export must preserve the complete payload, including nested and unknown fields")
+	if exported_browser is Dictionary and (exported_browser.get("extensionData", {}) != browser_payload.extensionData or exported_browser.get("player", {}).get("browserExtension", {}) != browser_payload.player.browserExtension or exported_browser.get("world", {}).get("browserExtension", {}) != browser_payload.world.browserExtension or exported_browser.get("factions", {}).get("browserExtension", {}) != browser_payload.factions.browserExtension or exported_browser.get("player", {}).get("name", "") != browser_payload.player.name or exported_browser.get("player", {}).get("inventory", []) != browser_payload.player.inventory):
+		failures.append("browser import/export must preserve supplied known fields and nested unknown extension data while applying runtime defaults")
 	# Exercise the actual browser import -> native slot -> browser export path
 	# for every legacy schema boundary, not only the in-memory migrator.
 	for legacy_import_version in range(1, 18):

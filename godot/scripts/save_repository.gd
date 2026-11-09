@@ -6,6 +6,7 @@ const PREVIOUS_SAVE_VERSION := 17
 const WorldStateScript = preload("res://godot/scripts/world_state.gd")
 const WorldCampaignCatalogScript = preload("res://godot/scripts/world_campaign_catalog.gd")
 const WorldFactionEngineScript = preload("res://godot/scripts/world_faction_engine.gd")
+const WorldGraphScript = preload("res://godot/scripts/world_graph.gd")
 const SLOT_PATH_TEMPLATE := "user://shards_slot_%d.json"
 
 
@@ -269,7 +270,7 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 # defaults to village, so apply that same precedence before normalization.
 static func _apply_location_fallback(world: Dictionary, payload: Dictionary, had_world_state: bool) -> void:
 	var current_region: Variant = world.get("currentRegionId", null)
-	if had_world_state and WorldGraph.region_ids().has(current_region):
+	if had_world_state and WorldGraphScript.region_ids().has(current_region):
 		return
 	var legacy_location: Variant = payload.get("location", null)
 	if WorldGraph.region_ids().has(legacy_location):
@@ -367,6 +368,9 @@ static func import_browser_save(slot: int, serialized: String) -> Error:
 	# Import through the same sequential migration pipeline used by native
 	# slots. Older browser saves are accepted only if migration produces a
 	# complete, validated v18 browser contract; unknown fields remain intact.
+	var raw_version: Variant = parsed.get("version", null)
+	if _is_safe_integer(raw_version) and int(raw_version) == SAVE_VERSION and not is_browser_v18_payload(parsed):
+		return ERR_INVALID_DATA
 	var migrated := migrate_payload(parsed)
 	if migrated.is_empty() or not is_browser_v18_payload(migrated):
 		return ERR_INVALID_DATA
@@ -663,7 +667,7 @@ static func _migrate_browser_legacy_versions(game: Dictionary, hero_key: String,
 		for index in range(inventory.size()):
 			var entry: Variant = inventory[index]
 			if entry is String and entry == "mana-crystal": inventory[index] = {"id": "old-archive-seal", "qty": 1}
-			elif entry is Dictionary and entry.get("id", "") == "mana-crystal": entry["id"] = "old-archive-seal"
+			elif entry is Dictionary and entry.get("id", null) is String and str(entry.get("id", "")) == "mana-crystal": entry["id"] = "old-archive-seal"
 		player["inventory"] = inventory
 		version = 17
 	game[hero_key] = player
