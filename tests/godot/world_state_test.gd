@@ -124,6 +124,14 @@ func _run() -> void:
 	if trimmed_event_history.size() != 50 or trimmed_event_history[0].id != "history-00" or trimmed_event_history[1].id != "history-01":
 		failures.append("world event history must retain all unclaimed completed rewards ahead of the newest ordinary history")
 
+	var invalid_event_deadline_world := WorldStateScript.create(81)
+	invalid_event_deadline_world.clockMinutes = 100.0
+	invalid_event_deadline_world.events.nextSpawnAt = "invalid"
+	var normalized_event_deadline := WorldStateScript.normalize(invalid_event_deadline_world, 81)
+	var expected_event_deadline := 100.0 + float(WorldStateScript.create(81).events.nextSpawnAt)
+	if absf(float(normalized_event_deadline.events.nextSpawnAt) - expected_event_deadline) > 0.000001:
+		failures.append("invalid event spawn deadlines must be rescheduled relative to the current world clock")
+
 	var world := WorldStateScript.create(123456)
 	if world.seed != 123456 or world.currentRegionId != "village":
 		failures.append("new world must preserve its seed and start in village")
