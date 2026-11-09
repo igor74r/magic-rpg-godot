@@ -508,7 +508,7 @@ func _initialize() -> void:
 	if not blessing_result.ok or not Npc.has_entry(npc_world.hero,"elderBlessing","effects"): failures.append("elder must grant ten-battle experience blessing")
 	var well_world := {"hero":{"class":"mage","hp":10,"maxHp":100,"mp":0,"maxMp":80,"gold":0}}
 	if not NpcEngine.use_well(well_world,100000).ok or int(well_world.hero.hp)!=100 or int(well_world.hero.mp)!=80: failures.append("well must restore HP and MP")
-	if Npc.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
+	if NpcEngine.use_well(well_world,100001).ok: failures.append("well must enforce 24-hour cooldown")
 
 	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
 	if NpcCatalog.ids().size()!=12: failures.append("NPC catalog must preserve all twelve village NPC definitions")
@@ -518,28 +518,27 @@ func _initialize() -> void:
 	if int(buff_world.hero.exp)!=7 or int(buff_world.hero.level)!=2: failures.append("bard and elder buffs must multiply XP reward to 132 before level-up")
 	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
 
-	var Npc = preload("res://godot/scripts/world_npc_engine.gd")
+	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
 	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
 	if not purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
 	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
-	var allied_purchase: Dictionary = Npc.buy_item(allied_trade_world,"health-potion")
+	var allied_purchase: Dictionary = NpcEngine.buy_item(allied_trade_world,"health-potion")
 	if not allied_purchase.ok or not is_equal_approx(float(allied_purchase.get("discount",0.0)),0.15) or int(allied_trade_world.hero.gold) != 91:
 		failures.append("allied Free Traders must apply the canonical fifteen percent discount to the actual purchase")
 	var sale: Dictionary=NpcEngine.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
 	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
-	var craft_result: Dictionary=Npc.craft(craft_world,"r-hp","alchemist")
+	var craft_result: Dictionary=NpcEngine.craft(craft_world,"r-hp","alchemist")
 	if not craft_result.ok or str(craft_world.hero.inventory[0].id)!="health-potion": failures.append("alchemist must consume three life herbs and create a health potion")
 	var rarity_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"common"},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"equipped":{},"campaignClaimed":{}}}
-	var rarity_result: Dictionary=Npc.craft(rarity_world,"r-briar-court-mantle","blacksmith")
+	var rarity_result: Dictionary=NpcEngine.craft(rarity_world,"r-briar-court-mantle","blacksmith")
 	if not rarity_result.ok or str(rarity_world.hero.inventory[0].get("rarity",""))!="common" or rarity_world.hero.inventory.size()!=2 or str(rarity_world.hero.inventory[1].get("rarity",""))!="uncommon":
 		failures.append("crafting a duplicate named item must apply recipe rarity only to the newly created equipment")
 	var forge_world := {"hero":{"class":"warrior","level":1,"gold":30,"inventory":[],"equipped":{"weapon":{"id":"iron-sword","bonus":{"attack":8},"forgeLevel":0}},"campaignClaimed":{}}}
-	var forge_result: Dictionary=Npc.upgrade_equipment(forge_world,"weapon")
+	var forge_result: Dictionary=NpcEngine.upgrade_equipment(forge_world,"weapon")
 	if not forge_result.ok or int(forge_world.hero.gold)!=0 or int(forge_world.hero.equipped.weapon.forgeLevel)!=1 or int(forge_world.hero.equipped.weapon.bonus.attack)!=8: failures.append("blacksmith upgrade must charge 30 gold and apply five-percent bonus rounding")
 
-	var NpcEngine = preload("res://godot/scripts/world_npc_engine.gd")
 	var NpcCatalog = preload("res://godot/scripts/world_npc_catalog.gd")
 	var dialogue_world := {"hero":{"class":"warrior","level":1,"gold":2,"inventory":[],"equipped":{},"campaignClaimed":{}}}
 	var greeting_a: Dictionary=NpcEngine.talk(dialogue_world,"guard")
