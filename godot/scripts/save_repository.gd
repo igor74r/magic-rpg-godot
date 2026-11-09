@@ -496,7 +496,7 @@ static func _migrate_browser_legacy_versions(game: Dictionary, hero_key: String,
 	var version := source_version
 	for slot in ["weapon", "armor"]:
 		if player.get("equipped", {}) is Dictionary:
-			var equipped_early: Dictionary = player.equipped
+			var equipped_early: Dictionary = player.get("equipped", {})
 			if equipped_early.get(slot, null) is String:
 				equipped_early[slot] = {"id": equipped_early[slot], "qty": 1}
 	if version < 2:
@@ -657,7 +657,7 @@ static func _migrate_browser_legacy_versions(game: Dictionary, hero_key: String,
 		var inventory: Array = player.get("inventory", []) if player.get("inventory", []) is Array else []
 		for index in range(inventory.size()):
 			var entry: Variant = inventory[index]
-			if entry == "mana-crystal": inventory[index] = {"id": "old-archive-seal", "qty": 1}
+			if entry is String and entry == "mana-crystal": inventory[index] = {"id": "old-archive-seal", "qty": 1}
 			elif entry is Dictionary and entry.get("id", "") == "mana-crystal": entry["id"] = "old-archive-seal"
 		player["inventory"] = inventory
 		version = 17
