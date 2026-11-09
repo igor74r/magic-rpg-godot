@@ -62,6 +62,10 @@ static func ensure_state(hero: Dictionary) -> void:
 		hero["activeCampaignMission"] = ""
 
 
+static func _is_true_flag(value: Variant) -> bool:
+	return value is bool and value
+
+
 static func _is_safe_integer(value: Variant) -> bool:
 	if value is int:
 		return int(value) >= 0 and int(value) <= 9007199254740991
@@ -140,7 +144,7 @@ static func act_price_multiplier(hero: Dictionary) -> float:
 	for act_index in range(5):
 		var act_complete := true
 		for mission_index in range(1, 6):
-			if claimed.get("a%d-m%d" % [act_index + 1, mission_index], false) != true:
+			if not _is_true_flag(claimed.get("a%d-m%d" % [act_index + 1, mission_index], false)):
 				act_complete = false
 				break
 		if not act_complete:
@@ -210,7 +214,8 @@ static func can_enter_location(hero: Dictionary, location_id: String) -> Diction
 		return {"allowed":true,"requirement":{},"currentLevel":current_level,"reason":""}
 	var level_allowed := current_level>=int(requirement.requiredLevel)
 	var previous_mission_id := str(requirement.get("unlockAfterMissionId",""))
-	var campaign_allowed: bool = previous_mission_id.is_empty() or hero.campaignClaimed.get(previous_mission_id,false)==true
+	var claimed: Dictionary = hero.get("campaignClaimed", {}) if hero.get("campaignClaimed", {}) is Dictionary else {}
+	var campaign_allowed: bool = previous_mission_id.is_empty() or _is_true_flag(claimed.get(previous_mission_id, false))
 	var reason := "" if level_allowed and campaign_allowed else "level" if not level_allowed else "campaign"
 	return {
 		"allowed":level_allowed and campaign_allowed,
@@ -227,11 +232,11 @@ static func can_complete_main_quest(world: Dictionary) -> bool:
 	var shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
 	var dragons: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
 	var progress_data := campaign_progress(hero)
-	return shards.get("flame", false) == true and shards.get("ice", false) == true and shards.get("blood", false) == true and dragons.get("blood-crown", false) == true and bool(progress_data.complete)
+	return _is_true_flag(shards.get("flame", false)) and _is_true_flag(shards.get("ice", false)) and _is_true_flag(shards.get("blood", false)) and _is_true_flag(dragons.get("blood-crown", false)) and bool(progress_data.complete)
 
 static func is_rift_unlocked_by_story(world: Dictionary) -> bool:
 	var dragons: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
-	return dragons.get("blood-crown", false) == true
+	return _is_true_flag(dragons.get("blood-crown", false))
 
 static func is_rift_ready(world: Dictionary) -> bool:
 	return is_rift_unlocked_by_story(world) and str(world.get("riftEnding", "")) != "closed"
