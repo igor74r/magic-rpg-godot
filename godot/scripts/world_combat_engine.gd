@@ -181,7 +181,7 @@ static func begin(enemy: Dictionary) -> Dictionary:
 	return {"enemy": enemy, "turn": "player", "over": false, "blocking": false, "playerResurrectionUsed": false, "log": "Бой начался: %s" % str(enemy.get("name", "Противник")), "result": ""}
 
 static func critical_chance(hero: Dictionary, extra_bonus: float = 0.0) -> float:
-	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var class_data: Dictionary = ClassCatalog.get_class_definition(str(hero.get("class", "warrior")))
 	var class_combat: Dictionary = class_data.get("combat", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var chance := float(class_combat.get("critChance", 0.05)) + float(passive_bonus.get("critChance", 0.0)) + extra_bonus
@@ -489,7 +489,7 @@ static func _calculate_incoming_damage(world: Dictionary, hero: Dictionary, enem
 
 
 static func _combat_defense_stats(hero: Dictionary) -> Dictionary:
-	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var class_data: Dictionary = ClassCatalog.get_class_definition(str(hero.get("class", "warrior")))
 	var combat_data: Dictionary = class_data.get("combat", {})
 	var passive_bonus: Dictionary = preload("res://godot/scripts/world_passive_engine.gd").get_bonus(hero)
 	var dodge := float(combat_data.get("dodgeChance", 0.0))
@@ -678,7 +678,7 @@ static func use_ability(world: Dictionary, combat: Dictionary, ability_id: Strin
 	if combat.is_empty() or combat.get("over", true) or combat.get("turn", "") != "player":
 		return {"ok": false, "message": "Сейчас нельзя применить способность."}
 	var hero := ensure_hero(world)
-	var class_data: Dictionary = ClassCatalog.get_class(str(hero.get("class", "warrior")))
+	var class_data: Dictionary = ClassCatalog.get_class_definition(str(hero.get("class", "warrior")))
 	var ability: Dictionary = {}
 	for candidate in class_data.get("abilities", []):
 		if str(candidate.id) == ability_id:
@@ -969,7 +969,7 @@ static func select_class(world: Dictionary, class_id: String) -> Dictionary:
 	var current: Dictionary = world.get("hero", {})
 	if bool(current.get("classChosen", false)):
 		return {"ok":false,"message":"Класс уже выбран для этого персонажа."}
-	var definition: Dictionary = ClassCatalog.get_class(class_id)
+	var definition: Dictionary = ClassCatalog.get_class_definition(class_id)
 	world["hero"] = {
 		"class":class_id,"classChosen":true,"level":1,
 		"maxHp":int(definition.maxHp),"hp":int(definition.maxHp),
