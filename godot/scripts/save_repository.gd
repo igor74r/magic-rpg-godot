@@ -226,7 +226,9 @@ static func migrate_payload(payload: Dictionary) -> Dictionary:
 		source_seed = _derive_legacy_world_seed(hero, legacy_location)
 	migrated["worldSeed"] = source_seed
 	var generator_value: Variant = migrated.get("worldGeneratorVersion", 1)
-	migrated["worldGeneratorVersion"] = int(generator_value) if _is_safe_integer(generator_value) and int(generator_value) >= 1 else 1
+	# Browser ensureWorldState accepts any finite numeric fallback >= 1 and
+	# floors it when the nested world generator version is absent/invalid.
+	migrated["worldGeneratorVersion"] = int(floor(float(generator_value))) if (generator_value is int or generator_value is float) and is_finite(float(generator_value)) and float(generator_value) >= 1.0 else 1
 
 	var world_value: Variant = migrated.get("world", null)
 	var has_legacy_world := world_value is Dictionary
