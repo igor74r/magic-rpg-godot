@@ -235,6 +235,20 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 			if sanitized_event is Dictionary:
 				sanitized_events.append(sanitized_event)
 		events[key] = sanitized_events
+	if events.history.size() > 50:
+		var pending_rewards: Array = []
+		var other_history: Array = []
+		for history_event in events.history:
+			if history_event.get("status") == "completed" and history_event.get("rewardClaimed", false) != true:
+				pending_rewards.append(history_event)
+			else:
+				other_history.append(history_event)
+		var other_limit := maxi(0, 50 - pending_rewards.size())
+		if other_limit > 0:
+			other_history = other_history.slice(maxi(0, other_history.size() - other_limit))
+		else:
+			other_history = []
+		events["history"] = pending_rewards + other_history
 	if not events.get("cooldowns", {}) is Dictionary:
 		events["cooldowns"] = {}
 	var sequence_value: Variant = events.get("sequence", null)
