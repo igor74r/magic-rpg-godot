@@ -127,7 +127,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 	var clean_regions: Dictionary = {}
 	if source_regions is Dictionary:
 		for region_id in source_regions:
-			if valid_regions.has(region_id):
+			if valid_regions.has(region_id) and source_regions[region_id] is Dictionary:
 				clean_regions[region_id] = _normalize_region_record(source_regions[region_id])
 	world["regions"] = clean_regions
 	# Rift progression is validated as part of the save payload.
