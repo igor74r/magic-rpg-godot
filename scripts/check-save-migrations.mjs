@@ -209,6 +209,14 @@ assert.equal(freshSave.world.currentRegionId, 'village', 'new characters must tr
 assert.deepEqual(freshSave.world.regionVisits, { village: 1 }, 'the starting region visit seed must be initialized exactly once');
 assert.equal(freshSave.worldSeed, freshSave.world.seed, 'top-level and nested save seeds must stay synchronized');
 assert.equal(freshSave.worldGeneratorVersion, freshSave.world.generatorVersion);
+const fractionalGeneratorSave = JSON.parse(JSON.stringify(freshSave));
+fractionalGeneratorSave.worldGeneratorVersion = 2.75;
+fractionalGeneratorSave.world.generatorVersion = 2.75;
+migrateGame(fractionalGeneratorSave);
+assert.equal(fractionalGeneratorSave.worldGeneratorVersion, 2);
+assert.equal(fractionalGeneratorSave.world.generatorVersion, 2);
+assert.doesNotThrow(() => validateCurrentSaveShape(fractionalGeneratorSave),
+  'fractional generator metadata must normalize to a valid synchronized integer version');
 console.log('PASS new character starts on v18 with a fresh, non-legacy world');
 storage.set('magic-rpg-save-1', JSON.stringify({
   version: 16,
