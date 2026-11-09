@@ -364,7 +364,7 @@ static func _clean_string_ids(value: Variant) -> Array:
 	var result: Array = []
 	if value is Array:
 		for item in value:
-			if item is String and not item.is_empty() and item.length() <= 80 and not result.has(item):
+			if item is String and item.length() <= 80 and not result.has(item):
 				result.append(item)
 	return result
 
@@ -380,8 +380,10 @@ static func _new_region_record() -> Dictionary:
 
 static func _normalize_region_record(value: Variant) -> Dictionary:
 	var record: Dictionary = value.duplicate(true) if value is Dictionary else {}
-	record["generationVisit"] = maxi(1, int(record.get("generationVisit", 1)))
-	record["securityThreat"] = clampi(int(record.get("securityThreat", 0)), 0, 3)
+	var generation_visit: Variant = record.get("generationVisit", null)
+	record["generationVisit"] = maxi(1, int(generation_visit)) if _is_safe_integer(generation_visit) and int(generation_visit) >= 1 else 1
+	var security_threat: Variant = record.get("securityThreat", null)
+	record["securityThreat"] = clampi(int(security_threat), 0, 3) if _is_safe_integer(security_threat) else 0
 	for key in ["openedChests", "defeatedBosses", "resolvedEvents", "discoveredSecrets"]:
 		record[key] = _clean_string_ids(record.get(key, []))
 
@@ -389,9 +391,9 @@ static func _normalize_region_record(value: Variant) -> Dictionary:
 	var clean_defeated: Dictionary = {}
 	if defeated_value is Dictionary:
 		for enemy_id in defeated_value:
-			var deadline := float(defeated_value[enemy_id])
-			if enemy_id is String and not enemy_id.is_empty() and enemy_id.length() <= 80 and is_finite(deadline) and deadline >= 0.0:
-				clean_defeated[enemy_id] = deadline
+			var deadline_value: Variant = defeated_value[enemy_id]
+			if _is_finite_number(deadline_value) and float(deadline_value) >= 0.0:
+				clean_defeated[enemy_id] = float(deadline_value)
 	record["defeatedEnemies"] = clean_defeated
 
 	var progress_value: Variant = record.get("bossProgress", {})
@@ -401,10 +403,15 @@ static func _normalize_region_record(value: Variant) -> Dictionary:
 			var progress: Variant = progress_value[boss_id]
 			if not boss_id is String or boss_id.is_empty() or boss_id.length() > 80 or not progress is Dictionary:
 				continue
-			var hp_ratio := float(progress.get("hpRatio", 0.0))
-			var phase := int(progress.get("phase", -1))
-			var turns := int(progress.get("turnCount", -1))
-			if is_finite(hp_ratio) and hp_ratio > 0.0 and hp_ratio <= 1.0 and phase >= 0 and phase <= 20 and turns >= 0 and turns <= 100000:
+			var hp_value: Variant = progress.get("hpRatio", null)
+			var phase_value: Variant = progress.get("phase", null)
+			var turns_value: Variant = progress.get("turnCount", null)
+			if not _is_finite_number(hp_value) or not _is_safe_integer(phase_value) or not _is_safe_integer(turns_value):
+				continue
+			var hp_ratio := float(hp_value)
+			var phase := int(phase_value)
+			var turns := int(turns_value)
+			if hp_ratio > 0.0 and hp_ratio <= 1.0 and phase >= 0 and phase <= 20 and turns >= 0 and turns <= 100000:
 				clean_progress[boss_id] = {"hpRatio": hp_ratio, "phase": phase, "turnCount": turns, "pendingSpecial": progress.get("pendingSpecial", false) == true}
 	record["bossProgress"] = clean_progress
 
@@ -415,9 +422,9 @@ static func _normalize_region_record(value: Variant) -> Dictionary:
 			if not chest is Dictionary:
 				continue
 			var chest_id: Variant = chest.get("id", "")
-			var x := float(chest.get("x", NAN))
-			var y := float(chest.get("y", NAN))
-			if chest_id is String and not chest_id.is_empty() and chest_id.length() <= 80 and is_finite(x) and is_finite(y):
+			var x_value: Variant = chest.get("x", null)
+			var y_value: Variant = chest.get("y", null)
+			if chest_id is String and chest_id.length() <= 80 and _is_finite_number(x_value) and _is_finite_number(y_value):
 				clean_chests.append(chest.duplicate(true))
 	record["secretChests"] = clean_chests
 	record["secretLayoutGenerated"] = record.get("secretLayoutGenerated", false) == true
@@ -429,9 +436,9 @@ static func _normalize_region_record(value: Variant) -> Dictionary:
 			if not wall is Dictionary:
 				continue
 			var wall_id: Variant = wall.get("id", "")
-			var valid := wall_id is String and not wall_id.is_empty() and wall_id.length() <= 80
+			var valid := wall_id is String and wall_id.length() <= 80
 			for coordinate in ["tx", "ty", "wx", "wy", "ax", "ay"]:
-				valid = valid and is_finite(float(wall.get(coordinate, NAN)))
+				valid = valid and _is_finite_number(wall.get(coordinate, null))
 			if valid and ["chest", "elite", "loot"].has(wall.get("rewardType", "")):
 				clean_walls.append(wall.duplicate(true))
 	record["secretWalls"] = clean_walls
