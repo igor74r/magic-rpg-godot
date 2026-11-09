@@ -1487,7 +1487,7 @@ func _refresh_combat_ui() -> void:
 		block_button.text = "Защитная стойка"
 		block_button.pressed.connect(_combat_block)
 		combat_container.add_child(block_button)
-		var class_data: Dictionary = ClassCatalogScript.get_class(str(hero.get("class", "warrior")))
+		var class_data: Dictionary = ClassCatalogScript.get_class_definition(str(hero.get("class", "warrior")))
 		for ability in class_data.get("abilities", []):
 			if bool(ability.get("passive", false)):
 				continue
