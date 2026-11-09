@@ -40,18 +40,26 @@ const RIFT_LOCATIONS := [
 ]
 
 static func ensure_state(hero: Dictionary) -> void:
-	if not hero.get("campaignKills",{}) is Dictionary: hero["campaignKills"]={}
-	if not hero.get("campaignClaimed",{}) is Dictionary: hero["campaignClaimed"]={}
-	var kills: Dictionary=hero.campaignKills
-	var claimed: Dictionary=hero.campaignClaimed
+	# Missing keys are not equivalent to valid empty dictionaries: get(key, {})
+	# alone made the old guard skip initialization and later dot access failed.
+	if not hero.has("campaignKills") or not hero.get("campaignKills") is Dictionary:
+		hero["campaignKills"] = {}
+	if not hero.has("campaignClaimed") or not hero.get("campaignClaimed") is Dictionary:
+		hero["campaignClaimed"] = {}
+	if not hero.has("storyShards") or not hero.get("storyShards") is Dictionary:
+		hero["storyShards"] = {}
+	var kills: Dictionary = hero["campaignKills"]
+	var claimed: Dictionary = hero["campaignClaimed"]
 	for mission in Catalog.all_missions():
-		var id:=str(mission.id)
+		var id := str(mission.id)
 		var raw_kills: Variant = kills.get(id, 0)
-		kills[id] = int(raw_kills) if _is_safe_integer(raw_kills) and int(raw_kills) >= 0 else 0
-		claimed[id] = claimed.get(id, false) == true
-	hero["campaignKills"]=kills
-	hero["campaignClaimed"]=claimed
-	if not hero.get("activeCampaignMission",null) is String: hero["activeCampaignMission"]=""
+		kills[id] = int(raw_kills) if _is_safe_integer(raw_kills) else 0
+		var raw_claimed: Variant = claimed.get(id, false)
+		claimed[id] = raw_claimed is bool and raw_claimed
+	hero["campaignKills"] = kills
+	hero["campaignClaimed"] = claimed
+	if not hero.get("activeCampaignMission") is String:
+		hero["activeCampaignMission"] = ""
 
 
 static func _is_safe_integer(value: Variant) -> bool:
@@ -69,7 +77,8 @@ static func get_active(hero: Dictionary) -> Dictionary:
 	if id.is_empty():
 		return {}
 	var mission := Catalog.find_mission(id)
-	if mission.is_empty() or hero.campaignClaimed.get(id, false) == true:
+	var claimed: Dictionary = hero.get("campaignClaimed", {}) if hero.get("campaignClaimed", {}) is Dictionary else {}
+	if mission.is_empty() or (claimed.get(id, false) is bool and claimed.get(id, false)):
 		hero["activeCampaignMission"] = ""
 		return {}
 	return mission
@@ -94,16 +103,19 @@ static func progress(hero: Dictionary,mission: Dictionary) -> Dictionary:
 	var required:=maxi(1,int(mission.get("count",1)))
 	var kills:=maxi(0,int(hero.campaignKills.get(id,0)))
 	var shard_id:=str(mission.get("shardId",""))
-	var shards: Dictionary=hero.get("storyShards",{})
-	var shard_found: bool =shard_id.is_empty() or shards.get(shard_id,false)==true
-	return {"current":mini(kills,required),"kills":kills,"required":required,"complete":kills>=required and shard_found,"claimed":bool(hero.campaignClaimed.get(id,false)),"shardFound":shard_found}
+	var shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
+	var raw_shard: Variant = shards.get(shard_id, false)
+	var shard_found: bool = shard_id.is_empty() or (raw_shard is bool and raw_shard)
+	var claimed: Dictionary = hero.get("campaignClaimed", {}) if hero.get("campaignClaimed", {}) is Dictionary else {}
+	var raw_claimed: Variant = claimed.get(id, false)
+	return {"current":mini(kills,required),"kills":kills,"required":required,"complete":kills>=required and shard_found,"claimed":raw_claimed is bool and raw_claimed,"shardFound":shard_found}
 
 static func record_shard(hero: Dictionary, shard_id: String) -> bool:
 	if not ["flame", "ice", "blood"].has(shard_id):
 		return false
 	if not hero.get("storyShards", {}) is Dictionary:
 		hero["storyShards"] = {}
-	var shards: Dictionary = hero.storyShards
+	var shards: Dictionary = hero["storyShards"]
 	shards[shard_id] = true
 	hero["storyShards"] = shards
 	return true
