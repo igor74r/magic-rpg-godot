@@ -9,6 +9,11 @@ const TILE_ROAD := 1
 const TILE_WALL := 2
 const TILE_STONE := 3
 const TILE_PROP := 4
+const HAZARD_WALKABLE_REGIONS := [
+	"volcano", "dragon", "obsidian-fields",
+	"swamp", "briar-hollow",
+	"ruins", "sunken-necropolis"
+]
 
 
 static func generate_map(region_id: String, cols: int, rows: int, world_seed: int, generator_version: int = 1, visit_index: int = 0) -> Array:
@@ -229,6 +234,12 @@ static func is_blocked(grid: Array, x: int, y: int, hazard_walkable: bool = fals
 	if tile == TILE_WALL or tile == TILE_PROP:
 		return true
 	return tile == TILE_STONE and not hazard_walkable
+
+
+static func is_blocked_for_region(grid: Array, x: int, y: int, region_id: String) -> bool:
+	# Browser isBlocked treats tile 3 as traversable in lava, poison, and
+	# trapped-water regions. Keep encounter placement on the same terrain rules.
+	return is_blocked(grid, x, y, region_id in HAZARD_WALKABLE_REGIONS)
 
 
 static func find_free_cell(grid: Array, min_distance_from: Vector2i = Vector2i(-1, -1), min_distance: float = 0.0, hazard_walkable: bool = false) -> Vector2i:

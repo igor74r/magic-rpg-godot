@@ -120,7 +120,7 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 	var enemies: Array = []
 	var boss_occurrences := {}
 	for index in range(spawn_roster.size()):
-		var cell := _find_free_cell(grid, used_cells, player_cell, region_rng)
+		var cell := _find_free_cell(grid, used_cells, player_cell, region_rng, region_id)
 		if cell.x < 0:
 			continue
 		used_cells.append(cell)
@@ -159,12 +159,12 @@ static func generate(region_id: String, grid: Array, world_seed: int, generator_
 		})
 	return enemies
 
-static func _find_free_cell(grid: Array, used: Array[Vector2i], player_cell: Vector2i, rng: WorldRandom) -> Vector2i:
+static func _find_free_cell(grid: Array, used: Array[Vector2i], player_cell: Vector2i, rng: WorldRandom, region_id: String) -> Vector2i:
 	var candidates: Array[Vector2i] = []
 	for y in range(grid.size()):
 		for x in range(grid[y].size()):
 			var cell := Vector2i(x, y)
-			if MapGenerator.is_blocked(grid, x, y):
+			if MapGenerator.is_blocked_for_region(grid, x, y, region_id):
 				continue
 			if Vector2(cell - player_cell).length() < 5.0:
 				continue

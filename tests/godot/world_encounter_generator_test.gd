@@ -4,6 +4,7 @@ const Catalog = preload("res://godot/scripts/world_region_catalog.gd")
 const EnemyCatalog = preload("res://godot/scripts/world_enemy_catalog.gd")
 const MapGenerator = preload("res://godot/scripts/world_map_generator.gd")
 const Encounter = preload("res://godot/scripts/world_encounter_generator.gd")
+const WorldRandom = preload("res://godot/scripts/world_random.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -103,6 +104,19 @@ func _initialize() -> void:
 			finale_has_dragon = true
 	if not finale_has_dragon:
 		failures.append("the accepted finale mission must include its guaranteed story dragon in the encounter roster")
+	# Browser isBlocked allows tile 3 in lava, poison, and trapped-water
+	# regions. Encounter placement must use those same per-region rules.
+	var hazard_grid := [[MapGenerator.TILE_STONE]]
+	var hazard_cell := Encounter._find_free_cell(hazard_grid, [], Vector2i(100, 100), WorldRandom.new(1), "volcano")
+	if hazard_cell != Vector2i(0, 0):
+		failures.append("volcano encounter placement must allow browser-walkable hazard terrain")
+	var ordinary_cell := Encounter._find_free_cell(hazard_grid, [], Vector2i(100, 100), WorldRandom.new(1), "forest")
+	if ordinary_cell != Vector2i(-1, -1):
+		failures.append("ordinary regions must continue to reject stone hazard tiles")
+	for hazard_region in ["volcano", "dragon", "obsidian-fields", "swamp", "briar-hollow", "ruins", "sunken-necropolis"]:
+		if MapGenerator.is_blocked_for_region(hazard_grid, 0, 0, hazard_region):
+			failures.append("browser hazard tile must be walkable for region %s" % hazard_region)
+
 	# Generate and validate the complete authored region catalog, not just one sample.
 	for region_id in Catalog.region_ids():
 		var region_grid := MapGenerator.generate_map(str(region_id), 40, 30, 77123, 1, 1)
@@ -120,7 +134,7 @@ func _initialize() -> void:
 			if spawned_id.is_empty() or region_spawn_ids.has(spawned_id):
 				failures.append("region %s must produce unique stable enemy identities" % str(region_id))
 			region_spawn_ids[spawned_id] = true
-			if MapGenerator.is_blocked(region_grid, spawned_cell.x, spawned_cell.y):
+			if MapGenerator.is_blocked_for_region(region_grid, spawned_cell.x, spawned_cell.y, str(region_id)):
 				failures.append("region %s enemy %s must occupy a walkable map cell" % [str(region_id), spawned_id])
 			if occupied_cells.has(spawned_cell):
 				failures.append("region %s must not place two enemies in the same cell" % str(region_id))
