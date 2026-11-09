@@ -151,6 +151,7 @@ export function ensureWorldState(game, { legacy = false } = {}) {
   world.seed = toUint32(world.seed) || 1;
   if (!Number.isFinite(world.generatorVersion) || world.generatorVersion < 1) world.generatorVersion = Number.isFinite(game.worldGeneratorVersion) && game.worldGeneratorVersion >= 1 ? Math.floor(game.worldGeneratorVersion) : WORLD_GENERATOR_VERSION;
   else world.generatorVersion = Math.floor(world.generatorVersion);
+  else world.generatorVersion = Math.floor(world.generatorVersion);
   if (!Number.isFinite(world.clockMinutes) || world.clockMinutes < 0) world.clockMinutes = 0;
   world.legacyFastTravel = world.legacyFastTravel === true || Boolean(legacy);
 
