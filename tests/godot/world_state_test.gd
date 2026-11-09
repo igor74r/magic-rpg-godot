@@ -59,9 +59,12 @@ func _run() -> void:
 		}
 	]
 	campaign_event_world.events.history = [null, {"id":"bad-history","regionId":"unknown"}]
+	campaign_event_world.events.sequence = 3.5
 	var sanitized_campaign_events := WorldStateScript.normalize(campaign_event_world, 78)
 	if sanitized_campaign_events.events.active.size() != 2 or not sanitized_campaign_events.events.history.is_empty():
 		failures.append("world normalization must discard malformed active and historical event entries")
+	if absf(float(sanitized_campaign_events.events.sequence) - 3.5) > 0.000001:
+		failures.append("finite fractional world-event sequences must remain compatible with browser normalization")
 	var sanitized_defense: Dictionary = sanitized_campaign_events.events.active[0]
 	if int(sanitized_defense.targetCount) != 1000 or int(sanitized_defense.progress) != 1000 or int(sanitized_defense.phase) != 1000:
 		failures.append("world event progress must clamp to a safe target count and synchronize phase")
