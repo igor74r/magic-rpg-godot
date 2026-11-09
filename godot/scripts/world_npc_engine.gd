@@ -8,6 +8,28 @@ const CatalogItem = preload("res://godot/scripts/world_item_catalog.gd")
 const CampaignCatalog = preload("res://godot/scripts/world_campaign_catalog.gd")
 const Daily = preload("res://godot/scripts/world_daily_quest_engine.gd")
 const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
+const SHOP_STOCK := ["health-potion","mana-potion","strong-health-potion","strong-mana-potion","antidote","strength-elixir","mana-elixir","scroll-lightning","scroll-shield","restorative-potion","iron-sword","apprentice-staff","leather-armor","rootbound-hood","cinder-visor","briar-shoulders","duelist-grips","gravebinder-gloves","oath-bracers","windstep-boots","glacier-greaves","tower-shield","ranger-cloak","obsidian-mantle","amulet-first-light","pendant-last-oath","ring-wolf-eye","ring-quiet-tide","rune-root","rune-ember","rune-tide","rune-frost","rune-void"]
+const RARE_SHOP_STOCK := ["moonsteel-spear","rune-sword","astral-staff","warden-plate","void-robe","scroll-frost-nova","scroll-shadow-lance","scroll-arcane-surge"]
+const RECIPES := {
+ "r-hp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"health-potion","ingredients":{"herb-life":3}},
+ "r-mp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"mana-potion","ingredients":{"herb-moon":3}},
+ "r-shp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-health-potion","ingredients":{"herb-life":5}},
+ "r-smp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-mana-potion","ingredients":{"herb-moon":5}},
+ "r-rune-root":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-root","ingredients":{"root-fiber":3,"herb-life":1}},
+ "r-rune-ember":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-ember","ingredients":{"ember-core":2,"grave-salt":1}},
+ "r-rune-tide":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-tide","ingredients":{"frost-essence":2,"herb-moon":1}},
+ "r-rune-frost":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-frost","ingredients":{"frost-essence":3}},
+ "r-rune-void":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-void","ingredients":{"void-dust":3,"ember-core":1}},
+ "r-briar-court-mantle":{"station":"blacksmith","craftTier":2,"act":1,"qty":1,"result":"briar-court-mantle","rarity":"uncommon","ingredients":{"root-court-seal":1,"root-fiber":2}},
+ "r-mourner-signet":{"station":"blacksmith","craftTier":3,"act":2,"qty":1,"result":"mourner-signet","rarity":"rare","ingredients":{"drowned-lament":1,"grave-salt":2}},
+ "r-oathfire-cleaver":{"station":"blacksmith","craftTier":3,"act":3,"qty":1,"result":"oathfire-cleaver","rarity":"rare","ingredients":{"oathforge-heart":1,"ember-core":2}},
+ "r-mirrorweave-cloak":{"station":"blacksmith","craftTier":4,"act":4,"qty":1,"result":"mirrorweave-cloak","rarity":"epic","ingredients":{"mirror-shard":1,"frost-essence":2}},
+ "r-echo-prism-amulet":{"station":"blacksmith","craftTier":4,"act":5,"qty":1,"result":"echo-prism-amulet","rarity":"epic","ingredients":{"echo-core":1,"void-dust":3}},
+ "r5-dragon-blade":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-blade","rarity":"legendary","ingredients":{"ember-core":3,"void-dust":2,"grave-salt":1}},
+ "r5-dragon-plate":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-scale-armor","rarity":"legendary","ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
+ "r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
+}
+
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -140,8 +162,6 @@ static func campaign_action(world: Dictionary,claim_reward: bool=false) -> Dicti
 	return {"ok":true,"message":"%s · +%d золота, +%d опыта, материал %s" % [str(result.message),int(reward.gold),int(reward.exp),str(reward.itemId)]}
 
 
-const SHOP_STOCK := ["health-potion","mana-potion","strong-health-potion","strong-mana-potion","antidote","strength-elixir","mana-elixir","scroll-lightning","scroll-shield","restorative-potion","iron-sword","apprentice-staff","leather-armor","rootbound-hood","cinder-visor","briar-shoulders","duelist-grips","gravebinder-gloves","oath-bracers","windstep-boots","glacier-greaves","tower-shield","ranger-cloak","obsidian-mantle","amulet-first-light","pendant-last-oath","ring-wolf-eye","ring-quiet-tide","rune-root","rune-ember","rune-tide","rune-frost","rune-void"]
-const RARE_SHOP_STOCK := ["moonsteel-spear","rune-sword","astral-staff","warden-plate","void-robe","scroll-frost-nova","scroll-shadow-lance","scroll-arcane-surge"]
 
 static func _shuffle_stock(pool: Array, rng: RandomNumberGenerator) -> void:
 	for index in range(pool.size() - 1, 0, -1):
@@ -164,25 +184,6 @@ static func get_merchant_stock(is_wandering: bool = false, seed_value: int = -1)
 		_shuffle_stock(rare_pool, rng)
 		result.append_array(rare_pool.slice(0, 2))
 	return result
-const RECIPES := {
- "r-hp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"health-potion","ingredients":{"herb-life":3}},
- "r-mp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"mana-potion","ingredients":{"herb-moon":3}},
- "r-shp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-health-potion","ingredients":{"herb-life":5}},
- "r-smp":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"strong-mana-potion","ingredients":{"herb-moon":5}},
- "r-rune-root":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-root","ingredients":{"root-fiber":3,"herb-life":1}},
- "r-rune-ember":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-ember","ingredients":{"ember-core":2,"grave-salt":1}},
- "r-rune-tide":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-tide","ingredients":{"frost-essence":2,"herb-moon":1}},
- "r-rune-frost":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-frost","ingredients":{"frost-essence":3}},
- "r-rune-void":{"station":"alchemist","craftTier":1,"act":1,"qty":1,"result":"rune-void","ingredients":{"void-dust":3,"ember-core":1}},
- "r-briar-court-mantle":{"station":"blacksmith","craftTier":2,"act":1,"qty":1,"result":"briar-court-mantle","rarity":"uncommon","ingredients":{"root-court-seal":1,"root-fiber":2}},
- "r-mourner-signet":{"station":"blacksmith","craftTier":3,"act":2,"qty":1,"result":"mourner-signet","rarity":"rare","ingredients":{"drowned-lament":1,"grave-salt":2}},
- "r-oathfire-cleaver":{"station":"blacksmith","craftTier":3,"act":3,"qty":1,"result":"oathfire-cleaver","rarity":"rare","ingredients":{"oathforge-heart":1,"ember-core":2}},
- "r-mirrorweave-cloak":{"station":"blacksmith","craftTier":4,"act":4,"qty":1,"result":"mirrorweave-cloak","rarity":"epic","ingredients":{"mirror-shard":1,"frost-essence":2}},
- "r-echo-prism-amulet":{"station":"blacksmith","craftTier":4,"act":5,"qty":1,"result":"echo-prism-amulet","rarity":"epic","ingredients":{"echo-core":1,"void-dust":3}},
- "r5-dragon-blade":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-blade","rarity":"legendary","ingredients":{"ember-core":3,"void-dust":2,"grave-salt":1}},
- "r5-dragon-plate":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"dragon-scale-armor","rarity":"legendary","ingredients":{"ember-core":2,"frost-essence":2,"root-fiber":2}},
- "r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
-}
 static func current_act(hero: Dictionary) -> int:
  var claimed: Dictionary=hero.get("campaignClaimed",{}) if hero.get("campaignClaimed",{}) is Dictionary else {}
  for mission in CampaignCatalog.all_missions():
