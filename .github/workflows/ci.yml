@@ -288,7 +288,7 @@ jobs:
           set -e
           for test_file in tests/godot/*_test.gd; do
             echo "=== $test_file ==="
-            godot --headless --path . --script "res://$test_file"
+            timeout --signal=TERM --kill-after=5s 120s godot --headless --path . --script "res://$test_file"
           done
 
       - name: Boot the main scene
