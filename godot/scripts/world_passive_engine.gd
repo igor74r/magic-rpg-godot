@@ -1,7 +1,7 @@
 # Passive allocation and bonus aggregation from systems/talents.js.
 class_name WorldPassiveEngine
 extends RefCounted
-const Tree = preload("res://godot/scripts/world_passive_tree.gd")
+const PassiveTree = preload("res://godot/scripts/world_passive_tree.gd")
 const TalentCatalog = preload("res://godot/scripts/world_talent_catalog.gd")
 const MULTIPLIER_KEYS := ["dmgMult","healMult","spellMult","defMult","meteorMult","prayerMult"]
 const ADDITIVE_KEYS := ["critChance","lifesteal","manaRegen","hpRegen","abilityCdDelta","dodgeChance","blockChance","armorPen","atkFlat","magFlat","defFlat","dexFlat"]
@@ -13,7 +13,7 @@ static func ensure_passives(hero: Dictionary) -> void:
 	hero["passivePoints"]=maxi(0,int(hero.get("passivePoints",0)))
 static func can_allocate(hero: Dictionary,node_id: String) -> bool:
 	if hero.is_empty() or node_id.is_empty() or node_id=="start": return false
-	var nodes: Dictionary = Tree.get_tree(str(hero.get("class","warrior"))).nodes
+	var nodes: Dictionary = PassiveTree.get_tree(str(hero.get("class","warrior"))).nodes
 	if not nodes.has(node_id): return false
 	ensure_passives(hero)
 	var node: Dictionary = nodes[node_id]
@@ -36,7 +36,7 @@ static func node_status(hero: Dictionary,node_id: String) -> String:
 	return "Сначала изучите соединённый узел"
 static func allocate(hero: Dictionary,node_id: String) -> Dictionary:
 	if not can_allocate(hero,node_id): return {"ok":false,"message":node_status(hero,node_id)}
-	var node: Dictionary = Tree.get_node(str(hero.get("class","warrior")),node_id)
+	var node: Dictionary = PassiveTree.get_node(str(hero.get("class","warrior")),node_id)
 	var passives: Array = hero.passives.duplicate()
 	passives.append(node_id)
 	hero["passives"]=passives
