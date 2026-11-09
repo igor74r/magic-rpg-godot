@@ -74,7 +74,7 @@ static func class_ids() -> Array:
 	ids.erase("priest")
 	return ids
 
-static func get_class(class_id: String) -> Dictionary:
+static func get_class_definition(class_id: String) -> Dictionary:
 	return CLASSES.get(class_id, CLASSES.warrior).duplicate(true)
 
 static func get_spell(spell_id: String) -> Dictionary:
