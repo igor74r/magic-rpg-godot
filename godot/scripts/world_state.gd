@@ -223,9 +223,9 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		campaign["startedAt"] = maxf(0.0, float(campaign_started)) if _is_finite_number(campaign_started) else 0.0
 	world["factionCampaigns"] = campaigns
 	FactionEngine.ensure_state(world)
-	if not world.get("events", {}) is Dictionary:
+	if not world.get("events", null) is Dictionary:
 		world["events"] = defaults.events.duplicate(true)
-	var events: Dictionary = world["events"]
+	var events: Dictionary = world.get("events", defaults.events.duplicate(true))
 	for key in ["active", "history"]:
 		if not events.get(key, []) is Array:
 			events[key] = []
