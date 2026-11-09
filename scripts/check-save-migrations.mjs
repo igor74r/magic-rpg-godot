@@ -225,6 +225,14 @@ assert.equal(unsafeGeneratorSave.worldGeneratorVersion, 4);
 assert.equal(unsafeGeneratorSave.world.generatorVersion, 4);
 assert.doesNotThrow(() => validateCurrentSaveShape(unsafeGeneratorSave),
   'unsafe nested generator metadata must fall back to the safe root version');
+const fractionalRootFallbackSave = JSON.parse(JSON.stringify(freshSave));
+fractionalRootFallbackSave.worldGeneratorVersion = 3.5;
+delete fractionalRootFallbackSave.world.generatorVersion;
+migrateGame(fractionalRootFallbackSave);
+assert.equal(fractionalRootFallbackSave.worldGeneratorVersion, 3);
+assert.equal(fractionalRootFallbackSave.world.generatorVersion, 3);
+assert.doesNotThrow(() => validateCurrentSaveShape(fractionalRootFallbackSave),
+  'fractional root generator metadata must floor into the missing nested version');
 console.log('PASS new character starts on v18 with a fresh, non-legacy world');
 storage.set('magic-rpg-save-1', JSON.stringify({
   version: 16,
