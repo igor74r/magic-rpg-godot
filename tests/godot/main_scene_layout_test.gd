@@ -46,7 +46,7 @@ func _initialize() -> void:
 		for required_fragment in [
 			"func _save_world_or_restore(snapshot: Dictionary, failure_prefix: String) -> bool:",
 			"func _claim_daily_quest(quest_id: String) -> void:",
-			"if not _save_world_or_restore(snapshot, \\\"Получение ежедневной награды отменено\\\"):",
+			"if not _save_world_or_restore(snapshot, \"Получение ежедневной награды отменено\"):",
 			"func _claim_campaign_mission() -> void:",
 			"if not CombatEngineScript.add_item(hero, str(reward.itemId), 1):",
 			"func _allocate_passive(node_id: String) -> void:",
