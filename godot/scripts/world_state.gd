@@ -208,7 +208,7 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		world["riftRun"] = run_value.duplicate(true) if run_value is Dictionary else {}
 	if not world.get("factionCampaigns", {}) is Dictionary:
 		world["factionCampaigns"] = {}
-	var campaigns: Dictionary = world["factionCampaigns"]
+	var campaigns: Dictionary = world.get("factionCampaigns", {})
 	for campaign_id in campaigns.keys():
 		var campaign_value: Variant = campaigns[campaign_id]
 		if campaign_id != "ash-nomad-warband" or not campaign_value is Dictionary:
