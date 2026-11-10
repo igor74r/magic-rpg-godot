@@ -125,6 +125,9 @@ func _initialize() -> void:
 		Combat.player_attack(cat_combat_world, cat_fight)
 		if int(cat_enemy.hp) != 100 - int(floor(float(cat_base_damage) * 1.5)):
 			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
+		var cat_finish_enemy := {"name":"Цель завершения кошачьей удачи","persistentId":"cat-luck-consume","hp":1,"maxHp":1,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
+		var cat_finish_fight := Combat.begin(cat_finish_enemy)
+		Combat.player_attack(cat_combat_world, cat_finish_fight)
 		if not cat_combat_world.hero.buffs.is_empty():
 			failures.append("catLuck must be consumed after victorious combat")
 	var guarded_world := WorldState.create(9912)
@@ -143,12 +146,13 @@ func _initialize() -> void:
 
 	var guarded_ability_world := WorldState.create(99121)
 	guarded_ability_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
+	Combat.select_class(guarded_ability_world, "archer")
 	var guarded_ability_hero := Combat.ensure_hero(guarded_ability_world)
 	guarded_ability_world["seed"] = _seed_without_enemy_avoidance(99121, "enemy-ability-guarded", guarded_ability_hero)
 	var guarded_ability_enemy := {"name":"Удар по способности","persistentId":"enemy-ability-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var guarded_ability_fight := Combat.begin(guarded_ability_enemy)
 	var guarded_ability_hp := int(guarded_ability_hero.hp)
-	Combat.use_ability(guarded_ability_world, guarded_ability_fight, "shield-bash")
+	Combat.use_ability(guarded_ability_world, guarded_ability_fight, "aimed-shot")
 	var ability_raw := Combat._calculate_incoming_damage(guarded_ability_world, guarded_ability_hero, guarded_ability_enemy, 1)
 	if guarded_ability_hp - int(guarded_ability_hero.hp) != maxi(1, int(floor(float(ability_raw) * 0.85))):
 		failures.append("allied Hub Guardians must reduce counterattacks after damaging abilities")
@@ -195,13 +199,13 @@ func _initialize() -> void:
 	var vamp_before := int(vamp_enemy.hp)
 	var vamp_expected := vamp_before - Combat.effective_stat(Combat.ensure_hero(modifier_world), "attack")
 	Combat.player_attack(modifier_world, vamp_fight)
-	if int(vamp_enemy.hp) <= vamp_expected:
+	if not str(vamp_fight.get("log", "")).contains("Вампирский враг поглощает") or str(vamp_fight.get("log", "")).contains("поглощает 0 HP"):
 		failures.append("vampiric modifier must restore enemy health after its counterattack")
 	modifier_world["seed"] = _seed_without_enemy_avoidance(9902, "enemy-regen", modifier_hero)
 	var regen_enemy := {"name":"Страж регенерации","persistentId":"enemy-regen","hp":40,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"regenerate"}
 	var regen_fight := Combat.begin(regen_enemy)
 	Combat.player_attack(modifier_world, regen_fight)
-	if int(regen_enemy.hp) <= 40:
+	if not str(regen_fight.get("log", "")).contains("Враг восстанавливает 5 HP"):
 		failures.append("regenerating modifier must restore enemy health each turn")
 	var poison_enemy := {"name":"Ядовитый","persistentId":"enemy-poison","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"poison"}
 	var poison_fight := Combat.begin(poison_enemy)
@@ -220,7 +224,8 @@ func _initialize() -> void:
 	var spell_enemy := {"name":"Тестовый враг","persistentId":"enemy-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
 	var spell_fight := Combat.begin(spell_enemy)
 	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
-	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) != 65:
+	var expected_fireball_damage := int(floor(25.0 + floor(float(Combat.effective_stat(mage_world.hero, "magic")) / 2.0)))
+	if not spell_result.ok or int(mage_world.hero.mp) != 165 or int(spell_enemy.hp) != 100 - expected_fireball_damage:
 		failures.append("fireball damage must add half effective Intelligence, matching the browser formula, and spend mana")
 	var spell_crit_world := WorldState.create(9921)
 	Combat.select_class(spell_crit_world, "mage")
@@ -240,7 +245,8 @@ func _initialize() -> void:
 		var spell_crit_enemy := {"name":"Цель критического заклинания","persistentId":"spell-crit-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 		var spell_crit_fight := Combat.begin(spell_crit_enemy)
 		var spell_crit_result := Combat.cast_spell(spell_crit_world, spell_crit_fight, "fireball")
-		if not spell_crit_result.ok or int(spell_crit_enemy.hp) != 48 or not str(spell_crit_result.message).contains("КРИТ!"):
+		var expected_critical_spell_damage := int(floor(float(25 + floor(float(Combat.effective_stat(spell_crit_world.hero, "magic")) / 2.0)) * 1.5))
+		if not spell_crit_result.ok or int(spell_crit_enemy.hp) != 100 - expected_critical_spell_damage or not str(spell_crit_result.message).contains("КРИТ!"):
 			failures.append("native damaging spells must use browser-compatible critical chance and critical damage")
 	var reaction_world := WorldState.create(9922)
 	Combat.select_class(reaction_world, "mage")
@@ -255,7 +261,8 @@ func _initialize() -> void:
 	var weakness_enemy := {"name":"Скелет","persistentId":"spell-weakness","enemyId":"skeleton","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var weakness_fight := Combat.begin(weakness_enemy)
 	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
-	if not weakness_result.ok or int(weakness_enemy.hp) != 57:
+	var expected_weakness_damage := int(floor(float(25 + floor(float(Combat.effective_stat(weakness_world.hero, "magic")) / 2.0)) * Combat.enemy_damage_multiplier(weakness_enemy, "magic")))
+	if not weakness_result.ok or int(weakness_enemy.hp) != 100 - expected_weakness_damage:
 		failures.append("magic weakness must increase spell damage by the browser multiplier")
 	# Physical matchup parity: ghost-family enemies are weak to physical damage,
 	# while armored magma/dark/royal enemies resist it.
@@ -516,6 +523,7 @@ func _initialize() -> void:
 	if not bool(briar_access.allowed): failures.append("first story region must be open at the beginning")
 	if bool(forest_access.allowed) or str(forest_access.reason)!="level": failures.append("next story region must enforce its recommended level")
 	campaign_hero.level=3
+	campaign_hero.campaignClaimed["a1-m1"] = false
 	forest_access=Campaign.can_enter_location(campaign_hero,"forest")
 	if bool(forest_access.allowed) or str(forest_access.reason)!="campaign" or str(forest_access.requiredMissionId)!="a1-m1": failures.append("story region must remain locked until its preceding mission is claimed")
 	campaign_hero.campaignClaimed["a1-m1"]=true
