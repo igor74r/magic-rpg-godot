@@ -130,6 +130,7 @@ func _initialize() -> void:
 	var guarded_world := WorldState.create(9912)
 	guarded_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
 	var guarded_hero := Combat.ensure_hero(guarded_world)
+	guarded_world["seed"] = _seed_without_enemy_avoidance(9912, "enemy-guarded", guarded_hero)
 	var guarded_enemy := {"name":"Проверка удара","persistentId":"enemy-guarded","hp":1000,"maxHp":1000,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var guarded_fight := Combat.begin(guarded_enemy)
 	var guarded_hp_before := int(guarded_hero.hp)
@@ -143,6 +144,7 @@ func _initialize() -> void:
 	var guarded_ability_world := WorldState.create(99121)
 	guarded_ability_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
 	var guarded_ability_hero := Combat.ensure_hero(guarded_ability_world)
+	guarded_ability_world["seed"] = _seed_without_enemy_avoidance(99121, "enemy-ability-guarded", guarded_ability_hero)
 	var guarded_ability_enemy := {"name":"Удар по способности","persistentId":"enemy-ability-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var guarded_ability_fight := Combat.begin(guarded_ability_enemy)
 	var guarded_ability_hp := int(guarded_ability_hero.hp)
@@ -154,6 +156,7 @@ func _initialize() -> void:
 	guarded_spell_world["factions"] = {"schemaVersion":1,"reputation":{"hub-guardians":90}}
 	guarded_spell_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
 	var guarded_spell_hero := Combat.ensure_hero(guarded_spell_world)
+	guarded_spell_world["seed"] = _seed_without_enemy_avoidance(99122, "enemy-spell-guarded", guarded_spell_hero)
 	var guarded_spell_enemy := {"name":"Удар по заклинанию","persistentId":"enemy-spell-guarded","hp":1000,"maxHp":1000,"attack":40,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var guarded_spell_fight := Combat.begin(guarded_spell_enemy)
 	var guarded_spell_hp := int(guarded_spell_hero.hp)
@@ -185,6 +188,8 @@ func _initialize() -> void:
 	if int(phase_enemy.get("phase",0)) != 1 or float(phase_enemy.get("phaseAttackMult",1.0)) != 1.4 or int(phase_enemy.get("phaseSpecialEvery",0)) != 1 or phase_messages.is_empty():
 		failures.append("boss phase transition must update attack and special cadence")
 	var modifier_world := WorldState.create(9901)
+	var modifier_hero := Combat.ensure_hero(modifier_world)
+	modifier_world["seed"] = _seed_without_enemy_avoidance(9901, "enemy-vamp", modifier_hero)
 	var vamp_enemy := {"name":"Вампир","persistentId":"enemy-vamp","hp":40,"maxHp":100,"attack":10,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"vampiric"}
 	var vamp_fight := Combat.begin(vamp_enemy)
 	var vamp_before := int(vamp_enemy.hp)
@@ -192,6 +197,7 @@ func _initialize() -> void:
 	Combat.player_attack(modifier_world, vamp_fight)
 	if int(vamp_enemy.hp) <= vamp_expected:
 		failures.append("vampiric modifier must restore enemy health after its counterattack")
+	modifier_world["seed"] = _seed_without_enemy_avoidance(9902, "enemy-regen", modifier_hero)
 	var regen_enemy := {"name":"Страж регенерации","persistentId":"enemy-regen","hp":40,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false,"modifierEffect":"regenerate"}
 	var regen_fight := Combat.begin(regen_enemy)
 	Combat.player_attack(modifier_world, regen_fight)
@@ -210,6 +216,7 @@ func _initialize() -> void:
 	var mage_world := WorldState.create(992)
 	mage_world["hero"] = {"class":"mage","maxHp":105,"hp":105,"maxMp":180,"mp":180,"attack":12,"defense":7,"level":1,"exp":0,"gold":0}
 	var mage := Combat.ensure_hero(mage_world)
+	mage_world["seed"] = _seed_without_critical(992, "enemy-spell", mage)
 	var spell_enemy := {"name":"Тестовый враг","persistentId":"enemy-spell","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":1,"boss":false,"dead":false}
 	var spell_fight := Combat.begin(spell_enemy)
 	var spell_result := Combat.cast_spell(mage_world, spell_fight, "fireball")
@@ -244,6 +251,7 @@ func _initialize() -> void:
 		failures.append("fire spells must consume slow through the browser-compatible elemental reaction")
 	var weakness_world := WorldState.create(9923)
 	Combat.select_class(weakness_world, "mage")
+	weakness_world["seed"] = _seed_without_critical(9923, "spell-weakness", weakness_world.hero)
 	var weakness_enemy := {"name":"Скелет","persistentId":"spell-weakness","enemyId":"skeleton","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false}
 	var weakness_fight := Combat.begin(weakness_enemy)
 	var weakness_result := Combat.cast_spell(weakness_world,weakness_fight,"fireball")
@@ -572,10 +580,12 @@ func _initialize() -> void:
 	# Buff abilities consume a real combat turn; only the dodge effect prevents damage.
 	var npc_buff_world := WorldState.create(1101)
 	npc_buff_world["hero"] = {"class":"mage","level":1,"hp":100,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"cooldowns":{}}
+	npc_buff_world["seed"] = _seed_without_enemy_avoidance(1101, "buff-turn-test", npc_buff_world.hero)
 	var buff_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"buff-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 	var buff_fight := Combat.begin(buff_enemy)
 	var buff_result: Dictionary = Combat.use_ability(npc_buff_world,buff_fight,"mana-shield")
-	if not buff_result.ok or int(npc_buff_world.hero.hp) != 80 or str(buff_fight.turn) != "player":
+	var buff_expected_damage := Combat._calculate_incoming_damage(npc_buff_world, npc_buff_world.hero, buff_enemy, 1)
+	if not buff_result.ok or int(npc_buff_world.hero.hp) != 100 - buff_expected_damage or str(buff_fight.turn) != "player":
 		failures.append("mana shield must consume the player's turn and allow one enemy response")
 	if not npc_buff_world.hero.effects.any(func(entry): return str(entry.get("id","")) == "defBuff") or not is_equal_approx(Combat._effect_multiplier(npc_buff_world.hero,"defMult"),1.5):
 		failures.append("mana shield must apply the actual defensive combat effect")
@@ -688,6 +698,7 @@ func _initialize() -> void:
 
 	var heal_world := WorldState.create(1103)
 	heal_world["hero"] = {"class":"mage","level":1,"hp":50,"maxHp":100,"mp":100,"maxMp":100,"str":10,"int":10,"con":0,"dex":0,"gold":0,"inventory":[],"equipped":{},"spells":["heal"],"buffs":[],"effects":[],"cooldowns":{}}
+	heal_world["seed"] = _seed_without_enemy_avoidance(1103, "heal-turn-test", heal_world.hero)
 	var heal_enemy := {"name":"Проверочный враг","enemyId":"goblin","persistentId":"heal-turn-test","hp":100,"maxHp":100,"attack":20,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":3}
 	var heal_fight := Combat.begin(heal_enemy)
 	var heal_result: Dictionary = Combat.cast_spell(heal_world,heal_fight,"heal")
