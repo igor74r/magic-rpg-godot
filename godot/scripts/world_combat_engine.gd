@@ -926,7 +926,18 @@ static func _apply_enemy_modifier(enemy: Dictionary, hero: Dictionary, incoming:
 
 
 static func _tick_enemy_effects(world: Dictionary, combat: Dictionary, enemy: Dictionary, lines: Array[String]) -> bool:
+	# A stun applied by the player's current action must survive the pre-retaliation
+	# damage-over-time tick so _resolve_enemy_response can consume the skipped turn.
+	var pending_stuns: Array = []
+	for effect in enemy.get("effects", []):
+		if effect is Dictionary and str(effect.get("id", "")) == "stun":
+			pending_stuns.append(effect.duplicate(true))
 	var effect_tick := tick_effects(enemy)
+	var remaining_effects: Array = enemy.get("effects", [])
+	for stun in pending_stuns:
+		if not remaining_effects.any(func(entry): return entry is Dictionary and str(entry.get("id", "")) == "stun"):
+			remaining_effects.append(stun)
+	enemy["effects"] = remaining_effects
 	if int(effect_tick.damage) > 0:
 		enemy["hp"] = maxi(0, int(enemy.get("hp", 0)) - int(effect_tick.damage))
 		lines.append("Эффекты наносят противнику %d урона." % int(effect_tick.damage))
