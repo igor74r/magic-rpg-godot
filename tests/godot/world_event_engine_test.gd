@@ -104,7 +104,7 @@ func _initialize() -> void:
 
 	var malformed_discovery_world := WorldState.create(6689)
 	malformed_discovery_world.events.active = ["invalid", null, 42, {
-		"id":"valid-discovery","status":"active","accepted":true,"objectiveType":"region-discovery",
+		"id":"valid-discovery","regionId":"forest","status":"active","accepted":true,"objectiveType":"region-discovery",
 		"targetRegionId":"forest","targetCount":1,"progress":0,"phase":0,
 		"factionId":"free-traders","reputationReward":3,"reward":{"gold":5}
 	}]
