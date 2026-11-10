@@ -131,7 +131,7 @@ func _initialize() -> void:
 	if not bool(capacity_craft.get("ok", false)) or capacity_world.hero.inventory.size() != 2:
 		failures.append("crafting must account for the weight freed by consumed ingredients before rejecting the output")
 	var poor_world := WorldState.create(20261109)
-	poor_world["hero"] = {"level":1,"gold":0,"inventory":[{"id":"root-court-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
+	poor_world["hero"] = {"inventoryInitialized":true,"level":1,"gold":0,"inventory":[{"id":"root-court-seal","qty":1}],"campaignClaimed":{},"equipped":{}}
 	var before: Array = poor_world.hero.inventory.duplicate(true)
 	var rejected := Npc.craft(poor_world,"r-briar-court-mantle","blacksmith")
 	if bool(rejected.get("ok",true)) or poor_world.hero.inventory!=before:
@@ -229,7 +229,7 @@ func _initialize() -> void:
 	if int(sell_world.hero.get("gold",0)) != 8 or int(sell_world.hero.get("stats",{}).get("goldEarned",0)) != 8:
 		failures.append("sale must update spendable gold and lifetime-earned gold atomically")
 	var bulk_sell_world := WorldState.create(20261124)
-	bulk_sell_world["hero"] = {"level":1,"gold":20,"inventory":[{"id":"health-potion","qty":1,"rarity":"common"},{"id":"iron-sword","qty":1,"rarity":"common"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
+	bulk_sell_world["hero"] = {"inventoryInitialized":true,"level":1,"gold":20,"inventory":[{"id":"health-potion","qty":1,"rarity":"common"},{"id":"iron-sword","qty":1,"rarity":"common"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var bulk_expected := Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[0]) + Npc.get_sell_price(bulk_sell_world, bulk_sell_world.hero.inventory[1])
 	var bulk_sale := Npc.sell_items(bulk_sell_world, [1,0,1])
 	if not bool(bulk_sale.get("ok",false)) or int(bulk_sale.get("count",0)) != 2 or int(bulk_sale.get("total",0)) != bulk_expected or not bulk_sell_world.hero.inventory.is_empty():
@@ -245,7 +245,7 @@ func _initialize() -> void:
 	if Npc.get_sell_price(sell_world, {"id":"old-archive-seal","qty":1}) != 0:
 		failures.append("quest items must not receive a sell preview price")
 	var confirmation_world := WorldState.create(20261115)
-	confirmation_world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"epic"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
+	confirmation_world["hero"] = {"inventoryInitialized":true,"level":1,"gold":100,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"epic"}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":0}}
 	var confirmation_before: Array = confirmation_world.hero.inventory.duplicate(true)
 	var confirmation := Npc.sell_item(confirmation_world, 0)
 	if not bool(confirmation.get("requiresConfirmation", false)) or confirmation_world.hero.inventory != confirmation_before:
@@ -283,12 +283,12 @@ func _initialize() -> void:
 	var full_bag_world := WorldState.create(20261116)
 	var full_inventory: Array = []
 	for slot in range(30): full_inventory.append({"id":"iron-sword","qty":1})
-	full_bag_world["hero"] = {"level":1,"str":1000,"gold":1000,"inventory":full_inventory,"campaignClaimed":{},"equipped":{}}
+	full_bag_world["hero"] = {"inventoryInitialized":true,"level":1,"str":1000,"gold":1000,"inventory":full_inventory,"campaignClaimed":{},"equipped":{}}
 	var full_bag_buy := Npc.buy_item(full_bag_world, "iron-sword")
 	if bool(full_bag_buy.get("ok", true)) or full_bag_world.hero.inventory.size() != 30 or int(full_bag_world.hero.gold) != 1000:
 		failures.append("merchant must reject purchases that exceed the 30-slot inventory limit")
 	var overflow_world := WorldState.create(20261112)
-	overflow_world["hero"] = {"level":1,"gold":2147483640,"inventory":[{"id":"iron-sword","qty":1}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":2147483640}}
+	overflow_world["hero"] = {"inventoryInitialized":true,"level":1,"gold":2147483640,"inventory":[{"id":"iron-sword","qty":1}],"campaignClaimed":{},"equipped":{},"stats":{"goldEarned":2147483640}}
 	var overflow_inventory: Array = overflow_world.hero.inventory.duplicate(true)
 	var overflow_sale := Npc.sell_item(overflow_world,0)
 	if bool(overflow_sale.get("ok",true)) or overflow_world.hero.inventory != overflow_inventory:
@@ -298,7 +298,7 @@ func _initialize() -> void:
 	if bool(Npc.sell_item(quest_sale_world,0).get("ok",true)):
 		failures.append("quest items must remain unsellable")
 	var reforge_world := WorldState.create(20261132)
-	reforge_world["hero"] = {"level":1,"gold":0,"inventory":[
+	reforge_world["hero"] = {"inventoryInitialized":true,"level":1,"gold":0,"inventory":[
 		{"id":"iron-sword","qty":1,"rarity":"rare","bonus":{"attack":20},"sockets":2,"runes":["rune-ember"],"forgeLevel":2,"upgradePercent":0.1},
 		{"id":"ember-core","qty":1}
 	],"equipped":{}}
@@ -316,7 +316,7 @@ func _initialize() -> void:
 		if int(reforged.get("bonus", {}).get("attack", 0)) != 9:
 			failures.append("reforge must recreate canonical item bonuses and reapply the preserved upgrade percentage")
 	var material_before_equipment := WorldState.create(20261135)
-	material_before_equipment["hero"] = {"level":1,"inventory":[
+	material_before_equipment["hero"] = {"inventoryInitialized":true,"level":1,"inventory":[
 		{"id":"ember-core","qty":1},
 		{"id":"iron-sword","qty":1,"rarity":"rare"},
 		{"id":"mana-potion","qty":1}
@@ -325,7 +325,7 @@ func _initialize() -> void:
 	if not bool(material_first_result.get("ok", false)) or material_before_equipment.hero.inventory.size() != 2 or str(material_before_equipment.hero.inventory[0].get("id", "")) != "iron-sword" or str(material_before_equipment.hero.inventory[1].get("id", "")) != "mana-potion":
 		failures.append("reforge must preserve the selected equipment and its browser-compatible relative inventory position when essence precedes it")
 	var insufficient_reforge := WorldState.create(20261133)
-	insufficient_reforge["hero"] = {"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
+	insufficient_reforge["hero"] = {"inventoryInitialized":true,"level":1,"inventory":[{"id":"iron-sword","qty":1,"rarity":"epic"}],"equipped":{}}
 	var insufficient_snapshot: Array = insufficient_reforge.hero.inventory.duplicate(true)
 	if bool(Npc.reforge_item(insufficient_reforge, 0).get("ok", true)) or insufficient_reforge.hero.inventory != insufficient_snapshot:
 		failures.append("reforge without the required Frost Essence must not mutate inventory")
