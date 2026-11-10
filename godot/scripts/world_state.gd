@@ -13,6 +13,10 @@ const DailyQuestEngine = preload("res://godot/scripts/world_daily_quest_engine.g
 const FactionEngine = preload("res://godot/scripts/world_faction_engine.gd")
 
 
+static func _is_literal_true(value: Variant) -> bool:
+	return value is bool and value
+
+
 static func create(seed: int = 1, legacy: bool = false) -> Dictionary:
 	var normalized_seed := seed & 0xffffffff
 	if normalized_seed == 0:
@@ -136,11 +140,11 @@ static func normalize(world_value: Variant, seed_fallback: int = 1, legacy: bool
 		var hero: Dictionary = hero_value
 		var hero_shards: Dictionary = hero.get("storyShards", {}) if hero.get("storyShards", {}) is Dictionary else {}
 		var world_shards: Dictionary = world.get("storyShards", {}) if world.get("storyShards", {}) is Dictionary else {}
-		var clean_shards := {"flame": hero_shards.get("flame", false) == true or world_shards.get("flame", false) == true, "ice": hero_shards.get("ice", false) == true or world_shards.get("ice", false) == true, "blood": hero_shards.get("blood", false) == true or world_shards.get("blood", false) == true}
+		var clean_shards := {"flame": _is_literal_true(hero_shards.get("flame", false)) or _is_literal_true(world_shards.get("flame", false)), "ice": _is_literal_true(hero_shards.get("ice", false)) or _is_literal_true(world_shards.get("ice", false)), "blood": _is_literal_true(hero_shards.get("blood", false)) or _is_literal_true(world_shards.get("blood", false))}
 		hero["storyShards"] = clean_shards.duplicate(true)
 		world["storyShards"] = clean_shards.duplicate(true)
 		var dragon_flags: Dictionary = world.get("storyDragons", {}) if world.get("storyDragons", {}) is Dictionary else {}
-		world["storyDragons"] = {"ash-herald": dragon_flags.get("ash-herald", false) == true, "ice-grasp": dragon_flags.get("ice-grasp", false) == true, "blood-crown": dragon_flags.get("blood-crown", false) == true}
+		world["storyDragons"] = {"ash-herald": _is_literal_true(dragon_flags.get("ash-herald", false)), "ice-grasp": _is_literal_true(dragon_flags.get("ice-grasp", false)), "blood-crown": _is_literal_true(dragon_flags.get("blood-crown", false))}
 		hero["riftBest"] = clampi(int(hero.get("riftBest", 0)), 0, 2147483647)
 		var clean_cleared: Array = []
 		var source_cleared: Variant = hero.get("riftClearedLocations", [])
