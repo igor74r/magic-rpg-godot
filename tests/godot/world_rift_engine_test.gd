@@ -62,8 +62,8 @@ func _run() -> void:
 		for quest in quests:
 			if str(quest.get("id", "")) == "q-rift-floor":
 				rift_quest = quest
-		if int(rift_quest.get("current", 0)) != 10 or not bool(rift_quest.get("completed", false)):
-			failures.append("Rift completion must update the daily floor objective to the reached floor")
+		if int(rift_quest.get("current", 0)) != int(rift_quest.get("max", 3)) or not bool(rift_quest.get("completed", false)):
+			failures.append("Rift completion must complete the capped daily floor objective when the reached floor exceeds its target")
 		if not world.hero.get("achievements", []).has("rift-10") or completed.get("achievements", []).is_empty():
 			failures.append("clearing Rift floor 10 must unlock and report the milestone achievement")
 
