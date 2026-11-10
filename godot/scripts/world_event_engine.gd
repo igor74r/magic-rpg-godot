@@ -214,18 +214,18 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 		var campaign: Dictionary = campaigns.get(campaign_id, {})
 		if campaign.get("status") == "active" and int(campaign.get("stage", 0)) == int(event.get("campaignStage", 0)):
 			if status == "completed" and int(event.get("campaignStage", 0)) < 2:
-				campaign["stage"] = int(event.campaignStage) + 1
+				campaign["stage"] = int(event.get("campaignStage", 0)) + 1
 			else:
 				campaign["status"] = "completed" if status == "completed" else "failed"
 			campaigns[campaign_id] = campaign
 			world["factionCampaigns"] = campaigns
 	var faction_id := str(event.get("factionId", ""))
 	if status == "completed" and not faction_id.is_empty() and int(event.get("reputationReward", 0)) != 0:
-		FactionEngineScript.change_reputation(world, faction_id, int(event.reputationReward), str(event.name), "world-event")
+		FactionEngineScript.change_reputation(world, faction_id, int(event.reputationReward), str(event.get("name", "Региональное событие")), "world-event")
 	elif status == "failed" and bool(event.get("accepted", false)) and not faction_id.is_empty() and int(event.get("failureReputationDelta", 0)) != 0:
-		FactionEngineScript.change_reputation(world, faction_id, int(event.failureReputationDelta), "Провал: %s" % str(event.name), "world-event")
+		FactionEngineScript.change_reputation(world, faction_id, int(event.failureReputationDelta), "Провал: %s" % str(event.get("name", "региональное событие")), "world-event")
 	if faction_id == "hub-guardians" and status in ["completed","failed"]:
-		var region: Dictionary = WorldStateScript.get_region_record(world, str(event.regionId))
+		var region: Dictionary = WorldStateScript.get_region_record(world, str(event.get("regionId", "")))
 		if not region.is_empty(): region["securityThreat"] = clampi(int(region.get("securityThreat", 0)) + (-1 if status == "completed" else 1), 0, 3)
 	events["history"].append(completed)
 	while events.history.size() > HISTORY_LIMIT:
@@ -241,14 +241,16 @@ static func _finish(world: Dictionary, event: Dictionary, status: String, now: f
 				break
 		if remove_index < 0: break
 		events.history.remove_at(remove_index)
-	var cooldown_rng := WorldRandomScript.new(WorldRandomScript.derive_seed([world.get("seed", 1), "world-event-cooldown", event.id]))
-	events["cooldowns"][str(event.templateId)] = now + MIN_INTERVAL + cooldown_rng.next_int(INTERVAL_VARIANCE)
+	var cooldown_rng := WorldRandomScript.new(WorldRandomScript.derive_seed([world.get("seed", 1), "world-event-cooldown", event.get("id", "")]))
+	var cooldowns: Dictionary = events.get("cooldowns", {})
+	cooldowns[str(event.get("templateId", ""))] = now + MIN_INTERVAL + cooldown_rng.next_int(INTERVAL_VARIANCE)
+	events["cooldowns"] = cooldowns
 	var remaining: Array = []
 	for active_value in events.get("active", []):
 		if not active_value is Dictionary:
 			continue
 		var active_event: Dictionary = active_value
-		if str(active_event.get("id", "")) != str(event.id):
+		if str(active_event.get("id", "")) != str(event.get("id", "")):
 			remaining.append(active_event)
 	events["active"] = remaining
 	return completed
