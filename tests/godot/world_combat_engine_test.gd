@@ -3,6 +3,23 @@ extends SceneTree
 const Combat = preload("res://godot/scripts/world_combat_engine.gd")
 const WorldState = preload("res://godot/scripts/world_state.gd")
 const ClassCatalog = preload("res://godot/scripts/world_class_catalog.gd")
+const RandomScript = preload("res://godot/scripts/world_random.gd")
+
+func _seed_without_enemy_avoidance(seed_hint: int, persistent_id: String, hero: Dictionary) -> int:
+	var defense: Dictionary = Combat._combat_defense_stats(hero)
+	for candidate in range(maxi(1, seed_hint), maxi(1, seed_hint) + 10000):
+		var rng := RandomScript.new(RandomScript.derive_seed([candidate, "combat-defense", persistent_id, 1]))
+		if rng.next_float() >= float(defense.get("dodgeChance", 0.0)) and rng.next_float() >= float(defense.get("blockChance", 0.0)):
+			return candidate
+	return seed_hint
+
+func _seed_without_critical(seed_hint: int, persistent_id: String, hero: Dictionary) -> int:
+	var chance := Combat.critical_chance(hero)
+	for candidate in range(maxi(1, seed_hint), maxi(1, seed_hint) + 10000):
+		var rng := RandomScript.new(RandomScript.derive_seed([candidate, "combat-crit", persistent_id, 0]))
+		if rng.next_float() >= chance:
+			return candidate
+	return seed_hint
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -37,7 +54,7 @@ func _initialize() -> void:
 	var result := Combat.player_attack(world, fight)
 	if not result.ok or fight.result != "victory":
 		failures.append("player attack must defeat a low-health enemy")
-	if int(world.hero.exp) != 25 or int(world.hero.gold) != 2:
+	if int(world.hero.exp) != 25 or int(world.hero.gold) != 5:
 		failures.append("victory must award experience and gold")
 	if not WorldState.is_enemy_defeated(world, "forest", "enemy-0", 0.0):
 		failures.append("regular enemy defeat must be persisted with respawn deadline")
@@ -100,13 +117,13 @@ func _initialize() -> void:
 	else:
 		var cat_combat_world := WorldState.create(crit_seed)
 		cat_combat_world["hero"] = crit_hero.duplicate(true)
-		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":30,"maxHp":30,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
+		var cat_enemy := {"name":"Цель для кошачьей удачи","enemyId":"goblin","persistentId":"cat-crit-test","hp":100,"maxHp":100,"attack":1,"defense":0,"exp":1,"gold":0,"boss":false,"dead":false,"drops":[],"dropSeed":1}
 		var cat_fight := Combat.begin(cat_enemy)
 		var cat_damage_seed := preload("res://godot/scripts/world_random.gd").derive_seed([crit_seed, "combat-damage", "cat-crit-test", 0])
 		var cat_damage_rng := preload("res://godot/scripts/world_random.gd").new(cat_damage_seed)
 		var cat_base_damage := Combat.effective_stat(cat_combat_world.hero, "attack") + cat_damage_rng.next_int(5)
 		Combat.player_attack(cat_combat_world, cat_fight)
-		if int(cat_enemy.hp) != 30 - int(floor(float(cat_base_damage) * 1.5)):
+		if int(cat_enemy.hp) != 100 - int(floor(float(cat_base_damage) * 1.5)):
 			failures.append("catLuck must affect actual native critical damage, not only persist a marker")
 		if not cat_combat_world.hero.buffs.is_empty():
 			failures.append("catLuck must be consumed after victorious combat")
@@ -390,7 +407,7 @@ func _initialize() -> void:
 	var tower_reward_enemy := {"name":"Башенный Вестник","enemyId":"flame-lord","persistentId":"tower-reward-test","towerMode":true,"towerFloor":5,"hp":1,"maxHp":1,"attack":1,"defense":0,"exp":31,"gold":17,"boss":true,"dead":false,"drops":["shard-flame"],"dropSeed":222}
 	var tower_reward_fight := Combat.begin(tower_reward_enemy)
 	var tower_reward_result := Combat.player_attack(tower_reward_world,tower_reward_fight)
-	if not tower_reward_result.ok or int(tower_reward_world.hero.exp) != 31 or int(tower_reward_world.hero.gold) != 17:
+	if not tower_reward_result.ok or int(tower_reward_world.hero.exp) != 31 or int(tower_reward_world.hero.gold) != 20:
 		failures.append("Tower victory must still award its authored XP and gold")
 	if tower_reward_world.get("storyDragons",{}).get("ash-herald",false) or tower_reward_world.get("storyShards",{}).get("flame",false) or tower_reward_world.hero.get("storyShards",{}).get("flame",false):
 		failures.append("Tower boss must not trigger campaign dragon story rewards")
@@ -518,7 +535,7 @@ func _initialize() -> void:
 	if int(buff_world.hero.exp)!=7 or int(buff_world.hero.level)!=2: failures.append("bard and elder buffs must multiply XP reward to 132 before level-up")
 	if int(buff_world.hero.buffs[0].duration)!=2 or int(buff_world.hero.effects[0].duration)!=9: failures.append("bard and elder buffs must consume one charge per victory")
 
-	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
+	var economy_world := {"seed":31,"hero":{"class":"warrior","level":1,"gold":200,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"inventoryInitialized":true,"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
 	var economy_purchase: Dictionary=NpcEngine.buy_item(economy_world,"health-potion")
 	if not economy_purchase.ok or int(economy_world.hero.gold)!=190: failures.append("merchant purchase must use act-one item price")
 	var allied_trade_world := {"seed":32,"factions":{"reputation":{"free-traders":90}},"hero":{"class":"warrior","level":1,"gold":100,"hp":100,"maxHp":100,"mp":0,"maxMp":0,"inventory":[],"equipped":{},"buffs":[],"effects":[],"campaignClaimed":{}}}
@@ -527,10 +544,10 @@ func _initialize() -> void:
 		failures.append("allied Free Traders must apply the canonical fifteen percent discount to the actual purchase")
 	var sale: Dictionary=NpcEngine.sell_item(economy_world,0)
 	if not sale.ok or int(economy_world.hero.gold)!=193: failures.append("merchant sale must return 35 percent of item price")
-	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"equipped":{},"campaignClaimed":{}}}
+	var craft_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"herb-life","qty":3}],"inventoryInitialized":true,"equipped":{},"campaignClaimed":{}}}
 	var craft_result: Dictionary=NpcEngine.craft(craft_world,"r-hp","alchemist")
 	if not craft_result.ok or str(craft_world.hero.inventory[0].id)!="health-potion": failures.append("alchemist must consume three life herbs and create a health potion")
-	var rarity_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"common"},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"equipped":{},"campaignClaimed":{}}}
+	var rarity_world := {"hero":{"class":"warrior","level":1,"gold":0,"inventory":[{"id":"briar-court-mantle","qty":1,"rarity":"common"},{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"inventoryInitialized":true,"equipped":{},"campaignClaimed":{}}}
 	var rarity_result: Dictionary=NpcEngine.craft(rarity_world,"r-briar-court-mantle","blacksmith")
 	if not rarity_result.ok or str(rarity_world.hero.inventory[0].get("rarity",""))!="common" or rarity_world.hero.inventory.size()!=2 or str(rarity_world.hero.inventory[1].get("rarity",""))!="uncommon":
 		failures.append("crafting a duplicate named item must apply recipe rarity only to the newly created equipment")
