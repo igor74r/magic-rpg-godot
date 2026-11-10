@@ -104,7 +104,7 @@ static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
 	var last_ms := maxi(0, int(stats.get("lastWellUse", 0)))
 	if last_ms == 0 and int(hero.get("lastWellUse", 0)) > 0:
 		last_ms = int(hero.get("lastWellUse", 0)) * 1000
-	if current_ms - last_ms <= 86400000:
+	if last_ms > 0 and current_ms >= last_ms and current_ms - last_ms <= 86400000:
 		return {"ok": false, "message": "Колодец снова исцелит через 24 часа."}
 	if int(hero.hp) >= int(hero.maxHp) and (str(hero.get("class", "")) == "warrior" or int(hero.mp) >= int(hero.maxMp)):
 		return {"ok": false, "message": "Вы уже полностью здоровы."}
