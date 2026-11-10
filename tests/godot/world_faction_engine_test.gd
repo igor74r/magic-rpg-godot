@@ -42,6 +42,7 @@ func _initialize() -> void:
 	legacy_world["factions"]["reputation"]["hub-guardians"] = true
 	if Factions.get_reputation(legacy_world, "hub-guardians") != 1:
 		failures.append("legacy boolean reputation must match browser numeric coercion")
+	world.factions.reputation["hub-guardians"] = 0
 	for i in range(60): Factions.change_reputation(world, "hub-guardians", 1, "log", "test")
 	if world.factions.changeLog.size() != Factions.LOG_LIMIT: failures.append("faction history is bounded to the newest 50 entries")
 	var restored := World.normalize(world, 77)
