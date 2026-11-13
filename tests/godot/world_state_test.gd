@@ -34,6 +34,7 @@ func _run() -> void:
 	if int(wrapped_seed_world.seed) != 4294967295:
 		failures.append("world seed normalization must match JavaScript unsigned 32-bit wrapping")
 	var visit_number_parity := WorldStateScript.normalize({
+		"currentRegionId": "shadow",
 		"regionVisits": {"village": "4", "forest": true, "shadow": 3.9, "ruins": -2}
 	}, 77)
 	if int(visit_number_parity.regionVisits.get("village", -1)) != 0 or int(visit_number_parity.regionVisits.get("forest", -1)) != 0:
