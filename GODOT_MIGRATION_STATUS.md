@@ -12,4 +12,13 @@ The browser implementation must remain intact while remaining feature, save-sche
 
 Browser and native validation now run through the single `.github/workflows/ci.yml` workflow. The browser checks run in `Verify (syntax + imports + smoke load)`; Godot project import, native regression scripts, and main-scene smoke boot run in `Validate native Godot project`. The separate `godot-ci.yml` validation workflow was removed to avoid duplicate CI pipelines; deployment and browser-baseline import workflows remain separate because they perform non-validation tasks.
 
-Use the GitHub Actions workflow as the verification source of truth. Do not describe native tests, browser checks, or deployment as passing until the corresponding workflow run for the current commit SHA has completed successfully. A queued or in-progress run is not a pass.
+Latest verified validation (2026-11-13):
+- Commit: `eeea387f1964d967a500932bd3e5d12e0af28062`
+- Workflow run: [CI #546](https://github.com/igor74r/magic-rpg-godot/actions/runs/43510551588)
+- Overall result: `success`
+- Native Godot job: `success`; project resource import, complete native regression suite, and main-scene boot all completed successfully.
+- Browser verification job: `success`; JavaScript syntax/import checks, all configured browser contract checks, smoke tests, desktop/mobile browser smoke checks, and desktop/mobile gameplay visual regression completed successfully.
+
+This result applies only to the exact commit SHA above. Any later source commit requires its own completed successful workflow run before it can be called verified.
+
+Use the GitHub Actions workflow as the verification source of truth. A queued or in-progress run is not a pass.
