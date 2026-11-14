@@ -30,11 +30,19 @@ const RECIPES := {
 	"r5-astral-staff":{"station":"final-forge","craftTier":5,"act":5,"qty":1,"result":"astral-staff","rarity":"legendary","ingredients":{"void-dust":3,"frost-essence":2,"ember-core":1}}
 }
 
+static func _safe_dialogue_count(value: Variant) -> int:
+	if not (value is int or value is float):
+		return 0
+	var numeric := float(value)
+	if not is_finite(numeric) or numeric < 0.0 or numeric > 9007199254740991.0 or floor(numeric) != numeric:
+		return 0
+	return int(numeric)
+
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
 	var counts: Dictionary=world.get("npcDialogueCounts",{}) if world.get("npcDialogueCounts",{}) is Dictionary else {}
-	var count:=maxi(0,int(counts.get(npc_id,0)))
+	var count := _safe_dialogue_count(counts.get(npc_id, 0))
 	var greetings: Array=npc.get("greetings",[])
 	var greeting:=str(greetings[count % greetings.size()]) if not greetings.is_empty() else "..."
 	counts[npc_id]=count+1
