@@ -82,6 +82,12 @@ func _initialize() -> void:
 			var action_source := controller_source.substr(action_start, action_end - action_start)
 			if not action_source.contains(str(action.engine)) or not action_source.contains("world.duplicate(true)") or not action_source.contains("WorldStateRepositoryScript.save_world(world)") or not action_source.contains("world = previous_world"):
 				failures.append("NPC commerce action must atomically save or restore its complete world snapshot: %s" % str(action.name))
+		var npc_service_start := controller_source.find("func _perform_npc_action(action: String) -> void:")
+		var npc_service_end := controller_source.find("\n\nfunc ", npc_service_start)
+		var npc_service_source := controller_source.substr(npc_service_start, npc_service_end - npc_service_start)
+		for required_npc_service_guard in ["world.duplicate(true)", "if not bool(result.get(\"ok\", false)):", "world = snapshot", "_save_world_or_restore(snapshot, \"Действие NPC отменено\")", "NpcEngineScript.heal(world)", "NpcEngineScript.use_well(world)", "NpcEngineScript.pay_bard(world)", "NpcEngineScript.take_blessing(world)", "NpcEngineScript.pet_cat(world)"]:
+			if not npc_service_source.contains(required_npc_service_guard):
+				failures.append("NPC village services must commit only successful actions and restore the full world after failures: %s" % required_npc_service_guard)
 		var event_claim_start := controller_source.find("func _claim_world_event(event_id: String) -> void:")
 		var event_claim_end := controller_source.find("\n\nfunc ", event_claim_start)
 		var event_claim_source := controller_source.substr(event_claim_start, event_claim_end - event_claim_start)
