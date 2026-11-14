@@ -117,6 +117,29 @@ func _initialize() -> void:
 	var warrior_well := Npc.use_well(warrior_well_world, 90000001)
 	if not bool(warrior_well.get("ok", false)) or int(warrior_well_world.hero.hp) != 100 or int(warrior_well_world.hero.mp) != 0:
 		failures.append("well must preserve warrior rage instead of restoring mana")
+	# Healer parity: validate safe integer gold and preserve warrior rage.
+	var mage_heal_world := WorldState.create(20261136)
+	mage_heal_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":8,"inventory":[]}
+	var mage_heal := Npc.heal(mage_heal_world)
+	if not bool(mage_heal.get("ok", false)) or int(mage_heal_world.hero.gold) != 0 or int(mage_heal_world.hero.hp) != 100 or int(mage_heal_world.hero.mp) != 50:
+		failures.append("healer must charge eight gold and restore both health and mana for non-warriors")
+	var warrior_heal_world := WorldState.create(20261137)
+	warrior_heal_world["hero"] = {"level":1,"class":"warrior","hp":10,"maxHp":100,"mp":0,"maxMp":50,"gold":8,"inventory":[]}
+	var warrior_heal := Npc.heal(warrior_heal_world)
+	if not bool(warrior_heal.get("ok", false)) or int(warrior_heal_world.hero.hp) != 100 or int(warrior_heal_world.hero.mp) != 0:
+		failures.append("healer must restore warrior health without converting or refilling rage")
+	for invalid_gold in ["8", true, -1, 1.5, 9007199254740992]:
+		var invalid_heal_world := WorldState.create(20261138)
+		invalid_heal_world["hero"] = {"level":1,"class":"mage","hp":10,"maxHp":100,"mp":5,"maxMp":50,"gold":invalid_gold,"inventory":[]}
+		var invalid_heal := Npc.heal(invalid_heal_world)
+		if bool(invalid_heal.get("ok", true)) or invalid_heal_world.hero.get("gold") != invalid_gold or int(invalid_heal_world.hero.hp) != 10 or int(invalid_heal_world.hero.mp) != 5:
+			failures.append("healer must reject malformed or unsafe gold without mutating player state: %s" % str(invalid_gold))
+			break
+	var unsafe_bard_world := WorldState.create(20261139)
+	unsafe_bard_world["hero"] = {"level":1,"gold":9007199254740992,"inventory":[],"buffs":[]}
+	var unsafe_bard := Npc.pay_bard(unsafe_bard_world)
+	if bool(unsafe_bard.get("ok", true)) or int(unsafe_bard_world.hero.gold) != 9007199254740992 or not unsafe_bard_world.hero.buffs.is_empty():
+		failures.append("bard must reject unsafe gold balances without charging or granting a buff")
 	var world := WorldState.create(20261108)
 	world["hero"] = {"level":1,"gold":100,"inventory":[{"id":"root-court-seal","qty":1},{"id":"root-fiber","qty":2}],"campaignClaimed":{},"equipped":{}}
 	var crafted := Npc.craft(world,"r-briar-court-mantle","blacksmith")
