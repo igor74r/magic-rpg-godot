@@ -100,6 +100,9 @@ static func has_entry(hero: Dictionary,key: String,field: String="buffs") -> boo
 		if entry is Dictionary and str(entry.get("id",""))==key and int(entry.get("duration",0))>0: return true
 	return false
 static func heal(world: Dictionary) -> Dictionary:
+	var raw_hero: Variant = world.get("hero", {})
+	var raw_gold: Variant = raw_hero.get("gold", 0) if raw_hero is Dictionary else 0
+	if not _is_safe_nonnegative_integer(raw_gold): return {"ok":false,"message":"Некорректный баланс золота."}
 	var hero:=hero_for(world)
 	var gold_value: Variant = hero.get("gold", 0)
 	if not _is_safe_nonnegative_integer(gold_value): return {"ok":false,"message":"Некорректный баланс золота."}
@@ -135,6 +138,9 @@ static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
 	world["hero"] = hero
 	return {"ok": true, "message": "Древний колодец полностью восстановил ваши силы."}
 static func pay_bard(world: Dictionary) -> Dictionary:
+	var raw_hero: Variant = world.get("hero", {})
+	var raw_gold: Variant = raw_hero.get("gold", 0) if raw_hero is Dictionary else 0
+	if not _is_safe_nonnegative_integer(raw_gold): return {"ok":false,"message":"Некорректный баланс золота."}
 	var hero:=hero_for(world)
 	if has_entry(hero,"bardBuff"): return {"ok":false,"message":"Песня барда уже действует."}
 	var gold_value: Variant = hero.get("gold", 0)
