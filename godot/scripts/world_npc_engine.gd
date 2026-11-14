@@ -38,6 +38,12 @@ static func _safe_dialogue_count(value: Variant) -> int:
 		return 0
 	return int(numeric)
 
+static func _is_safe_nonnegative_integer(value: Variant) -> bool:
+	if not (value is int or value is float):
+		return false
+	var numeric := float(value)
+	return is_finite(numeric) and numeric >= 0.0 and numeric <= 9007199254740991.0 and floor(numeric) == numeric
+
 static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var npc := Catalog.get_npc(npc_id)
 	if npc.is_empty(): return {"ok":false,"message":"Персонаж не найден."}
@@ -95,11 +101,15 @@ static func has_entry(hero: Dictionary,key: String,field: String="buffs") -> boo
 	return false
 static func heal(world: Dictionary) -> Dictionary:
 	var hero:=hero_for(world)
-	if int(hero.hp)>=int(hero.maxHp) and int(hero.mp)>=int(hero.maxMp): return {"ok":false,"message":"Вы уже полностью здоровы."}
-	if int(hero.gold)<8: return {"ok":false,"message":"Нужно 8 золота."}
-	hero["gold"]=int(hero.gold)-8
+	var gold_value: Variant = hero.get("gold", 0)
+	if not _is_safe_nonnegative_integer(gold_value): return {"ok":false,"message":"Некорректный баланс золота."}
+	var is_warrior := str(hero.get("class", "")) == "warrior"
+	if int(hero.get("hp", 0)) >= int(hero.get("maxHp", 0)) and (is_warrior or int(hero.get("mp", 0)) >= int(hero.get("maxMp", 0))): return {"ok":false,"message":"Вы уже полностью здоровы."}
+	if int(gold_value)<8: return {"ok":false,"message":"Нужно 8 золота."}
+	hero["gold"]=int(gold_value)-8
 	hero["hp"]=int(hero.maxHp)
-	hero["mp"]=int(hero.maxMp)
+	if not is_warrior:
+		hero["mp"]=int(hero.maxMp)
 	world["hero"]=hero
 	return {"ok":true,"message":"Лекарь Мирра восстановила здоровье и ресурс за 8 золота."}
 static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
@@ -127,8 +137,10 @@ static func use_well(world: Dictionary, now_ms: int = -1) -> Dictionary:
 static func pay_bard(world: Dictionary) -> Dictionary:
 	var hero:=hero_for(world)
 	if has_entry(hero,"bardBuff"): return {"ok":false,"message":"Песня барда уже действует."}
-	if int(hero.gold)<15: return {"ok":false,"message":"Бард просит 15 золота."}
-	hero["gold"]=int(hero.gold)-15
+	var gold_value: Variant = hero.get("gold", 0)
+	if not _is_safe_nonnegative_integer(gold_value): return {"ok":false,"message":"Некорректный баланс золота."}
+	if int(gold_value)<15: return {"ok":false,"message":"Бард просит 15 золота."}
+	hero["gold"]=int(gold_value)-15
 	var buffs: Array=hero.get("buffs",[])
 	buffs.append({"id":"bardBuff","duration":3})
 	hero["buffs"]=buffs
