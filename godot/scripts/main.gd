@@ -838,6 +838,7 @@ func _perform_npc_action(action: String) -> void:
 		"alchemy":
 			_show_npc_alchemy()
 			return
+	var snapshot := world.duplicate(true)
 	var result: Dictionary = {}
 	match action:
 		"accept": result = NpcEngineScript.campaign_action(world, false)
@@ -848,8 +849,15 @@ func _perform_npc_action(action: String) -> void:
 		"bard": result = NpcEngineScript.pay_bard(world)
 		"cat": result = NpcEngineScript.pet_cat(world)
 	status_label.text = str(result.get("message", ""))
-	var save_error := WorldStateRepositoryScript.save_world(world)
-	if save_error != OK: status_label.text += "\nОшибка сохранения: %s" % error_string(save_error)
+	if not bool(result.get("ok", false)):
+		world = snapshot
+		_refresh_inventory()
+		_refresh_npcs()
+		return
+	if not _save_world_or_restore(snapshot, "Действие NPC отменено"):
+		_refresh_inventory()
+		_refresh_npcs()
+		return
 	_refresh_inventory()
 	_refresh_npcs()
 
