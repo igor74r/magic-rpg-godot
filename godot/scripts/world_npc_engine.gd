@@ -50,8 +50,11 @@ static func talk(world: Dictionary, npc_id: String) -> Dictionary:
 	var counts: Dictionary=world.get("npcDialogueCounts",{}) if world.get("npcDialogueCounts",{}) is Dictionary else {}
 	var count := _safe_dialogue_count(counts.get(npc_id, 0))
 	var greetings: Array=npc.get("greetings",[])
-	var greeting:=str(greetings[count % greetings.size()]) if not greetings.is_empty() else "..."
-	counts[npc_id]=count+1
+	var greeting_index := count % greetings.size() if not greetings.is_empty() else 0
+	var greeting := str(greetings[greeting_index]) if not greetings.is_empty() else "..."
+	# Keep persisted counters bounded by the greeting cycle. This preserves the
+	# deterministic sequence while preventing safe-integer overflow over long play.
+	counts[npc_id] = (greeting_index + 1) % greetings.size() if not greetings.is_empty() else 0
 	world["npcDialogueCounts"]=counts
 	return {"ok":true,"npc":npc,"message":"%s\n«%s»" % [str(npc.name),greeting],"choices":dialogue_choices(npc_id,world)}
 
