@@ -70,6 +70,14 @@ func _initialize() -> void:
 		if not bool(recovered_dialogue.get("ok", false)) or not str(recovered_dialogue.get("message", "")).ends_with("«В лесу гоблины, будь осторожен.»") or int(malformed_count_world.get("npcDialogueCounts", {}).get("guard", -1)) != 1:
 			failures.append("malformed persisted greeting count %s must safely reset to the first greeting" % str(malformed_count))
 			break
+	var max_safe_count_world := WorldState.create(20261143)
+	max_safe_count_world["npcDialogueCounts"] = {"guard":9007199254740991}
+	var max_safe_dialogue := Npc.talk(max_safe_count_world, "guard")
+	if not bool(max_safe_dialogue.get("ok", false)) or not str(max_safe_dialogue.get("message", "")).ends_with("«В лесу гоблины, будь осторожен.»") or int(max_safe_count_world.npcDialogueCounts.guard) != 2:
+		failures.append("maximum safe greeting counter must preserve modulo sequence and wrap to a bounded persisted value")
+	var wrapped_dialogue := Npc.talk(max_safe_count_world, "guard")
+	if not str(wrapped_dialogue.get("message", "")).ends_with("«В руинах нежить.»") or int(max_safe_count_world.npcDialogueCounts.guard) != 0:
+		failures.append("greeting counters must remain bounded and continue cycling after safe-integer wrap")
 	var invalid_choice_world := WorldState.create(20261141)
 	var invalid_choice := Npc.choose_dialogue(invalid_choice_world, "guard", "not-a-real-topic")
 	if bool(invalid_choice.get("ok", true)) or invalid_choice_world.has("npcDialogueFlags"):
