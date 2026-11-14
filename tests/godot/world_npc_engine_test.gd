@@ -62,6 +62,14 @@ func _initialize() -> void:
 	var unknown_dialogue := Npc.talk(dialogue_world, "missing-npc")
 	if bool(unknown_dialogue.get("ok", true)) or dialogue_world.get("npcDialogueCounts", {}) != unknown_dialogue_count:
 		failures.append("unknown NPC dialogue must fail without mutating persisted greeting counts")
+	var malformed_dialogue_counts: Array = ["4", true, [], 1.5, -1, 9007199254740992]
+	for malformed_count in malformed_dialogue_counts:
+		var malformed_count_world := WorldState.create(20261142)
+		malformed_count_world["npcDialogueCounts"] = {"guard": malformed_count}
+		var recovered_dialogue := Npc.talk(malformed_count_world, "guard")
+		if not bool(recovered_dialogue.get("ok", false)) or not str(recovered_dialogue.get("message", "")).ends_with("«В лесу гоблины, будь осторожен.»") or int(malformed_count_world.get("npcDialogueCounts", {}).get("guard", -1)) != 1:
+			failures.append("malformed persisted greeting count %s must safely reset to the first greeting" % str(malformed_count))
+			break
 	var invalid_choice_world := WorldState.create(20261141)
 	var invalid_choice := Npc.choose_dialogue(invalid_choice_world, "guard", "not-a-real-topic")
 	if bool(invalid_choice.get("ok", true)) or invalid_choice_world.has("npcDialogueFlags"):
